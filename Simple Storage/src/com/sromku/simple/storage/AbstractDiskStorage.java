@@ -19,16 +19,16 @@ import com.sromku.simple.storage.helpers.ImmutablePair;
 import com.sromku.simple.storage.security.SecurityUtil;
 
 /**
- * Common class for internal and external storage tools
+ * Common class for internal and external storage implementations
  * 
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  * 
  */
-abstract class AstractDiskStorage implements Storage
+abstract class AbstractDiskStorage implements Storage
 {
 	protected static final String UTF_8 = "UTF-8";
 
-	AstractDiskStorage()
+	AbstractDiskStorage()
 	{
 	}
 

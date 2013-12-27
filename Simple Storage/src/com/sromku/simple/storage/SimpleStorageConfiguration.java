@@ -8,8 +8,8 @@ import java.security.NoSuchAlgorithmException;
 import android.util.Log;
 
 /**
- * Each of the specific storage tools (like External storage tool) need its own configurations. This
- * configuration class is build and used in the storage tools classes.<br>
+ * Each of the specific storage types (like External storage tool) need its own configurations. This
+ * configuration class is build and used in the storage classes.<br>
  * <br>
  * 
  * <b>Examples:</b><br>
@@ -18,7 +18,7 @@ import android.util.Log;
  * Default unsecured configuration:<br>
  * <pre>
  * {@code
- *  StorageToolConfiguration configuration = new StorageToolConfiguration.Builder()
+ *  SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
  *  	.build()
  * }
  * </pre>
@@ -29,9 +29,9 @@ import android.util.Log;
  * final String IVX = "1234567890123456";
  * final String SECRET_KEY = "secret1234567890";
  * 
- * StorageToolConfiguration configuration = new StorageToolConfiguration.Builder()
+ * SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
  * 	.setChuckSize(CHUNK_SIZE)
- * 	.doEncryptContent(IVX, SECRET_KEY)
+ * 	.setEncryptContent(IVX, SECRET_KEY)
  * 	.build();
  * }
  * </pre>
@@ -120,7 +120,7 @@ public class SimpleStorageConfiguration
 		}
 
 		/**
-		 * Build the configuration for storage tool.
+		 * Build the configuration for storage.
 		 * 
 		 * @return
 		 */
@@ -183,7 +183,7 @@ public class SimpleStorageConfiguration
 			}
 			catch (UnsupportedEncodingException e)
 			{
-				Log.e("StorageToolConfiguration", "UnsupportedEncodingException", e);
+				Log.e("SimpleStorageConfiguration", "UnsupportedEncodingException", e);
 			}
 
 			// Set secret key
@@ -205,11 +205,11 @@ public class SimpleStorageConfiguration
 			}
 			catch (UnsupportedEncodingException e)
 			{
-				Log.e("StorageToolConfiguration", "UnsupportedEncodingException", e);
+				Log.e("SimpleStorageConfiguration", "UnsupportedEncodingException", e);
 			}
 			catch (NoSuchAlgorithmException e)
 			{
-				Log.e("StorageToolConfiguration", "NoSuchAlgorithmException", e);
+				Log.e("SimpleStorageConfiguration", "NoSuchAlgorithmException", e);
 			}
 
 			return this;

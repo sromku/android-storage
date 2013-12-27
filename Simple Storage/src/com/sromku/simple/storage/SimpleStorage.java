@@ -41,7 +41,7 @@ public class SimpleStorage
 	}
 
 	/**
-	 * The type of the storage tools. <br>
+	 * The type of the storage. <br>
 	 * Possible options:
 	 * <ul>
 	 * <li>{@link StorageType#INTERNAL}</li>
@@ -58,7 +58,7 @@ public class SimpleStorage
 	}
 
 	/**
-	 * Get internal storage tool. The files and folders will be persisted on device memory. The internal
+	 * Get internal storage. The files and folders will be persisted on device memory. The internal
 	 * storage is good for saving <b>private and secure</b> data.<br>
 	 * <br>
 	 * <b>Important:
@@ -83,7 +83,7 @@ public class SimpleStorage
 	}
 
 	/**
-	 * Get external storage tool. <br>
+	 * Get external storage. <br>
 	 * 
 	 * @return {@link ExternalStorage}
 	 */
@@ -119,7 +119,7 @@ public class SimpleStorage
 		if (mInstance == null)
 		{
 			throw new RuntimeException(
-				"First instantiate the StorageTool and then you can update the configuration");
+				"First instantiate the Storage and then you can update the configuration");
 		}
 		mSimpleStorageConfiguration = configuration;
 	}

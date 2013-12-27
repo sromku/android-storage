@@ -8,14 +8,14 @@ import com.sromku.simple.storage.SimpleStorage.StorageType;
 
 
 /**
- * Storage tool that responsible for storing on external storage like SD card.<br>
+ * Storage that responsible for storing on external storage like SD card.<br>
  * This class can be initiated <b>only</b> by {@link SimpleStorage} singleton
  * class.
  * 
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  * 
  */
-public class ExternalStorage extends AstractDiskStorage
+public class ExternalStorage extends AbstractDiskStorage
 {
 
 	/**

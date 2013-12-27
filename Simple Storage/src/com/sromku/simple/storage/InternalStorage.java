@@ -14,7 +14,7 @@ import com.sromku.simple.storage.SimpleStorage.StorageType;
 /**
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  */
-public class InternalStorage extends AstractDiskStorage
+public class InternalStorage extends AbstractDiskStorage
 {
 	private Context mContext;
 

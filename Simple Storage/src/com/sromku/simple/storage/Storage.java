@@ -53,7 +53,7 @@ public interface Storage
 	 *            return true, otherwise it creates a new directory
 	 * @return <code>True</code> if directory was created, otherwise return <code>False</code>.
 	 * 
-	 * @throws StorageToolException
+	 * @throws StorageException
 	 */
 	boolean createDirectory(String name, boolean override);
 
