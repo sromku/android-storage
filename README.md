@@ -89,4 +89,6 @@ storage.deleteFile("MyDirName", "fileName.txt");
 #### Much More APIs...
 To be explained
 
+***
+
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/sromku/android-simple-storage/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
