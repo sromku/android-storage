@@ -165,6 +165,20 @@ SimpleStorage.updateConfiguration(configuration);
 Now, you can create new file with content and the content will be automatically encrypted.<br>
 You can read the file and the content will be decrypted.
 
+**Example**
+
+Create file with next content `"this is the secret data"`:
+``` java
+storage.createFile("MyDirName", "fileName", "this is the secret data");
+```
+
+If we open the file to see it's content then we will something like this: `„f°α�ΤG†_iΐp` . It looks good :)
+
+And now, read the file data with the same api:
+``` java
+String content = storage.readTextFile("MyDirName", "fileName");
+```
+You will see that the content will be: `"this is the secret data"`.
 
 ## Tests
 
