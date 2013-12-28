@@ -27,7 +27,7 @@ public class SecurityUtil
 	 * @param content The content to encrypt or descrypt.
 	 * @param encryptionMode Use: {@link Cipher#ENCRYPT_MODE} or {@link Cipher#DECRYPT_MODE}
 	 * @param secretKey Set the secret key for encryption of file content. <b>Important: The length must be 16
-	 *            long</b>. <i>Uses SHA-1 to generate a hash from your key and trim the result to 128 bit (16
+	 *            long</b>. <i>Uses SHA-256 to generate a hash from your key and trim the result to 128 bit (16
 	 *            bytes)</i>
 	 * @param ivx This is not have to be secret. It used just for better randomizing the cipher. You have to
 	 *            use the same IV parameter within the same encrypted and written files. Means, if you want to
