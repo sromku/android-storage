@@ -7,14 +7,15 @@ Many times in our apps, we need to manage files on disk. It can be on external o
 In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
 
 ## Features
-* Create directory
-* Create file
-* Read file
-* Append to file
-* Delete directory
-* Delete file
-* Encrypt the file content
-* More...
+* [Easy define Internal or External storage](#initialize)
+* [Create directory](#create-directory)
+* [Create file](#create-file)
+* [Read file content](#read-file)
+* [Append content to file](#append-content-to-file)
+* [Delete directory](#delete-directory)
+* [Delete file](#delete-file)
+* [More options](#more)
+* [Encrypt the file content](#security-configuration)
 
 ## Setup Project
 
@@ -24,67 +25,165 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 
 3. Update the `manifest.xml` of your application and add next line:
 
-    ``` java
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    ```
+	``` java
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+	```
 
 ## Usage
 
-#### Initialize options
+### Initialize
+You have the next options to initialize the simple storage:
 
 - Prepere to work on **External Storage**.
 
-    ```java
-    Storage storage = SimpleStorage.getExternalStorage();
-    ```
+	``` java
+	Storage storage = SimpleStorage.getExternalStorage();
+	```
 
 - Prepare to work on **Internal Storage**. In your `Activity` or `Application` or any other place where you have `Context`:
 
-    ```java
-    Storage storage = SimpleStorage.getInternalStorage(mContext);
-    ```
+	``` java
+	Storage storage = SimpleStorage.getInternalStorage(mContext);
+	```
     
 - You prefer to use **External Storage**, but if it doesn't exist on the device, then use **Internal Storage**.
 
-  ```java
-  Storage storage = null;
-  if (SimpleStorage.isExternalStorageWritable()) {
-      storage = SimpleStorage.getExternalStorage();
-  }
-  else {
-      storage = SimpleStorage.getInternalStorage(mContext);
-  }
-  ```
+	``` java
+ 	Storage storage = null;
+ 	if (SimpleStorage.isExternalStorageWritable()) {
+		storage = SimpleStorage.getExternalStorage();
+	}
+	else {
+		storage = SimpleStorage.getInternalStorage(mContext);
+	}
+	```
 
-#### Create directory
-```java
-storage.createDirectory("MyDirName");
+### Create directory
+
+- Create directory under the root path.
+
+	``` java
+	// create directory
+	storage.createDirectory("MyDirName");
+	```
+ 
+- Create **sub directory**. 
+
+	``` java
+	// create directory
+	storage.createDirectory("MyDirName/MySubDirectory");
+	```
+
+- Create directory and **override** the existing one. 
+
+	``` java
+	// create directory
+	storage.createDirectory("MyDirName", true);
+	```
+
+### Create file
+Create a new file with the content in it.
+``` java
+// create new file
+storage.createFile("MyDirName", "fileName", "some content of the file");
 ```
 
-#### Create file
-```java
-storage.createFile("MyDirName", "fileName.txt", "some data");
+The `content` of the file can be on of the next types:
+- `String`
+- `byte[]`
+- `Bitmap`
+- `Storable`
+
+### Read file
+
+Read the content of any file to byte array.
+``` java
+byte[] bytes = storage.readFile("MyDirName", "fileName");
 ```
 
-#### Read file
-```java
-byte[] bytes = storage.readFile("MyDirName", "fileName.txt");
+Read the content of the file to String.
+``` java
+String content = storage.readTextFile("MyDirName", "my_text.txt");
 ```
 
-#### Append file
-```java
-storage.appendFile("MyDirName", "fileName.txt", "more new data");
+### Append content to file
+``` java
+storage.appendFile("MyDirName", "fileName", "more new data");
 ```
 
-#### Delete directory
-```java
+You can append:
+- `String`
+- `byte[]`
+
+
+### Delete directory
+``` java
 storage.deleteDirectory("MyDirName");
 ```
 
-#### Delete file
-```java
-storage.deleteFile("MyDirName", "fileName.txt");
+### Delete file
+``` java
+storage.deleteFile("MyDirName", "fileName");
 ```
 
-#### Much More APIs...
-To be explained
+### More...
+
+* Is directory exists
+	``` java
+	boolean dirExists = storage.isDirectoryExists("MyDirName");
+	```
+
+* Is file exists
+	``` java
+	boolean fileExists = storage.isFileExists("MyDirName", "fileName");
+	```
+
+* Get all nested files (without the directories)
+	``` java
+	List<File> files = storage.getNestedFiles("MyDirName");
+	```
+
+## Security configuration
+You can write and read files while the content is **encrypted**. It means, that no one can read the data of your files from external or internal storage.
+
+You will continue using the same api as before. The only thing you need to do is to configure the Simple Storage library before the you want to create/read encrypted data.
+
+``` java
+// set encryption
+String IVX = "abcdefghijklmnop"; // 16 lenght - not secret
+String SECRET_KEY = "secret1234567890"; // 16 lenght - secret
+
+// build configuratio
+SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
+	.setEncryptContent(IVX, SECRET_KEY)
+	.build();
+	
+// configure the simple storage
+SimpleStorage.updateConfiguration(configuration);
+```
+
+Now, you can create new file with content and the content will be automatically encrypted.<br>
+You can read the file and the content will be decrypted.
+
+**Example**
+
+Create file with next content `"this is the secret data"`:
+``` java
+storage.createFile("MyDirName", "fileName", "this is the secret data");
+```
+
+If we open the file to see it's content then we will something like this: `„f°α�ΤG†_iΐp` . It looks good :)
+
+And now, read the file data with the same api:
+``` java
+String content = storage.readTextFile("MyDirName", "fileName");
+```
+You will see that the content will be: `"this is the secret data"`.
+
+## Tests
+
+Test project includes android junits. The tests include: create/delete directory, create/read file, create/read encrypted file. 
+
+***
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/sromku/android-simple-storage/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
