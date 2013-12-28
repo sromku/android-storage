@@ -37,11 +37,11 @@ public class StorageTestCase extends InstrumentationTestCase {
 	protected void tearDown() throws Exception {
 
 		// delete dir if exists
-		mStorage.deleteDirectory(DIR_NAME);
+		// mStorage.deleteDirectory(DIR_NAME);
 
 		super.tearDown();
 	}
-	
+
 	/**
 	 * Create directory and check that the directory was created
 	 */
@@ -82,6 +82,22 @@ public class StorageTestCase extends InstrumentationTestCase {
 	}
 
 	/**
+	 * Create directory and check that the directory was created
+	 */
+	public void testAppendFile() {
+
+		// create file with content
+		testCreateFile();
+
+		String newData = "new added data";
+
+		// TEST: append new data and test
+		mStorage.appendFile(DIR_NAME, FILE_NAME, newData);
+		String content = mStorage.readTextFile(DIR_NAME, FILE_NAME);
+		assertTrue(content.contains(newData));
+	}
+
+	/**
 	 * Create file with encrypted data
 	 */
 	public void testEncryptContent() {
@@ -90,7 +106,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 		testCreateDirectory();
 
 		// set encryption
-		final String IVX = "1234567890123456";
+		final String IVX = "abcdefghijklmnop";
 		final String SECRET_KEY = "secret1234567890";
 
 		SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
