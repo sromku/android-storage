@@ -88,7 +88,7 @@ Create a new file with the content in it.
 storage.createFile("MyDirName", "fileName", "some content of the file");
 ```
 
-The `content` of the file can be on of the next types:
+The `content` of the file can be one of the next types:
 - `String`
 - `byte[]`
 - `Bitmap`
@@ -162,7 +162,7 @@ SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builde
 SimpleStorage.updateConfiguration(configuration);
 ```
 
-Now, you can create new file with content and the content will be automatically encrypted.<br>
+Now, you can create a new file with content and the content will be automatically encrypted.<br>
 You can read the file and the content will be decrypted.
 
 **Example**
@@ -172,7 +172,7 @@ Create file with next content `"this is the secret data"`:
 storage.createFile("MyDirName", "fileName", "this is the secret data");
 ```
 
-If we open the file to see it's content then we will something like this: `„f°α�ΤG†_iΐp` . It looks good :)
+If we open the file to see it's content then it we will something like this: `„f°α�ΤG†_iΐp` . It looks good :)
 
 And now, read the file data with the same api:
 ``` java
@@ -182,7 +182,7 @@ You will see that the content will be: `"this is the secret data"`.
 
 ## Tests
 
-Test project includes android junits. The tests include: create/delete directory, create/read file, create/read encrypted file. 
+Test project includes android junits. The tests include: create/delete directory, create/read/append file, create/read encrypted file. 
 
 ***
 
