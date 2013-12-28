@@ -9,7 +9,6 @@ import com.sromku.simple.storage.Storage;
 
 public class StorageTestCase extends InstrumentationTestCase {
 
-	private Context mContext;
 	private Storage mStorage;
 
 	private final static String DIR_NAME = "Storage Test";
@@ -21,7 +20,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 
 	@Override
 	protected void setUp() throws Exception {
-		mContext = getInstrumentation().getContext();
+		Context context = getInstrumentation().getContext();
 
 		// set a storage
 		mStorage = null;
@@ -29,7 +28,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 			mStorage = SimpleStorage.getExternalStorage();
 		}
 		else {
-			mStorage = SimpleStorage.getInternalStorage(mContext);
+			mStorage = SimpleStorage.getInternalStorage(context);
 		}
 	}
 
@@ -37,7 +36,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 	protected void tearDown() throws Exception {
 
 		// delete dir if exists
-		// mStorage.deleteDirectory(DIR_NAME);
+		mStorage.deleteDirectory(DIR_NAME);
 
 		super.tearDown();
 	}
