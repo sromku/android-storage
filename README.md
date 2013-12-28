@@ -7,14 +7,15 @@ Many times in our apps, we need to manage files on disk. It can be on external o
 In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
 
 ## Features
-* Create directory
-* Create file
-* Read file
-* Append to file
-* Delete directory
-* Delete file
-* Encrypt the file content
-* More...
+* [Easy define Internal or External storage](#initialize)
+* [Create directory](#create-directory)
+* [Create file](#create-file)
+* [Read file content](#read-file)
+* [Append content to file](#append-content-to-file)
+* [Delete directory](#delete-directory)
+* [Delete file](#delete-file)
+* [More options](#more)
+* [Encrypt the file content](#security-configuration)
 
 ## Setup Project
 
