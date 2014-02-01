@@ -196,7 +196,7 @@ public class SimpleStorageConfiguration {
 		 * We generate random salt and then use 1000 iterations to
 		 * initialize secret key factory which in-turn generates key.
 		 */
-		int iterationCount = 1000; // recommended by PKCS#5 
+		int iterationCount = 1000; // recommended by PKCS#5
 		int keyLength = 128;
 
 		SecureRandom random = new SecureRandom();
@@ -205,15 +205,20 @@ public class SimpleStorageConfiguration {
 		KeySpec keySpec = new PBEKeySpec(secretKey.toCharArray(), salt, iterationCount, keyLength);
 		SecretKeyFactory keyFactory = null;
 		if (Build.VERSION.SDK_INT >= 19) {
-		    // see: http://android-developers.blogspot.co.il/2013/12/changes-to-secretkeyfactory-api-in.html
-		    // Use compatibility key factory -- only uses lower 8-bits of passphrase chars
+		    // see:
+		    // http://android-developers.blogspot.co.il/2013/12/changes-to-secretkeyfactory-api-in.html
+		    // Use compatibility key factory -- only uses lower 8-bits
+		    // of passphrase chars
 		    keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1And8bit");
-		 } else {
-		    // Traditional key factory. Will use lower 8-bits of passphrase chars on
-		    // older Android versions (API level 18 and lower) and all available bits
+		}
+		else {
+		    // Traditional key factory. Will use lower 8-bits of
+		    // passphrase chars on
+		    // older Android versions (API level 18 and lower) and all
+		    // available bits
 		    // on KitKat and newer (API level 19 and higher).
-		     keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-		 }
+		    keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+		}
 		byte[] keyBytes = keyFactory.generateSecret(keySpec).getEncoded();
 
 		_secretKey = keyBytes;
