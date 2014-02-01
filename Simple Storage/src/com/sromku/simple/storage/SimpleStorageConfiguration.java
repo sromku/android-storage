@@ -189,23 +189,29 @@ public class SimpleStorageConfiguration
 			// Set secret key
 			try
 			{
-				_secretKey = secretKey.getBytes(UTF_8);
-
-				// One more security
-				MessageDigest sha = MessageDigest.getInstance(NAME_HASH_ALGORITHM);
-				_secretKey = sha.digest(_secretKey);
-
-				// Better implementation would be using Arrays.copy
-				byte[] shaKey = new byte[16];
-				for (int i = 0; i < 16; i++)
-				{
-					shaKey[i] = _secretKey[i];
-				}
-				_secretKey = shaKey;
+				/*
+				* We generate random salt and then use 1000 iterations to initialize secret key factory
+				* which in-turn generates key. 
+				*/
+				
+				int iterationCount = 1000;	// recommended by PKCS#5 , increase for security
+				int keyLength = 128;		
+				
+				SecureRandom random = new SecureRandom();
+				byte[] salt = new byte[16];	// keyLength / 8 = salt length 
+				random.nextBytes(salt);
+				KeySpec keySpec = new PBEKeySpec(secretKey.toCharArray(), salt,
+	                    iterationCount, keyLength);
+				SecretKeyFactory keyFactory = SecretKeyFactory
+	                    .getInstance("PBKDF2WithHmacSHA1");
+				byte[] keyBytes = keyFactory.generateSecret(keySpec).getEncoded();
+				
+				_secretKey = keyBytes;
+				
 			}
-			catch (UnsupportedEncodingException e)
+			catch (InvalidKeySpecException e)
 			{
-				Log.e("SimpleStorageConfiguration", "UnsupportedEncodingException", e);
+				Log.e("SimpleStorageConfiguration", "InvalidKeySpecException", e);
 			}
 			catch (NoSuchAlgorithmException e)
 			{
