@@ -6,6 +6,7 @@ import java.util.List;
 import android.graphics.Bitmap;
 
 import com.sromku.simple.storage.SimpleStorage.StorageType;
+import com.sromku.simple.storage.helpers.SizeUnit;
 
 /**
  * Interface of CRUD methods on the file system
@@ -230,4 +231,13 @@ public interface Storage {
 	 * @param newName
 	 */
 	void rename(File file, String newName);
+
+	/**
+	 * Get size of the file in units you need.
+	 * 
+	 * @param file
+	 * @param unit
+	 * @return
+	 */
+	double getSize(File file, SizeUnit unit);
 }

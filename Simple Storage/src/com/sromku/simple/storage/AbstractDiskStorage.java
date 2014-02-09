@@ -16,6 +16,7 @@ import javax.crypto.Cipher;
 import android.graphics.Bitmap;
 
 import com.sromku.simple.storage.helpers.ImmutablePair;
+import com.sromku.simple.storage.helpers.SizeUnit;
 import com.sromku.simple.storage.security.SecurityUtil;
 
 /**
@@ -212,10 +213,16 @@ abstract class AbstractDiskStorage implements Storage {
 	
 	@Override
 	public void rename(File file, String newName) {
-		 String name = file.getName();
-		 String newFullName = file.getAbsolutePath().replaceAll(name, newName);
-		 File newFile = new File(newFullName);
-		 file.renameTo(newFile);
+		String name = file.getName();
+		String newFullName = file.getAbsolutePath().replaceAll(name, newName);
+		File newFile = new File(newFullName);
+		file.renameTo(newFile);
+	}
+
+	@Override
+	public double getSize(File file, SizeUnit unit) {
+		long length = file.length();
+		return (double) length / (double) unit.inBytes();
 	}
 
 	protected byte[] readFile(final FileInputStream stream) {
