@@ -108,9 +108,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 		final String IVX = "abcdefghijklmnop";
 		final String SECRET_KEY = "secret1234567890";
 
-		SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
-			.setEncryptContent(IVX, SECRET_KEY)
-			.build();
+		SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder().setEncryptContent(IVX, SECRET_KEY).build();
 		SimpleStorage.updateConfiguration(configuration);
 
 		// create file

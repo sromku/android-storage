@@ -7,28 +7,28 @@ package com.sromku.simple.storage.security;
  * 
  */
 public enum CipherModeType {
-    /**
-     * Cipher Block Chaining Mode
-     */
-    CBC("CBC"),
+	/**
+	 * Cipher Block Chaining Mode
+	 */
+	CBC("CBC"),
 
-    /**
-     * Electronic Codebook Mode
-     */
-    ECB("ECB");
+	/**
+	 * Electronic Codebook Mode
+	 */
+	ECB("ECB");
 
-    private String mName;
+	private String mName;
 
-    private CipherModeType(String name) {
-	mName = name;
-    }
+	private CipherModeType(String name) {
+		mName = name;
+	}
 
-    /**
-     * Get the algorithm name of the enum value.
-     * 
-     * @return The algorithm name
-     */
-    public String getAlgorithmName() {
-	return mName;
-    }
+	/**
+	 * Get the algorithm name of the enum value.
+	 * 
+	 * @return The algorithm name
+	 */
+	public String getAlgorithmName() {
+		return mName;
+	}
 }
