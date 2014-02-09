@@ -209,6 +209,14 @@ abstract class AbstractDiskStorage implements Storage {
 		String path = buildPath(directoryName, fileName);
 		return new File(path);
 	}
+	
+	@Override
+	public void rename(File file, String newName) {
+		 String name = file.getName();
+		 String newFullName = file.getAbsolutePath().replaceAll(name, newName);
+		 File newFile = new File(newFullName);
+		 file.renameTo(newFile);
+	}
 
 	protected byte[] readFile(final FileInputStream stream) {
 		class Reader extends Thread {

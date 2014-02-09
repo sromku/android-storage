@@ -220,4 +220,14 @@ public interface Storage {
 	 * @return
 	 */
 	File getFile(String directoryName, String fileName);
+
+	/**
+	 * Rename file. Get the file you want to change.
+	 * 
+	 * @param file
+	 *            The file you want to change. You can get the {@link File} by
+	 *            calling to one of the {@link #getFile(String)} methods
+	 * @param newName
+	 */
+	void rename(File file, String newName);
 }
