@@ -1,5 +1,7 @@
 package com.sromku.simple.storage.test;
 
+import java.io.File;
+
 import android.content.Context;
 import android.test.InstrumentationTestCase;
 
@@ -122,5 +124,18 @@ public class StorageTestCase extends InstrumentationTestCase {
 		SimpleStorage.resetConfiguration();
 		content = mStorage.readTextFile(DIR_NAME, FILE_SECURE_NAME);
 		assertNotSame(FILE_SECURE_CONTENT, content);
+	}
+	
+	public void testRename() {
+		
+		// create file
+		testCreateFile();
+		
+		// rename
+		File file = mStorage.getFile(DIR_NAME, FILE_NAME);
+		mStorage.rename(file, "new_"+FILE_NAME);
+		boolean isExist = mStorage.isFileExist(DIR_NAME, "new_"+FILE_NAME);
+		assertEquals(true, isExist);
+		
 	}
 }
