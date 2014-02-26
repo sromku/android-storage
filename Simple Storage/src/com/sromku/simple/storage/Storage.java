@@ -6,6 +6,7 @@ import java.util.List;
 import android.graphics.Bitmap;
 
 import com.sromku.simple.storage.SimpleStorage.StorageType;
+import com.sromku.simple.storage.helpers.OrderType;
 import com.sromku.simple.storage.helpers.SizeUnit;
 
 /**
@@ -229,8 +230,20 @@ public interface Storage {
 	 *    |- image2.png
 	 *    |- image3.gif
 	 * </pre>
+	 * 
+	 * @param directoryName
+	 * @param matchRegex Set regular expression to match files you need. 
+	 * 		Or set <code>null</code> to get all files.
 	 */
 	List<File> getFiles(String directoryName, String matchRegex);
+	
+	/**
+	 * Get files from directory ordered.
+	 * @param directoryName
+	 * @param orderType
+	 * @return
+	 */
+	List<File> getFiles(String directoryName, OrderType orderType);
 
 	/**
 	 * Get {@link File} object by name of directory or file

@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -18,6 +19,7 @@ import javax.crypto.Cipher;
 import android.graphics.Bitmap;
 
 import com.sromku.simple.storage.helpers.ImmutablePair;
+import com.sromku.simple.storage.helpers.OrderType;
 import com.sromku.simple.storage.helpers.SizeUnit;
 import com.sromku.simple.storage.security.SecurityUtil;
 
@@ -60,8 +62,7 @@ abstract class AbstractDiskStorage implements Storage {
 		if (!override) {
 			if (isDirectoryExists(name)) {
 				return true;
-			}
-			else {
+			} else {
 				return createDirectory(name);
 			}
 		}
@@ -119,8 +120,7 @@ abstract class AbstractDiskStorage implements Storage {
 			stream.write(content);
 			stream.flush();
 			stream.close();
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			throw new RuntimeException("Failed to create", e);
 		}
 		return true;
@@ -154,8 +154,7 @@ abstract class AbstractDiskStorage implements Storage {
 		try {
 			stream = new FileInputStream(new File(path));
 			return readFile(stream);
-		}
-		catch (FileNotFoundException e) {
+		} catch (FileNotFoundException e) {
 			throw new RuntimeException("Failed to read file to input sream", e);
 		}
 	}
@@ -185,8 +184,7 @@ abstract class AbstractDiskStorage implements Storage {
 			stream.write(System.getProperty("line.separator").getBytes());
 			stream.flush();
 			stream.close();
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			throw new RuntimeException("Failed to append content to file", e);
 		}
 	}
@@ -199,22 +197,34 @@ abstract class AbstractDiskStorage implements Storage {
 		getDirectoryFilesImpl(file, out);
 		return out;
 	}
-	
+
 	@Override
 	public List<File> getFiles(String directoryName, final String matchRegex) {
 		String buildPath = buildPath(directoryName);
 		File file = new File(buildPath);
-		FilenameFilter filter = new FilenameFilter() {
-			@Override
-			public boolean accept(File dir, String fileName) {
-				if (fileName.matches(matchRegex)) {
-					return true;
+		List<File> out = null;
+		if (matchRegex != null) {
+			FilenameFilter filter = new FilenameFilter() {
+				@Override
+				public boolean accept(File dir, String fileName) {
+					if (fileName.matches(matchRegex)) {
+						return true;
+					}
+					return false;
 				}
-				return false;
-			}
-		};
-		List<File> out = Arrays.asList(file.listFiles(filter));
+			};
+			out = Arrays.asList(file.listFiles(filter));
+		} else {
+			out = Arrays.asList(file.listFiles());
+		}
 		return out;
+	}
+
+	@Override
+	public List<File> getFiles(String directoryName, OrderType orderType) {
+		List<File> files = getFiles(directoryName, (String) null);
+		Collections.sort(files, orderType.getComparator());
+		return files;
 	}
 
 	@Override
@@ -223,13 +233,13 @@ abstract class AbstractDiskStorage implements Storage {
 		File file = new File(path);
 		return file;
 	}
-	
+
 	@Override
 	public File getFile(String directoryName, String fileName) {
 		String path = buildPath(directoryName, fileName);
 		return new File(path);
 	}
-	
+
 	@Override
 	public void rename(File file, String newName) {
 		String name = file.getName();
@@ -268,17 +278,14 @@ abstract class AbstractDiskStorage implements Storage {
 							// add chunk to list
 							chunks.add(new ImmutablePair<byte[], Integer>(buffer, size));
 						}
-					}
-					catch (Exception e) {
+					} catch (Exception e) {
 						// very bad
 					}
-				}
-				while (size > 0);
+				} while (size > 0);
 
 				try {
 					stream.close();
-				}
-				catch (Exception e) {
+				} catch (Exception e) {
 					// very bad
 				}
 
@@ -297,15 +304,13 @@ abstract class AbstractDiskStorage implements Storage {
 		reader.start();
 		try {
 			reader.join();
-		}
-		catch (InterruptedException e) {
+		} catch (InterruptedException e) {
 			throw new RuntimeException("Failed on reading file from storage while the locking Thread", e);
 		}
 
 		if (getConfiguration().isEncrypted()) {
 			return encrypt(reader.array, Cipher.DECRYPT_MODE);
-		}
-		else {
+		} else {
 			return reader.array;
 		}
 	}
@@ -352,8 +357,7 @@ abstract class AbstractDiskStorage implements Storage {
 			for (int i = 0; i < files.length; i++) {
 				if (files[i].isDirectory()) {
 					deleteDirectoryImpl(files[i].getAbsolutePath());
-				}
-				else {
+				} else {
 					files[i].delete();
 				}
 			}
@@ -373,13 +377,11 @@ abstract class AbstractDiskStorage implements Storage {
 			File[] files = directory.listFiles();
 			if (files == null) {
 				return;
-			}
-			else {
+			} else {
 				for (int i = 0; i < files.length; i++) {
 					if (files[i].isDirectory()) {
 						getDirectoryFilesImpl(files[i], out);
-					}
-					else {
+					} else {
 						out.add(files[i]);
 					}
 				}
