@@ -204,6 +204,33 @@ public interface Storage {
 	 * directories.
 	 */
 	List<File> getNestedFiles(String directoryName);
+	
+	/**
+	 * Get all files and directories under the directory that match the regex pattern on their full names.<br><br>
+	 * For example, we want to get only image files. And this our directory status:
+	 * <pre>
+	 * my_dir 
+	 *    |- image1.jpg
+	 *    |- image2.png
+	 *    |- not_image1.txt
+	 *    |- not_image2.psd
+	 *    |- dir1
+	 *    |- image3.gif
+	 * </pre> 
+	 * The code:
+	 * <pre>
+	 * String IMAGE_PATTERN = "([^\\s]+(\\.(?i)(jpg|png|gif|bmp))$)";
+	 * List{@code <}File> files = storage.getFiles("my_dir", IMAGE_PATTERN);
+	 * </pre>
+	 * The result:
+	 * <pre>
+	 * my_dir 
+	 *    |- image1.jpg
+	 *    |- image2.png
+	 *    |- image3.gif
+	 * </pre>
+	 */
+	List<File> getFiles(String directoryName, String matchRegex);
 
 	/**
 	 * Get {@link File} object by name of directory or file

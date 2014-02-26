@@ -5,9 +5,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -197,6 +199,23 @@ abstract class AbstractDiskStorage implements Storage {
 		getDirectoryFilesImpl(file, out);
 		return out;
 	}
+	
+	@Override
+	public List<File> getFiles(String directoryName, final String matchRegex) {
+		String buildPath = buildPath(directoryName);
+		File file = new File(buildPath);
+		FilenameFilter filter = new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String fileName) {
+				if (fileName.matches(matchRegex)) {
+					return true;
+				}
+				return false;
+			}
+		};
+		List<File> out = Arrays.asList(file.listFiles(filter));
+		return out;
+	}
 
 	@Override
 	public File getFile(String name) {
@@ -251,7 +270,7 @@ abstract class AbstractDiskStorage implements Storage {
 						}
 					}
 					catch (Exception e) {
-						// Auxiliary.logging(e);
+						// very bad
 					}
 				}
 				while (size > 0);
@@ -260,7 +279,7 @@ abstract class AbstractDiskStorage implements Storage {
 					stream.close();
 				}
 				catch (Exception e) {
-					// Auxiliary.logging(e);
+					// very bad
 				}
 
 				array = new byte[globalSize];
