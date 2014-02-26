@@ -9,6 +9,7 @@ import android.test.InstrumentationTestCase;
 import com.sromku.simple.storage.SimpleStorage;
 import com.sromku.simple.storage.SimpleStorageConfiguration;
 import com.sromku.simple.storage.Storage;
+import com.sromku.simple.storage.helpers.OrderType;
 
 public class StorageTestCase extends InstrumentationTestCase {
 
@@ -29,8 +30,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 		mStorage = null;
 		if (SimpleStorage.isExternalStorageWritable()) {
 			mStorage = SimpleStorage.getExternalStorage();
-		}
-		else {
+		} else {
 			mStorage = SimpleStorage.getInternalStorage(context);
 		}
 	}
@@ -126,53 +126,107 @@ public class StorageTestCase extends InstrumentationTestCase {
 		content = mStorage.readTextFile(DIR_NAME, FILE_SECURE_NAME);
 		assertNotSame(FILE_SECURE_CONTENT, content);
 	}
-	
+
 	public void testRename() {
-		
+
 		// create file
 		testCreateFile();
-		
+
 		// rename
 		File file = mStorage.getFile(DIR_NAME, FILE_NAME);
-		mStorage.rename(file, "new_"+FILE_NAME);
-		boolean isExist = mStorage.isFileExist(DIR_NAME, "new_"+FILE_NAME);
+		mStorage.rename(file, "new_" + FILE_NAME);
+		boolean isExist = mStorage.isFileExist(DIR_NAME, "new_" + FILE_NAME);
 		assertEquals(true, isExist);
 	}
-	
+
 	public void testGetFilesByRegex() {
-		
+
 		// create dir
 		testCreateDirectory();
-		
+
 		// create 5 files
 		mStorage.createFile(DIR_NAME, "file1.txt", "");
 		mStorage.createFile(DIR_NAME, "file2.txt", "");
 		mStorage.createFile(DIR_NAME, "file3.log", "");
 		mStorage.createFile(DIR_NAME, "file4.log", "");
 		mStorage.createFile(DIR_NAME, "file5.txt", "");
-		
+
 		// get files that ends with *.txt only. should be 3 of them
 		String TXT_PATTERN = "([^\\s]+(\\.(?i)(txt))$)";
 		List<File> filesTexts = mStorage.getFiles(DIR_NAME, TXT_PATTERN);
 		assertEquals(3, filesTexts.size());
-		
+
 		// create more log files and check for *.log. should be 4 of them
 		String LOG_PATTERN = "([^\\s]+(\\.(?i)(log))$)";
 		mStorage.createFile(DIR_NAME, "file6.log", "");
 		mStorage.createFile(DIR_NAME, "file7.log", "");
 		List<File> filesLogs = mStorage.getFiles(DIR_NAME, LOG_PATTERN);
 		assertEquals(4, filesLogs.size());
-		
-		// create dir and add files to dir. check again for *.log files. should be 4 of them.
+
+		// create dir and add files to dir. check again for *.log files. should
+		// be 4 of them.
 		mStorage.createDirectory(DIR_NAME + File.separator + "New Dir");
 		mStorage.createFile(DIR_NAME + File.separator + "New Dir", "file8.log", "");
 		mStorage.createFile(DIR_NAME + File.separator + "New Dir", "file9.log", "");
 		mStorage.createFile(DIR_NAME + File.separator + "New Dir", "file10.txt", "");
 		List<File> filesLogs2 = mStorage.getFiles(DIR_NAME, LOG_PATTERN);
 		assertEquals(4, filesLogs2.size());
-		
+
 		// check inside new dir for *.log files. should be 2 of them
 		List<File> filesLogs3 = mStorage.getFiles(DIR_NAME + File.separator + "New Dir", LOG_PATTERN);
 		assertEquals(2, filesLogs3.size());
+	}
+
+	public void testGetFilesByOrder() {
+
+		// create dir
+		testCreateDirectory();
+
+		// TEST - Order by SIZE
+		mStorage.createFile(DIR_NAME, "file1.txt", "111222333");
+		mStorage.createFile(DIR_NAME, "file2.txt", "");
+		mStorage.createFile(DIR_NAME, "file3.log", "111");
+		List<File> filesSize = mStorage.getFiles(DIR_NAME, OrderType.SIZE);
+		assertEquals("file2.txt", filesSize.get(0).getName());
+		assertEquals("file3.log", filesSize.get(1).getName());
+		assertEquals("file1.txt", filesSize.get(2).getName());
+
+		// refresh directory
+		mStorage.deleteDirectory(DIR_NAME);
+		testCreateDirectory();
+
+		// TEST - Order by NAME
+		mStorage.createFile(DIR_NAME, "bbb.txt", "111222333");
+		mStorage.createFile(DIR_NAME, "ccc.txt", "");
+		mStorage.createFile(DIR_NAME, "aaa.log", "111");
+		List<File> filesName = mStorage.getFiles(DIR_NAME, OrderType.NAME);
+		assertEquals("aaa.log", filesName.get(0).getName());
+		assertEquals("bbb.txt", filesName.get(1).getName());
+		assertEquals("ccc.txt", filesName.get(2).getName());
+
+		// refresh directory
+		mStorage.deleteDirectory(DIR_NAME);
+		testCreateDirectory();
+
+		// TEST - Order by DATE
+		mStorage.createFile(DIR_NAME, "aaa.txt", "123456789");
+		sleep(1000);
+		mStorage.createFile(DIR_NAME, "bbb.txt", "123456789");
+		sleep(1000);
+		mStorage.createFile(DIR_NAME, "ccc.log", "123456789");
+		sleep(1000);
+		mStorage.appendFile(DIR_NAME, "bbb.txt", "some new content");
+		List<File> files = mStorage.getFiles(DIR_NAME, OrderType.DATE);
+		assertEquals("bbb.txt", files.get(0).getName());
+		assertEquals("ccc.log", files.get(1).getName());
+		assertEquals("aaa.txt", files.get(2).getName());
+	}
+	
+	private void sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 }
