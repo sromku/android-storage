@@ -14,6 +14,7 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 * [Append content to file](#append-content-to-file)
 * [Delete directory](#delete-directory)
 * [Delete file](#delete-file)
+* [Get files](#get-files)
 * [More options](#more)
 * [Encrypt the file content](#security-configuration)
 
@@ -126,6 +127,23 @@ storage.deleteDirectory("MyDirName");
 storage.deleteFile("MyDirName", "fileName");
 ```
 
+### Get files
+- Get files in ordered way by: `name`, `date`, `size`
+	``` java
+	List<File> files = storage.getFiles("MyDirName", OrderType.DATE);
+	```
+
+- Get files and filter by regular expression:
+	``` java
+	String regex = ...;
+	List<File> files = storage.getFiles("MyDirName", regex);
+	```
+
+* Get all nested files (without the directories)
+	``` java
+	List<File> files = storage.getNestedFiles("MyDirName");
+	```
+
 ### More...
 
 * Is directory exists
@@ -136,11 +154,6 @@ storage.deleteFile("MyDirName", "fileName");
 * Is file exists
 	``` java
 	boolean fileExists = storage.isFileExists("MyDirName", "fileName");
-	```
-
-* Get all nested files (without the directories)
-	``` java
-	List<File> files = storage.getNestedFiles("MyDirName");
 	```
 
 ## Security configuration
