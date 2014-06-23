@@ -16,7 +16,10 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
+import android.os.Build;
+import android.os.StatFs;
 
 import com.sromku.simple.storage.helpers.ImmutablePair;
 import com.sromku.simple.storage.helpers.OrderType;
@@ -253,6 +256,47 @@ abstract class AbstractDiskStorage implements Storage {
 		long length = file.length();
 		return (double) length / (double) unit.inBytes();
 	}
+	
+	@SuppressLint("NewApi")
+	@SuppressWarnings("deprecation")
+	@Override
+	public long getFreeSpace(SizeUnit sizeUnit) {
+		String path = buildAbsolutePath();
+		StatFs statFs = new StatFs(path);
+		long availableBlocks;
+		long blockSize;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)  {
+			availableBlocks = statFs.getAvailableBlocks();
+			blockSize = statFs.getBlockSize();
+		} else {
+			availableBlocks = statFs.getAvailableBlocksLong();
+			blockSize = statFs.getBlockSizeLong();
+		}
+		long freeBytes = availableBlocks * blockSize;
+		return freeBytes / sizeUnit.inBytes();
+	}
+	
+	@SuppressLint("NewApi")
+	@SuppressWarnings("deprecation")
+	@Override
+	public long getUsedSpace(SizeUnit sizeUnit) {
+		String path = buildAbsolutePath();
+		StatFs statFs = new StatFs(path);
+		long availableBlocks;
+		long blockSize;
+		long totalBlocks;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)  {
+			availableBlocks = statFs.getAvailableBlocks();
+			blockSize = statFs.getBlockSize();
+			totalBlocks = statFs.getBlockCount();
+		} else {
+			availableBlocks = statFs.getAvailableBlocksLong();
+			blockSize = statFs.getBlockSizeLong();
+			totalBlocks = statFs.getBlockCountLong();
+		}
+		long usedBytes = totalBlocks * blockSize - availableBlocks * blockSize;
+		return usedBytes / sizeUnit.inBytes();
+	}
 
 	protected byte[] readFile(final FileInputStream stream) {
 		class Reader extends Thread {
@@ -315,6 +359,8 @@ abstract class AbstractDiskStorage implements Storage {
 		}
 	}
 
+	protected abstract String buildAbsolutePath();
+	
 	protected abstract String buildPath(String name);
 
 	protected abstract String buildPath(String directoryName, String fileName);

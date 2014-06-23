@@ -280,4 +280,22 @@ public interface Storage {
 	 * @return
 	 */
 	double getSize(File file, SizeUnit unit);
+
+	/**
+	 * Get free space on disk.
+	 * 
+	 * @param sizeUnit
+	 *            The units you want the returned value to be.
+	 * @return The free space in units you selected.
+	 */
+	long getFreeSpace(SizeUnit sizeUnit);
+
+	/**
+	 * Get already used space on disk.
+	 * 
+	 * @param sizeUnit
+	 *            The units you want the returned value to be.
+	 * @return The used space in units you selected.
+	 */
+	long getUsedSpace(SizeUnit sizeUnit);
 }

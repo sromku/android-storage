@@ -45,6 +45,11 @@ public class ExternalStorage extends AbstractDiskStorage {
 		}
 		return false;
 	}
+	
+	@Override
+	protected String buildAbsolutePath() {
+		return Environment.getExternalStorageDirectory().getAbsolutePath();
+	}
 
 	/**
 	 * Build path of folder or file on the external storage location. <br>
@@ -58,7 +63,7 @@ public class ExternalStorage extends AbstractDiskStorage {
 	 * @return
 	 */
 	protected String buildPath(String name) {
-		String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+		String path = buildAbsolutePath();
 		path = path + File.separator + name;
 		return path;
 	}

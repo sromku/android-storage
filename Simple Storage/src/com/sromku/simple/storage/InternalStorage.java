@@ -8,6 +8,7 @@ import java.io.IOException;
 import javax.crypto.Cipher;
 
 import android.content.Context;
+import android.os.Environment;
 
 import com.sromku.simple.storage.SimpleStorage.StorageType;
 
@@ -101,6 +102,11 @@ public class InternalStorage extends AbstractDiskStorage {
 		}
 	}
 
+	@Override
+	protected String buildAbsolutePath() {
+		return Environment.getRootDirectory().getAbsolutePath();
+	}
+	
 	/**
 	 * Build path of directory on the internal storage location. <br>
 	 * <b>Note: </b>
