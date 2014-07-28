@@ -298,4 +298,30 @@ public interface Storage {
 	 * @return The used space in units you selected.
 	 */
 	long getUsedSpace(SizeUnit sizeUnit);
+
+	/**
+	 * Copy file (only) to another destination.
+	 * 
+	 * @param file
+	 *            The file you want to copy
+	 * @param directoryName
+	 *            The destination directory
+	 * @param fileName
+	 *            The destination file name
+	 * @throws StorageException
+	 */
+	void copy(File file, String directoryName, String fileName);
+
+	/**
+	 * Move file to another destination.
+	 * 
+	 * @param file
+	 *            The file you want to move
+	 * @param directoryName
+	 *            The destination directory
+	 * @param fileName
+	 *            The destination file name
+	 * @throws StorageException
+	 */
+	void move(File file, String directoryName, String fileName);
 }

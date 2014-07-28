@@ -1,6 +1,7 @@
 package com.sromku.simple.storage;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -8,6 +9,7 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -265,7 +267,7 @@ abstract class AbstractDiskStorage implements Storage {
 		StatFs statFs = new StatFs(path);
 		long availableBlocks;
 		long blockSize;
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)  {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
 			availableBlocks = statFs.getAvailableBlocks();
 			blockSize = statFs.getBlockSize();
 		} else {
@@ -285,7 +287,7 @@ abstract class AbstractDiskStorage implements Storage {
 		long availableBlocks;
 		long blockSize;
 		long totalBlocks;
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2)  {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
 			availableBlocks = statFs.getAvailableBlocks();
 			blockSize = statFs.getBlockSize();
 			totalBlocks = statFs.getBlockCount();
@@ -296,6 +298,34 @@ abstract class AbstractDiskStorage implements Storage {
 		}
 		long usedBytes = totalBlocks * blockSize - availableBlocks * blockSize;
 		return usedBytes / sizeUnit.inBytes();
+	}
+
+	@Override
+	public void copy(File file, String directoryName, String fileName) {
+		if (!file.isFile()) {
+			return;
+		}
+		
+		FileInputStream inStream = null;
+		FileOutputStream outStream = null;
+		try {
+			inStream = new FileInputStream(file);
+			outStream = new FileOutputStream(new File(buildPath(directoryName, fileName)));
+			FileChannel inChannel = inStream.getChannel();
+			FileChannel outChannel = outStream.getChannel();
+			inChannel.transferTo(0, inChannel.size(), outChannel);
+		} catch (Exception e) {
+			throw new StorageException(e);
+		} finally {
+			closeQuietly(inStream);
+			closeQuietly(outStream);
+		}
+	}
+
+	@Override
+	public void move(File file, String directoryName, String fileName) {
+		copy(file, directoryName, fileName);
+		file.delete();
 	}
 
 	protected byte[] readFile(final FileInputStream stream) {
@@ -435,4 +465,12 @@ abstract class AbstractDiskStorage implements Storage {
 		}
 	}
 
+	private void closeQuietly(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException e) {
+            }
+        }
+    }
 }

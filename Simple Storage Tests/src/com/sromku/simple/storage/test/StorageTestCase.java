@@ -139,6 +139,41 @@ public class StorageTestCase extends InstrumentationTestCase {
 		assertEquals(true, isExist);
 	}
 
+	public void testCopy() {
+
+		// create file
+		testCreateFile();
+
+		// copy file
+		File fileSource = mStorage.getFile(DIR_NAME, FILE_NAME);
+		mStorage.copy(fileSource, DIR_NAME, FILE_NAME + "C");
+
+		// validate existence 
+		boolean isExist = mStorage.isFileExist(DIR_NAME, FILE_NAME + "C");
+		assertEquals(true, isExist);
+
+		// validate content
+		assertEquals(mStorage.readTextFile(DIR_NAME, FILE_NAME), mStorage.readTextFile(DIR_NAME, FILE_NAME + "C"));
+	}
+	
+	public void testMove() {
+
+		// create file
+		testCreateFile();
+
+		// copy file
+		File fileSource = mStorage.getFile(DIR_NAME, FILE_NAME);
+		mStorage.move(fileSource, DIR_NAME, FILE_NAME + "C");
+
+		// validate existence destination
+		boolean isExist = mStorage.isFileExist(DIR_NAME, FILE_NAME + "C");
+		assertEquals(true, isExist);
+
+		// validate existence source (it shouldn't exist)
+		isExist = mStorage.isFileExist(DIR_NAME, FILE_NAME);
+		assertEquals(false, isExist);
+	}
+
 	public void testGetFilesByRegex() {
 
 		// create dir
