@@ -6,13 +6,14 @@ Library to create, read, delete, append, encrypt files and more, on internal or 
 Many times in our apps, we need to manage files on disk. It can be on external or internal storage. Sometimes we need to create a directory, add files, append text to some file, delete files and even encrypt the data in the files. <br><br>
 In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
 
-[![Gitter chat](https://badges.gitter.im/sromku/android-simple-storage.png)](https://gitter.im/sromku/android-simple-storage)
 ## Features
 * [Easy define Internal or External storage](#initialize)
 * [Create directory](#create-directory)
 * [Create file](#create-file)
 * [Read file content](#read-file)
 * [Append content to file](#append-content-to-file)
+* [Copy](#copy)
+* [Move](#move)
 * [Delete directory](#delete-directory)
 * [Delete file](#delete-file)
 * [Get files](#get-files)
@@ -117,6 +118,15 @@ You can append:
 - `String`
 - `byte[]`
 
+### Copy
+``` java
+storage.copy(file, "MyDirName", "newFileName");
+```
+
+### Move
+``` java
+storage.move(file, "MyDirName", "newFileName");
+```
 
 ### Delete directory
 ``` java
@@ -196,4 +206,4 @@ You will see that the content will be: `"this is the secret data"`.
 
 ## Tests
 
-Test project includes android junits. The tests include: create/delete directory, create/read/append file, create/read encrypted file. 
+Test project includes android junits which covers most of the functionality.
