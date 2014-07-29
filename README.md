@@ -164,7 +164,7 @@ storage.deleteFile("MyDirName", "fileName");
 
 * Is file exists
 	``` java
-	boolean fileExists = storage.isFileExists("MyDirName", "fileName");
+	boolean fileExists = storage.isFileExist("MyDirName", "fileName");
 	```
 
 ## Security configuration
