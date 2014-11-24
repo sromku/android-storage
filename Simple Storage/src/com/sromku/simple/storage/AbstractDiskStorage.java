@@ -160,7 +160,7 @@ abstract class AbstractDiskStorage implements Storage {
 			stream = new FileInputStream(new File(path));
 			return readFile(stream);
 		} catch (FileNotFoundException e) {
-			throw new RuntimeException("Failed to read file to input sream", e);
+			throw new RuntimeException("Failed to read file to input stream", e);
 		}
 	}
 
