@@ -32,6 +32,22 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	```
 
+### Gradle build
+
+To deploy the library to your local Maven repository run the following task:
+
+```
+$ ./gradlew install
+```
+
+Then, to use the library in your project add the following to your `build.gradle`:
+
+```groovy
+dependencies {
+    compile 'com.sromku.simple.storage:library:1.0.0'
+}
+```
+
 ## Usage
 
 ### Initialize
