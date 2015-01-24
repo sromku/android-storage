@@ -3,12 +3,11 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.13.0'
+        classpath 'com.android.tools.build:gradle:1.0.0'
+        classpath 'com.github.dcendents:android-maven-plugin:1.2'
     }
 }
 
-allprojects {
-    repositories {
-        jcenter()
-    }
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.12'
 }

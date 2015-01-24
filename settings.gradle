@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-include ':Simple Storage', ':Simple Storage Tests'
+include ':library', ':Simple Storage Tests'
