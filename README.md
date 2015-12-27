@@ -6,6 +6,8 @@ Library to create, read, delete, append, encrypt files and more, on internal or 
 Many times in our apps, we need to manage files on disk. It can be on external or internal storage. Sometimes we need to create a directory, add files, append text to some file, delete files and even encrypt the data in the files. <br><br>
 In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
 
+[![Gitter](https://badges.gitter.im/sromku/android-simple-storage.svg)](https://gitter.im/sromku/android-simple-storage?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
 ## Features
 * [Easy define Internal or External storage](#initialize)
 * [Create directory](#create-directory)
