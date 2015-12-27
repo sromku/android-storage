@@ -20,32 +20,20 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 * [More options](#more)
 * [Encrypt the file content](#security-configuration)
 
-## Setup Project
+## Latest Release
 
-1. Clone and import this (Simple Storage) project to your workspace.
+[ ![Download](https://api.bintray.com/packages/sromku/maven/simple-storage/images/download.svg) ](https://bintray.com/sromku/maven/simple-storage/_latestVersion)
 
-2. Add reference from **your app** to `Simple Storage` project.
-
-3. Update the `manifest.xml` of your application and add next line:
-
-	``` java
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-	```
-
-### Gradle build
-
-To deploy the library to your local Maven repository run the following task:
-
-```
-$ ./gradlew install
-```
-
-Then, to use the library in your project add the following to your `build.gradle`:
-
-```groovy
+``` groovy
 dependencies {
-    compile 'com.sromku.simple.storage:library:1.0.0'
+    compile 'com.sromku:simple-storage:1.1.0'
 }
+```
+
+Don't forget to update `AndroidManifest.xml` and add next line:
+
+``` xml
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 ```
 
 ## Usage
