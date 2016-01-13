@@ -31,7 +31,7 @@ ext {
     siteUrl = 'https://github.com/sromku/android-simple-storage'
     gitUrl = 'https://github.com/sromku/android-simple-storage.git'
 
-    libraryVersion = '1.1.0'
+    libraryVersion = '1.2.0'
 
     developerId = 'sromku'
     developerName = 'Roman Kushnarenko'
@@ -60,5 +60,4 @@ buildscript {
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     testCompile 'junit:junit:4.12'
-    compile 'com.android.support:appcompat-v7:23.1.0'
 }

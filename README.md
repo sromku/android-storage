@@ -28,7 +28,7 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 
 ``` groovy
 dependencies {
-    compile 'com.sromku:simple-storage:1.1.0'
+    compile 'com.sromku:simple-storage:1.2.0'
 }
 ```
 
