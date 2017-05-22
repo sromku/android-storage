@@ -84,8 +84,7 @@ public class SimpleStorage {
 	 * @return {@link ExternalStorage}
 	 */
 	public static ExternalStorage getExternalStorage() {
-		init();
-		return mExternalStorage;
+		return getExternalStorage(null);
 	}
 
 	/**
