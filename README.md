@@ -66,6 +66,12 @@ You have the next options to initialize the simple storage:
 		storage = SimpleStorage.getInternalStorage(mContext);
 	}
 	```
+	
+- if you want to use a particular public directory of **Externa Storage**
+    ``` java
+    Storage storage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
+    ```
+	
 
 ### Create directory
 
@@ -172,6 +178,7 @@ storage.deleteFile("MyDirName", "fileName");
 	``` java
 	boolean fileExists = storage.isFileExist("MyDirName", "fileName");
 	```
+
 
 ## Security configuration
 You can write and read files while the content is **encrypted**. It means, that no one can read the data of your files from external or internal storage.
