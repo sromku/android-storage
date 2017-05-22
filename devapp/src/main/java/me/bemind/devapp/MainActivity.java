@@ -16,7 +16,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         Storage storage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
-        storage.createFile("DEVAPP","FileProva.txt","File di prova");
+        storage.createDirectory("DEVAPP1");
+        storage.createFile("DEVAPP1","FileProva.txt","File di prova");
 
 
         Log.d("TAG","file scritto");
