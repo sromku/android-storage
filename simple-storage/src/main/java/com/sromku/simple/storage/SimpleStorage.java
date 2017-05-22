@@ -89,6 +89,19 @@ public class SimpleStorage {
 	}
 
 	/**
+	 * Get external storage. <br>
+	 *
+	 * @param publicDirectory value in order to return the relative public directory
+	 *                        this value is of type Environment.DIRECTORY_PICTURES (and other ones)
+	 *                        if null method return primary External Storage
+	 * @return {@link ExternalStorage}
+	 */
+	public static ExternalStorage getExternalStorage(String publicDirectory) {
+		init();
+		return mExternalStorage.getPublicDirectory(publicDirectory);
+	}
+
+	/**
 	 * Check whereas the external storage is writable. <br>
 	 * 
 	 * @return <code>True</code> if external storage writable, otherwise return

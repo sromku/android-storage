@@ -86,4 +86,7 @@ public class ExternalStorage extends AbstractDiskStorage {
 		return path;
 	}
 
+	public ExternalStorage getPublicDirectory(String publicDirectory) {
+		return null;
+	}
 }
