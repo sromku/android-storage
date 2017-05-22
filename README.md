@@ -67,7 +67,7 @@ You have the next options to initialize the simple storage:
 	}
 	```
 	
-- if you want to use a particular public directory of **Externa Storage**
+- if you want to use a particular public directory of **External Storage**
     ``` java
     Storage storage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
     ```
