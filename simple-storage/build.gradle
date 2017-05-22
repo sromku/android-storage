@@ -31,7 +31,7 @@ ext {
     siteUrl = 'https://github.com/sromku/android-simple-storage'
     gitUrl = 'https://github.com/sromku/android-simple-storage.git'
 
-    libraryVersion = '1.2.0'
+    libraryVersion = '1.2.1'
 
     developerId = 'sromku'
     developerName = 'Roman Kushnarenko'
