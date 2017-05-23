@@ -1,6 +1,7 @@
 package com.sromku.simple.storage;
 
 import android.content.Context;
+import android.os.Environment;
 import android.test.InstrumentationTestCase;
 
 import com.sromku.simple.storage.helpers.OrderType;
@@ -26,7 +27,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 		// set a storage
 		mStorage = null;
 		if (SimpleStorage.isExternalStorageWritable()) {
-			mStorage = SimpleStorage.getExternalStorage();
+			mStorage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
 		} else {
 			mStorage = SimpleStorage.getInternalStorage(context);
 		}
