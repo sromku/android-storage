@@ -97,7 +97,8 @@ public class SimpleStorage {
 	 */
 	public static ExternalStorage getExternalStorage(String publicDirectory) {
 		init();
-		return mExternalStorage.getPublicDirectory(publicDirectory);
+		mExternalStorage.setPublicDirectory(publicDirectory);
+		return mExternalStorage;
 	}
 
 	/**

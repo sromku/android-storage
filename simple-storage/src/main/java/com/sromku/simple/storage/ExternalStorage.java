@@ -16,7 +16,7 @@ import java.io.File;
  */
 public class ExternalStorage extends AbstractDiskStorage {
 
-	private String publicDirectory = null;
+	private String mPublicDirectory = null;
 
 	/**
 	 * Contractor as friend. Means, only classes from the same package can
@@ -50,8 +50,8 @@ public class ExternalStorage extends AbstractDiskStorage {
 	
 	@Override
 	protected String buildAbsolutePath() {
-		if(publicDirectory!=null){
-			return Environment.getExternalStoragePublicDirectory(publicDirectory).getAbsolutePath();
+		if(mPublicDirectory!=null){
+			return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
 		}else {
 			return Environment.getExternalStorageDirectory().getAbsolutePath();
 		}
@@ -92,8 +92,7 @@ public class ExternalStorage extends AbstractDiskStorage {
 		return path;
 	}
 
-	public ExternalStorage getPublicDirectory(String publicDirectory) {
-		this.publicDirectory = publicDirectory;
-		return this;
+	public void setPublicDirectory(String publicDirectory) {
+		this.mPublicDirectory = publicDirectory;
 	}
 }
