@@ -50,9 +50,9 @@ public class ExternalStorage extends AbstractDiskStorage {
 	
 	@Override
 	protected String buildAbsolutePath() {
-		if(mPublicDirectory!=null){
+		if (mPublicDirectory != null) {
 			return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
-		}else {
+		} else {
 			return Environment.getExternalStorageDirectory().getAbsolutePath();
 		}
 	}
