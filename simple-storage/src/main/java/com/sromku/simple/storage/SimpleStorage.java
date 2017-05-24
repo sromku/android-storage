@@ -84,7 +84,20 @@ public class SimpleStorage {
 	 * @return {@link ExternalStorage}
 	 */
 	public static ExternalStorage getExternalStorage() {
+		return getExternalStorage(null);
+	}
+
+	/**
+	 * Get external storage. <br>
+	 *
+	 * @param publicDirectory value in order to return the relative public directory
+	 *                        this value is of type Environment.DIRECTORY_PICTURES (and other ones)
+	 *                        if null method return primary External Storage
+	 * @return {@link ExternalStorage}
+	 */
+	public static ExternalStorage getExternalStorage(String publicDirectory) {
 		init();
+		mExternalStorage.setPublicDirectory(publicDirectory);
 		return mExternalStorage;
 	}
 

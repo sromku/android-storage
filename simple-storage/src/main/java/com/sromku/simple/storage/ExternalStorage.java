@@ -16,6 +16,8 @@ import java.io.File;
  */
 public class ExternalStorage extends AbstractDiskStorage {
 
+	private String mPublicDirectory = null;
+
 	/**
 	 * Contractor as friend. Means, only classes from the same package can
 	 * initiate this class.<br>
@@ -48,7 +50,11 @@ public class ExternalStorage extends AbstractDiskStorage {
 	
 	@Override
 	protected String buildAbsolutePath() {
-		return Environment.getExternalStorageDirectory().getAbsolutePath();
+		if (mPublicDirectory != null) {
+			return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
+		} else {
+			return Environment.getExternalStorageDirectory().getAbsolutePath();
+		}
 	}
 
 	/**
@@ -59,7 +65,7 @@ public class ExternalStorage extends AbstractDiskStorage {
 	 * 
 	 * @param name
 	 *            The name of the directory
-	 * @param storageLocation
+	 * @param name
 	 * @return
 	 */
 	protected String buildPath(String name) {
@@ -81,9 +87,12 @@ public class ExternalStorage extends AbstractDiskStorage {
 	 * @return
 	 */
 	protected String buildPath(String directoryName, String fileName) {
-		String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+		String path = buildAbsolutePath();
 		path = path + File.separator + directoryName + File.separator + fileName;
 		return path;
 	}
 
+	public void setPublicDirectory(String publicDirectory) {
+		this.mPublicDirectory = publicDirectory;
+	}
 }
