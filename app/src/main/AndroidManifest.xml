@@ -1,4 +1,4 @@
-<manifest package="com.sromku.simple.storage.sample"
+<manifest package="com.snatik.simple.storage.sample"
           xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
