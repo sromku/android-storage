@@ -1,10 +1,10 @@
-package com.sromku.simple.storage;
+package com.snatik.simple.storage;
 
 import android.graphics.Bitmap;
 
-import com.sromku.simple.storage.SimpleStorage.StorageType;
-import com.sromku.simple.storage.helpers.OrderType;
-import com.sromku.simple.storage.helpers.SizeUnit;
+import com.snatik.simple.storage.SimpleStorage.StorageType;
+import com.snatik.simple.storage.helpers.OrderType;
+import com.snatik.simple.storage.helpers.SizeUnit;
 
 import java.io.File;
 import java.util.List;
@@ -105,7 +105,7 @@ public interface Storage {
 	 *            The directory name
 	 * @param fileName
 	 *            The file name
-	 * @param content
+	 * @param storable
 	 *            The content which will filled the file
 	 */
 	boolean createFile(String directoryName, String fileName, Storable storable);
@@ -117,8 +117,8 @@ public interface Storage {
 	 *            The directory name
 	 * @param fileName
 	 *            The file name
-	 * @param content
-	 *            The content which will filled the file
+	 * @param bitmap
+	 *            The bitmap
 	 */
 	boolean createFile(String directoryName, String fileName, Bitmap bitmap);
 

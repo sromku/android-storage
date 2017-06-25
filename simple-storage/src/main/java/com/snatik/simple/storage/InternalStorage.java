@@ -1,9 +1,9 @@
-package com.sromku.simple.storage;
+package com.snatik.simple.storage;
 
 import android.content.Context;
 import android.os.Environment;
 
-import com.sromku.simple.storage.SimpleStorage.StorageType;
+import com.snatik.simple.storage.SimpleStorage.StorageType;
 
 import java.io.File;
 import java.io.FileInputStream;

@@ -1,4 +1,4 @@
-package com.sromku.simple.storage;
+package com.snatik.simple.storage;
 
 public class StorageException extends RuntimeException {
 

@@ -1,4 +1,4 @@
-package com.sromku.simple.storage.helpers;
+package com.snatik.simple.storage.helpers;
 
 public enum SizeUnit {
 	B(1),

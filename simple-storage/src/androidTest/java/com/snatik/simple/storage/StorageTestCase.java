@@ -1,10 +1,10 @@
-package com.sromku.simple.storage;
+package com.snatik.simple.storage;
 
 import android.content.Context;
 import android.os.Environment;
 import android.test.InstrumentationTestCase;
 
-import com.sromku.simple.storage.helpers.OrderType;
+import com.snatik.simple.storage.helpers.OrderType;
 
 import java.io.File;
 import java.util.List;

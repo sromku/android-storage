@@ -1,4 +1,4 @@
-package com.sromku.simple.storage.security;
+package com.snatik.simple.storage.security;
 
 /**
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)

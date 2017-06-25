@@ -1,4 +1,4 @@
-package com.sromku.simple.storage.security;
+package com.snatik.simple.storage.security;
 
 /**
  * <em>https://en.wikipedia.org/wiki/Block_cipher_modes_of_operation</em>

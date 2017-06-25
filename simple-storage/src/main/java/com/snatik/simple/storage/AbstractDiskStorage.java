@@ -1,14 +1,14 @@
-package com.sromku.simple.storage;
+package com.snatik.simple.storage;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.StatFs;
 
-import com.sromku.simple.storage.helpers.ImmutablePair;
-import com.sromku.simple.storage.helpers.OrderType;
-import com.sromku.simple.storage.helpers.SizeUnit;
-import com.sromku.simple.storage.security.SecurityUtil;
+import com.snatik.simple.storage.helpers.ImmutablePair;
+import com.snatik.simple.storage.helpers.OrderType;
+import com.snatik.simple.storage.helpers.SizeUnit;
+import com.snatik.simple.storage.security.SecurityUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;

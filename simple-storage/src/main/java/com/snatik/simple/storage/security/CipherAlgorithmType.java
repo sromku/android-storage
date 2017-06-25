@@ -1,4 +1,4 @@
-package com.sromku.simple.storage.security;
+package com.snatik.simple.storage.security;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
