@@ -97,9 +97,7 @@ abstract class AbstractDiskStorage implements Storage {
         try {
             OutputStream stream = new FileOutputStream(new File(path));
 
-			/*
-             * Check if needs to be encrypted. If yes, then encrypt it.
-			 */
+            // encrypt if needed
             if (getConfiguration().isEncrypted()) {
                 content = encrypt(content, Cipher.ENCRYPT_MODE);
             }
@@ -108,7 +106,8 @@ abstract class AbstractDiskStorage implements Storage {
             stream.flush();
             stream.close();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create", e);
+            Log.e(TAG, "Failed create file", e);
+            return false;
         }
         return true;
     }
@@ -142,15 +141,15 @@ abstract class AbstractDiskStorage implements Storage {
             stream = new FileInputStream(new File(path));
             return readFile(stream);
         } catch (FileNotFoundException e) {
-            throw new RuntimeException("Failed to read file to input stream", e);
+            Log.e(TAG, "Failed to read file to input stream", e);
+            return null;
         }
     }
 
     @Override
     public String readTextFile(String directoryName, String fileName) {
         byte[] bytes = readFile(directoryName, fileName);
-        String content = new String(bytes);
-        return content;
+        return new String(bytes);
     }
 
     @Override
@@ -161,7 +160,8 @@ abstract class AbstractDiskStorage implements Storage {
     @Override
     public void appendFile(String directoryName, String fileName, byte[] bytes) {
         if (!isFileExist(directoryName, fileName)) {
-            throw new RuntimeException("Impossible to append content, because such file doesn't exist");
+            Log.w(TAG, "Impossible to append content, because such file doesn't exist");
+            return;
         }
 
         try {
@@ -172,7 +172,7 @@ abstract class AbstractDiskStorage implements Storage {
             stream.flush();
             stream.close();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to append content to file", e);
+            Log.e(TAG, "Failed to append content to file", e);
         }
     }
 
@@ -189,15 +189,12 @@ abstract class AbstractDiskStorage implements Storage {
     public List<File> getFiles(String directoryName, final String matchRegex) {
         String buildPath = buildPath(directoryName);
         File file = new File(buildPath);
-        List<File> out = null;
+        List<File> out;
         if (matchRegex != null) {
             FilenameFilter filter = new FilenameFilter() {
                 @Override
                 public boolean accept(File dir, String fileName) {
-                    if (fileName.matches(matchRegex)) {
-                        return true;
-                    }
-                    return false;
+                    return fileName.matches(matchRegex);
                 }
             };
             out = Arrays.asList(file.listFiles(filter));
@@ -297,7 +294,7 @@ abstract class AbstractDiskStorage implements Storage {
             FileChannel outChannel = outStream.getChannel();
             inChannel.transferTo(0, inChannel.size(), outChannel);
         } catch (Exception e) {
-            throw new StorageException(e);
+            Log.e(TAG, "Failed copy", e);
         } finally {
             closeQuietly(inStream);
             closeQuietly(outStream);
@@ -363,7 +360,8 @@ abstract class AbstractDiskStorage implements Storage {
         try {
             reader.join();
         } catch (InterruptedException e) {
-            throw new RuntimeException("Failed on reading file from storage while the locking Thread", e);
+            Log.e(TAG, "Failed on reading file from storage while the locking Thread", e);
+            return null;
         }
 
         if (getConfiguration().isEncrypted()) {
