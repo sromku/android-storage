@@ -1,1 +1,1 @@
-include ':app', ':simple-storage'
+include ':app', ':library'

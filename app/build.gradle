@@ -5,7 +5,7 @@ android {
     buildToolsVersion '25.0.3'
 
     defaultConfig {
-        applicationId "com.snatik.simple.storage.sample"
+        applicationId "com.snatik.storage.sample"
         minSdkVersion 9
         targetSdkVersion 25
         versionCode 1
@@ -20,7 +20,8 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
-    testCompile 'junit:junit:4.12'
-    compile 'com.sromku:simple-storage:1.1.0'
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    compile project(':library')
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    compile 'com.android.support:design:25.3.1'
 }

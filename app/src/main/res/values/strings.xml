@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">app</string>
+    <string name="app_name">Files Manager</string>
+    <string name="title_activity_main">MainActivity</string>
 </resources>
