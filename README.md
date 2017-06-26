@@ -1,12 +1,10 @@
-<img src="http://code.sromku.com/static/img/img_android_code.jpg" height="30" width="30"/> android-simple-storage
+<img src="http://code.sromku.com/static/img/img_android_code.jpg" height="30" width="30"/> android-storage
 ======================
 
 Library to create, read, delete, append, encrypt files and more, on internal or external disk spaces with a really simple API.
 
 Many times in our apps, we need to manage files on disk. It can be on external or internal storage. Sometimes we need to create a directory, add files, append text to some file, delete files and even encrypt the data in the files. <br><br>
 In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
-
-[![Gitter](https://badges.gitter.im/sromku/android-simple-storage.svg)](https://gitter.im/sromku/android-simple-storage?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## Features
 * [Easy define Internal or External storage](#initialize)
@@ -24,11 +22,11 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 
 ## Latest Release
 
-[ ![Download](https://api.bintray.com/packages/sromku/maven/simple-storage/images/download.svg) ](https://bintray.com/sromku/maven/simple-storage/_latestVersion)
+[ ![Download](https://api.bintray.com/packages/sromku/maven/storage/images/download.svg) ](https://bintray.com/sromku/maven/storage/_latestVersion)
 
 ``` groovy
 dependencies {
-    compile 'com.sromku:simple-storage:1.2.1'
+    compile 'com.snatik:storage:2.0.2'
 }
 ```
 
@@ -220,3 +218,8 @@ You will see that the content will be: `"this is the secret data"`.
 ## Tests
 
 Test project includes android junits which covers most of the functionality.
+
+## Follow us
+
+[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=https://github.com/snatik/android-storage)
+[![Twitter Follow](https://img.shields.io/twitter/follow/snatikteam.svg?style=social)](https://twitter.com/snatikteam)
