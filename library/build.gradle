@@ -23,7 +23,7 @@ ext {
     bintrayName = 'storage'
 
     publishedGroupId = 'com.snatik'
-    libraryName = 'Storage'
+    libraryName = 'storage'
     artifact = 'storage'
 
     libraryDescription = 'Create, read, delete, append, encrypt files and more, on internal or external disk spaces with a really simple API'
