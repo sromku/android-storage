@@ -1,6 +1,8 @@
 <img src="http://code.sromku.com/static/img/img_android_code.jpg" height="30" width="30"/> android-storage
 ======================
 
+> #### There will be breaking changes :hammer:. It's still baking on this branch and not stable yet.
+
 Library to create, read, delete, append, encrypt files and more, on internal or external disk spaces with a really simple API.
 
 Many times in our apps, we need to manage files on disk. It can be on external or internal storage. Sometimes we need to create a directory, add files, append text to some file, delete files and even encrypt the data in the files. <br><br>
