@@ -1,7 +1,7 @@
-<img src="http://code.sromku.com/static/img/img_android_code.jpg" height="30" width="30"/> android-storage
-======================
+> ### :pushpin: There will be some breaking changes :hammer:. This branch is not stable yet.
 
-> #### There will be breaking changes :hammer:. It's still baking on this branch and not stable yet.
+android-storage
+======================
 
 Library to create, read, delete, append, encrypt files and more, on internal or external disk spaces with a really simple API.
 
