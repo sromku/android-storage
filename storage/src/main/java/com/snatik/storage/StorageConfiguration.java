@@ -47,7 +47,7 @@ import javax.crypto.spec.PBEKeySpec;
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  * 
  */
-public class SimpleStorageConfiguration {
+public class StorageConfiguration {
 
 	/**
 	 * The best chunk size: <i>http://stackoverflow.com/a/237495/334522</i>
@@ -57,7 +57,7 @@ public class SimpleStorageConfiguration {
 	private byte[] mIvParameter;
 	private byte[] mSecretKey;
 
-	private SimpleStorageConfiguration(Builder builder) {
+	private StorageConfiguration(Builder builder) {
 		mChunkSize = builder._chunkSize;
 		mIsEncrypted = builder._isEncrypted;
 		mIvParameter = builder._ivParameter;
@@ -110,7 +110,7 @@ public class SimpleStorageConfiguration {
 	 * @author sromku
 	 */
 	public static class Builder {
-		private int _chunkSize = 8 * 1024; // 8kbits = 1kbyte;
+		private int _chunkSize = 8192;
 		private boolean _isEncrypted = false;
 		private byte[] _ivParameter = null;
 		private byte[] _secretKey = null;
@@ -125,8 +125,8 @@ public class SimpleStorageConfiguration {
 		 * 
 		 * @return
 		 */
-		public SimpleStorageConfiguration build() {
-			return new SimpleStorageConfiguration(this);
+		public StorageConfiguration build() {
+			return new StorageConfiguration(this);
 		}
 
 		/**

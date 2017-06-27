@@ -1,327 +1,472 @@
 package com.snatik.storage;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.os.Build;
+import android.os.Environment;
+import android.os.StatFs;
+import android.util.Log;
 
-import com.snatik.storage.SimpleStorage.StorageType;
-import com.snatik.storage.helpers.OrderType;
+import com.snatik.storage.helpers.ImmutablePair;
 import com.snatik.storage.helpers.SizeUnit;
+import com.snatik.storage.security.SecurityUtil;
 
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
+import javax.crypto.Cipher;
+
 /**
- * Interface of CRUD methods on the file system
- * 
+ * Common class for internal and external storage implementations
+ *
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  */
-public interface Storage {
+public class Storage {
 
-	/**
-	 * Get the type of the storage
-	 * 
-	 * @return {@link StorageType}
-	 */
-	StorageType getStorageType();
+    private static final String TAG = "Storage";
 
-	/**
-	 * Create directory with given path. <br>
-	 * If the directory with given name <b>exists</b>, then
-	 * {@link StorageException} will be thrown. <br>
-	 * <br>
-	 * 
-	 * <b>For External Storage:</b> The name should be as following format:
-	 * Directory_Name_0/Directory_Name_1/Directory_Name_2<br>
-	 * <br>
-	 * <b>For Internal Storage:</b> No separators are acceptable
-	 * 
-	 * @param name
-	 *            The name of the directory.
-	 * @return <code>True</code> if directory was created, otherwise return
-	 *         <code>False</code>
-	 * @throws StorageException
-	 */
-	boolean createDirectory(String name);
+    private final Context mContext;
+    private StorageConfiguration mConfiguration;
+    private String mPublicDirectory;
 
-	/**
-	 * Create directory with given path. <br>
-	 * If the directory with given name exists and the <code>override</code>
-	 * parameter is <code>True</code> then it will be removed and a new
-	 * directory will be created instead. <br>
-	 * <br>
-	 * 
-	 * <b>Note:</b> if <code>override=false</code>, then it do nothing and
-	 * return true.
-	 * 
-	 * @param name
-	 *            The name of the directory.
-	 * @param override
-	 *            Set <code>True</code> if you want to override the directory if
-	 *            such exists. The default is <code>False</code>.<br>
-	 *            Set <code>False</code> then it checks if directory already
-	 *            exist, if yes then do nothing and return true, otherwise it
-	 *            creates a new directory
-	 * @return <code>True</code> if directory was created, otherwise return
-	 *         <code>False</code>.
-	 * 
-	 * @throws StorageException
-	 */
-	boolean createDirectory(String name, boolean override);
+    public Storage(Context context) {
+        mContext = context;
+    }
 
-	/**
-	 * Delete the directory and all sub content.
-	 * 
-	 * @param name
-	 *            The name of the directory.
-	 * @return <code>True</code> if the directory was deleted, otherwise return
-	 *         <code>False</code>
-	 */
-	boolean deleteDirectory(String name);
+    public void setConfiguration(StorageConfiguration configuration) {
+        mConfiguration = configuration;
+    }
 
-	/**
-	 * Check if the directory is already exist.
-	 * 
-	 * @param name
-	 *            The name of the directory.
-	 * @return <code>True</code> if exists, otherwise return <code>False</code>
-	 */
-	boolean isDirectoryExists(String name);
+    public String getRoot(StorageType storageType) {
+        switch (storageType) {
+            case INTERNAL:
+                return Environment.getRootDirectory().getAbsolutePath();
+            case EXTERNAL:
+                if (mPublicDirectory != null) {
+                    return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
+                } else {
+                    return Environment.getExternalStorageDirectory().getAbsolutePath();
+                }
+        }
+        return null;
+    }
 
-	/**
-	 * Creating file with given name and with content in string format. <br>
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param content
-	 *            The content which will filled the file
-	 */
-	boolean createFile(String directoryName, String fileName, String content);
+    public enum StorageType {
+        INTERNAL,
+        EXTERNAL
+    }
 
-	/**
-	 * Creating file with given name and by using Storable format. <br>
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param storable
-	 *            The content which will filled the file
-	 */
-	boolean createFile(String directoryName, String fileName, Storable storable);
+    public static boolean isExternalWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
 
-	/**
-	 * Creating file with given name and by using Bitmap format. <br>
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param bitmap
-	 *            The bitmap
-	 */
-	boolean createFile(String directoryName, String fileName, Bitmap bitmap);
+    public boolean createDirectory(String path) {
+        File directory = new File(path);
+        if (directory.exists()) {
+            Log.w(TAG, "Directory '" + path + "' already exists");
+            return false;
+        }
+        return directory.mkdirs();
+    }
 
-	/**
-	 * Creating the file with given name and with content in byte array format.<br>
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param content
-	 *            The content which will filled the file
-	 */
-	boolean createFile(String directoryName, String fileName, byte[] content);
+    public boolean createDirectory(String name, boolean override) {
 
-	/**
-	 * Delete file
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @return
-	 */
-	boolean deleteFile(String directoryName, String fileName);
+        // Check if directory exists. If yes, then delete all directory
+        if (override && isDirectoryExists(name)) {
+            deleteDirectory(name);
+        }
 
-	/**
-	 * Is file exists
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @return
-	 */
-	boolean isFileExist(String directoryName, String fileName);
+        // Create new directory
+        return createDirectory(name);
+    }
 
-	/**
-	 * Read file from storage
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @return
-	 */
-	byte[] readFile(String directoryName, String fileName);
+    public boolean deleteDirectory(String path) {
+        return deleteDirectoryImpl(path);
+    }
 
-	/**
-	 * Read string from external storage
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @return
-	 */
-	String readTextFile(String directoryName, String fileName);
+    public boolean isDirectoryExists(String path) {
+        return new File(path).exists();
+    }
 
-	/**
-	 * Append content to the existing file
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param content
-	 */
-	void appendFile(String directoryName, String fileName, String content);
+    public boolean createFile(String path, String content) {
+        return createFile(path, content.getBytes());
+    }
 
-	/**
-	 * Append content to the existing file
-	 * 
-	 * @param directoryName
-	 *            The directory name
-	 * @param fileName
-	 *            The file name
-	 * @param bytes
-	 */
-	void appendFile(String directoryName, String fileName, byte[] bytes);
+    public boolean createFile(String path, Storable storable) {
+        return createFile(path, storable.getBytes());
+    }
 
-	/**
-	 * Get list of all nested files only (without directories) under the
-	 * directories.
-	 */
-	List<File> getNestedFiles(String directoryName);
-	
-	/**
-	 * Get all files and directories under the directory that match the regex pattern on their full names.<br><br>
-	 * For example, we want to get only image files. And this our directory status:
-	 * <pre>
-	 * my_dir 
-	 *    |- image1.jpg
-	 *    |- image2.png
-	 *    |- not_image1.txt
-	 *    |- not_image2.psd
-	 *    |- dir1
-	 *    |- image3.gif
-	 * </pre> 
-	 * The code:
-	 * <pre>
-	 * String IMAGE_PATTERN = "([^\\s]+(\\.(?i)(jpg|png|gif|bmp))$)";
-	 * List{@code <}File> files = storage.getFiles("my_dir", IMAGE_PATTERN);
-	 * </pre>
-	 * The result:
-	 * <pre>
-	 * my_dir 
-	 *    |- image1.jpg
-	 *    |- image2.png
-	 *    |- image3.gif
-	 * </pre>
-	 * 
-	 * @param directoryName
-	 * @param matchRegex Set regular expression to match files you need. 
-	 * 		Or set <code>null</code> to get all files.
-	 */
-	List<File> getFiles(String directoryName, String matchRegex);
-	
-	/**
-	 * Get files from directory ordered.
-	 * @param directoryName
-	 * @param orderType
-	 * @return
-	 */
-	List<File> getFiles(String directoryName, OrderType orderType);
+    public boolean createFile(String path, byte[] content) {
+        try {
+            OutputStream stream = new FileOutputStream(new File(path));
 
-	/**
-	 * Get {@link File} object by name of directory or file
-	 * 
-	 * @param name
-	 * @return
-	 */
-	File getFile(String name);
+            // encrypt if needed
+            if (mConfiguration != null && mConfiguration.isEncrypted()) {
+                content = encrypt(content, Cipher.ENCRYPT_MODE);
+            }
 
-	/**
-	 * Get {@link File}
-	 * 
-	 * @param directoryName
-	 * @param fileName
-	 * @return
-	 */
-	File getFile(String directoryName, String fileName);
+            stream.write(content);
+            stream.flush();
+            stream.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed create file", e);
+            return false;
+        }
+        return true;
+    }
 
-	/**
-	 * Rename file. Get the file you want to change.
-	 * 
-	 * @param file
-	 *            The file you want to change. You can get the {@link File} by
-	 *            calling to one of the {@link #getFile(String)} methods
-	 * @param newName
-	 */
-	void rename(File file, String newName);
+    public boolean createFile(String path, Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        byte[] byteArray = stream.toByteArray();
+        return createFile(path, byteArray);
+    }
 
-	/**
-	 * Get size of the file in units you need.
-	 * 
-	 * @param file
-	 * @param unit
-	 * @return
-	 */
-	double getSize(File file, SizeUnit unit);
+    public boolean deleteFile(String path) {
+        File file = new File(path);
+        return file.delete();
+    }
 
-	/**
-	 * Get free space on disk.
-	 * 
-	 * @param sizeUnit
-	 *            The units you want the returned value to be.
-	 * @return The free space in units you selected.
-	 */
-	long getFreeSpace(SizeUnit sizeUnit);
+    public boolean isFileExist(String path) {
+        return new File(path).exists();
+    }
 
-	/**
-	 * Get already used space on disk.
-	 * 
-	 * @param sizeUnit
-	 *            The units you want the returned value to be.
-	 * @return The used space in units you selected.
-	 */
-	long getUsedSpace(SizeUnit sizeUnit);
+    public byte[] readFile(String path) {
+        final FileInputStream stream;
+        try {
+            stream = new FileInputStream(new File(path));
+            return readFile(stream);
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "Failed to read file to input stream", e);
+            return null;
+        }
+    }
 
-	/**
-	 * Copy file (only) to another destination.
-	 * 
-	 * @param file
-	 *            The file you want to copy
-	 * @param directoryName
-	 *            The destination directory
-	 * @param fileName
-	 *            The destination file name
-	 * @throws StorageException
-	 */
-	void copy(File file, String directoryName, String fileName);
+    public String readTextFile(String path) {
+        byte[] bytes = readFile(path);
+        return new String(bytes);
+    }
 
-	/**
-	 * Move file to another destination.
-	 * 
-	 * @param file
-	 *            The file you want to move
-	 * @param directoryName
-	 *            The destination directory
-	 * @param fileName
-	 *            The destination file name
-	 * @throws StorageException
-	 */
-	void move(File file, String directoryName, String fileName);
+    public void appendFile(String path, String content) {
+        appendFile(path, content.getBytes());
+    }
+
+    public void appendFile(String path, byte[] bytes) {
+        if (!isFileExist(path)) {
+            Log.w(TAG, "Impossible to append content, because such file doesn't exist");
+            return;
+        }
+
+        try {
+            FileOutputStream stream = new FileOutputStream(new File(path), true);
+            stream.write(bytes);
+            stream.write(System.getProperty("line.separator").getBytes());
+            stream.flush();
+            stream.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to append content to file", e);
+        }
+    }
+
+    public List<File> getNestedFiles(String path) {
+        File file = new File(path);
+        List<File> out = new ArrayList<File>();
+        getDirectoryFilesImpl(file, out);
+        return out;
+    }
+
+    public List<File> getFiles(String dir) {
+        return getFiles(dir, null);
+    }
+
+    public List<File> getFiles(String dir, final String matchRegex) {
+        File file = new File(dir);
+        List<File> out;
+        if (matchRegex != null) {
+            FilenameFilter filter = new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String fileName) {
+                    return fileName.matches(matchRegex);
+                }
+            };
+            out = Arrays.asList(file.listFiles(filter));
+        } else {
+            out = Arrays.asList(file.listFiles());
+        }
+        return out;
+    }
+
+    public File getFile(String path) {
+        return new File(path);
+    }
+
+    public void rename(File file, String newName) {
+        String name = file.getName();
+        String newFullName = file.getAbsolutePath().replaceAll(name, newName);
+        File newFile = new File(newFullName);
+        file.renameTo(newFile);
+    }
+
+    public double getSize(File file, SizeUnit unit) {
+        long length = file.length();
+        return (double) length / (double) unit.inBytes();
+    }
+
+    public long getFreeSpace(String dir, SizeUnit sizeUnit) {
+        StatFs statFs = new StatFs(dir);
+        long availableBlocks;
+        long blockSize;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            availableBlocks = statFs.getAvailableBlocks();
+            blockSize = statFs.getBlockSize();
+        } else {
+            availableBlocks = statFs.getAvailableBlocksLong();
+            blockSize = statFs.getBlockSizeLong();
+        }
+        long freeBytes = availableBlocks * blockSize;
+        return freeBytes / sizeUnit.inBytes();
+    }
+
+    public long getUsedSpace(String dir, SizeUnit sizeUnit) {
+        StatFs statFs = new StatFs(dir);
+        long availableBlocks;
+        long blockSize;
+        long totalBlocks;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            availableBlocks = statFs.getAvailableBlocks();
+            blockSize = statFs.getBlockSize();
+            totalBlocks = statFs.getBlockCount();
+        } else {
+            availableBlocks = statFs.getAvailableBlocksLong();
+            blockSize = statFs.getBlockSizeLong();
+            totalBlocks = statFs.getBlockCountLong();
+        }
+        long usedBytes = totalBlocks * blockSize - availableBlocks * blockSize;
+        return usedBytes / sizeUnit.inBytes();
+    }
+
+    public void copy(File file, String path) {
+        if (!file.isFile()) {
+            return;
+        }
+
+        FileInputStream inStream = null;
+        FileOutputStream outStream = null;
+        try {
+            inStream = new FileInputStream(file);
+            outStream = new FileOutputStream(new File(path));
+            FileChannel inChannel = inStream.getChannel();
+            FileChannel outChannel = outStream.getChannel();
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed copy", e);
+        } finally {
+            closeQuietly(inStream);
+            closeQuietly(outStream);
+        }
+    }
+
+    public void move(File file, String path) {
+        copy(file, path);
+        file.delete();
+    }
+
+    protected byte[] readFile(final FileInputStream stream) {
+        class Reader extends Thread {
+            byte[] array = null;
+        }
+
+        Reader reader = new Reader() {
+            public void run() {
+                LinkedList<ImmutablePair<byte[], Integer>> chunks = new LinkedList<ImmutablePair<byte[], Integer>>();
+
+                // read the file and build chunks
+                int size = 0;
+                int globalSize = 0;
+                do {
+                    try {
+                        int chunkSize = mConfiguration != null ? mConfiguration.getChuckSize() : 8192;
+                        // read chunk
+                        byte[] buffer = new byte[chunkSize];
+                        size = stream.read(buffer, 0, chunkSize);
+                        if (size > 0) {
+                            globalSize += size;
+
+                            // add chunk to list
+                            chunks.add(new ImmutablePair<byte[], Integer>(buffer, size));
+                        }
+                    } catch (Exception e) {
+                        // very bad
+                    }
+                } while (size > 0);
+
+                try {
+                    stream.close();
+                } catch (Exception e) {
+                    // very bad
+                }
+
+                array = new byte[globalSize];
+
+                // append all chunks to one array
+                int offset = 0;
+                for (ImmutablePair<byte[], Integer> chunk : chunks) {
+                    // flush chunk to array
+                    System.arraycopy(chunk.element1, 0, array, offset, chunk.element2);
+                    offset += chunk.element2;
+                }
+            }
+
+            ;
+        };
+
+        reader.start();
+        try {
+            reader.join();
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Failed on reading file from storage while the locking Thread", e);
+            return null;
+        }
+
+        if (mConfiguration != null && mConfiguration.isEncrypted()) {
+            return encrypt(reader.array, Cipher.DECRYPT_MODE);
+        } else {
+            return reader.array;
+        }
+    }
+
+    public void setPublicDirectory(String publicDirectory) {
+        mPublicDirectory = publicDirectory;
+    }
+
+//    protected String buildAbsolutePath() {
+//        switch (mStorageType) {
+//            case INTERNAL:
+//                return Environment.getRootDirectory().getAbsolutePath();
+//            case EXTERNAL:
+//                if (mPublicDirectory != null) {
+//                    return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
+//                } else {
+//                    return Environment.getExternalStorageDirectory().getAbsolutePath();
+//                }
+//        }
+//        return null;
+//    }
+
+//    protected String buildPath(String name) {
+//        switch (mStorageType) {
+//            case INTERNAL:
+//                return mContext.getDir(name, Context.MODE_PRIVATE).getAbsolutePath();
+//            case EXTERNAL:
+//                String path = buildAbsolutePath();
+//                if (!TextUtils.isEmpty(name)) {
+//                    path = path + File.separator + name;
+//                }
+//                return path;
+//        }
+//        return null;
+//    }
+
+//    protected String buildPath(String directoryName, String fileName) {
+//        switch (mStorageType) {
+//            case INTERNAL:
+//                String path = mContext.getDir(directoryName, Context.MODE_PRIVATE).getAbsolutePath();
+//                return path + File.separator + fileName;
+//            case EXTERNAL:
+//                return buildAbsolutePath() + File.separator + directoryName + File.separator + fileName;
+//        }
+//        return null;
+//    }
+
+    /**
+     * Encrypt or Descrypt the content. <br>
+     *
+     * @param content        The content to encrypt or descrypt.
+     * @param encryptionMode Use: {@link Cipher#ENCRYPT_MODE} or
+     *                       {@link Cipher#DECRYPT_MODE}
+     * @return
+     */
+    private synchronized byte[] encrypt(byte[] content, int encryptionMode) {
+        final byte[] secretKey = mConfiguration.getSecretKey();
+        final byte[] ivx = mConfiguration.getIvParameter();
+        return SecurityUtil.encrypt(content, encryptionMode, secretKey, ivx);
+    }
+
+    /**
+     * Delete the directory and all sub content.
+     *
+     * @param path The absolute directory path. For example:
+     *             <i>mnt/sdcard/NewFolder/</i>.
+     * @return <code>True</code> if the directory was deleted, otherwise return
+     * <code>False</code>
+     */
+    private boolean deleteDirectoryImpl(String path) {
+        File directory = new File(path);
+
+        // If the directory exists then delete
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files == null) {
+                return true;
+            }
+            // Run on all sub files and folders and delete them
+            for (int i = 0; i < files.length; i++) {
+                if (files[i].isDirectory()) {
+                    deleteDirectoryImpl(files[i].getAbsolutePath());
+                } else {
+                    files[i].delete();
+                }
+            }
+        }
+        return directory.delete();
+    }
+
+    /**
+     * Get all files under the directory
+     *
+     * @param directory
+     * @param out
+     * @return
+     */
+    private void getDirectoryFilesImpl(File directory, List<File> out) {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files == null) {
+                return;
+            } else {
+                for (int i = 0; i < files.length; i++) {
+                    if (files[i].isDirectory()) {
+                        getDirectoryFilesImpl(files[i], out);
+                    } else {
+                        out.add(files[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    private void closeQuietly(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException e) {
+            }
+        }
+    }
 }

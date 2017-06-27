@@ -1,8 +1,8 @@
 package com.snatik.storage;
 
 /**
- * @author Roman Kushnarenko - sromku (sromku@gmail.com)
+ * As it sounds, anything that can stored and represented as byte array.
  */
 public interface Storable {
-	byte[] getBytes();
+    byte[] getBytes();
 }

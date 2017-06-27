@@ -11,7 +11,7 @@ import java.util.List;
 
 public class StorageTestCase extends InstrumentationTestCase {
 
-	private Storage mStorage;
+	private StorageDel mStorage;
 
 	private final static String DIR_NAME = "Storage Test";
 	private final static String FILE_NAME = "test.txt";
@@ -26,10 +26,10 @@ public class StorageTestCase extends InstrumentationTestCase {
 
 		// set a storage
 		mStorage = null;
-		if (SimpleStorage.isExternalStorageWritable()) {
-			mStorage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
+		if (SimpleStorageDel.isExternalStorageWritable()) {
+			mStorage = SimpleStorageDel.getExternalStorage(Environment.DIRECTORY_PICTURES);
 		} else {
-			mStorage = SimpleStorage.getInternalStorage(context);
+			mStorage = SimpleStorageDel.getInternalStorage(context);
 		}
 	}
 
@@ -109,8 +109,8 @@ public class StorageTestCase extends InstrumentationTestCase {
 		final String IVX = "abcdefghijklmnop";
 		final String SECRET_KEY = "secret1234567890";
 
-		SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder().setEncryptContent(IVX, SECRET_KEY).build();
-		SimpleStorage.updateConfiguration(configuration);
+		StorageConfiguration configuration = new StorageConfiguration.Builder().setEncryptContent(IVX, SECRET_KEY).build();
+		SimpleStorageDel.updateConfiguration(configuration);
 
 		// create file
 		mStorage.createFile(DIR_NAME, FILE_SECURE_NAME, FILE_SECURE_CONTENT);
@@ -120,7 +120,7 @@ public class StorageTestCase extends InstrumentationTestCase {
 		assertEquals(FILE_SECURE_CONTENT, content);
 
 		// TEST: check after reseting the configuration to default
-		SimpleStorage.resetConfiguration();
+		SimpleStorageDel.resetConfiguration();
 		content = mStorage.readTextFile(DIR_NAME, FILE_SECURE_NAME);
 		assertNotSame(FILE_SECURE_CONTENT, content);
 	}
