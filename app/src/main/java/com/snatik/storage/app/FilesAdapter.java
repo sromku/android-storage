@@ -4,6 +4,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -15,6 +16,7 @@ import java.util.List;
 public class FilesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private List<File> mFiles;
+    private OnFileItemListener mListener;
 
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -24,9 +26,24 @@ public class FilesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
 
     @Override
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-        File file = mFiles.get(position);
+        final File file = mFiles.get(position);
         FileViewHolder fileViewHolder = (FileViewHolder) holder;
-        fileViewHolder.mName.setText(file.getName() + (file.isDirectory() ? " (folder)" : ""));
+        fileViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mListener.onClick(file);
+            }
+        });
+        fileViewHolder.itemView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                mListener.onLongClick(file);
+                return true;
+            }
+        });
+        fileViewHolder.mName.setText(file.getName());
+        fileViewHolder.mIcon.setImageResource(file.isDirectory() ? R.drawable.ic_folder_primary_24dp : R.drawable
+                .ic_file_primary_24dp);
     }
 
     @Override
@@ -34,18 +51,29 @@ public class FilesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         return mFiles != null ? mFiles.size() : 0;
     }
 
-
     public void setFiles(List<File> files) {
         mFiles = files;
     }
 
-    public static class FileViewHolder extends RecyclerView.ViewHolder {
+    public void setListener(OnFileItemListener listener) {
+        mListener = listener;
+    }
 
-        public TextView mName;
+    static class FileViewHolder extends RecyclerView.ViewHolder {
 
-        public FileViewHolder(View v) {
+        TextView mName;
+        ImageView mIcon;
+
+        FileViewHolder(View v) {
             super(v);
             mName = (TextView) v.findViewById(R.id.name);
+            mIcon = (ImageView) v.findViewById(R.id.icon);
         }
+    }
+
+    public interface OnFileItemListener {
+        void onClick(File file);
+
+        void onLongClick(File file);
     }
 }
