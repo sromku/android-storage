@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.view.View;
 import android.widget.TextView;
 
 import com.snatik.storage.Storage;
@@ -14,7 +15,10 @@ import java.io.File;
 import java.util.Collections;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements FilesAdapter.OnFileItemListener {
+public class MainActivity extends AppCompatActivity implements
+        FilesAdapter.OnFileItemListener,
+        AddItemsDialog.DialogListener,
+        UpdateItemDialog.DialogListener {
 
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
@@ -42,12 +46,18 @@ public class MainActivity extends AppCompatActivity implements FilesAdapter.OnFi
         mFilesAdapter.setListener(this);
         mRecyclerView.setAdapter(mFilesAdapter);
 
-        presentFiles(mStorage.getRoot(Storage.StorageType.EXTERNAL));
+        findViewById(R.id.fab).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AddItemsDialog.newInstance().show(getFragmentManager(), "add_items");
+            }
+        });
 
-        // TODO - on fab click - add folder, add text file, add sample bitmap
+        // load files
+        showFiles(mStorage.getRoot(Storage.StorageType.EXTERNAL));
     }
 
-    private void presentFiles(String path) {
+    private void showFiles(String path) {
         mPathView.setText(path);
         List<File> files = mStorage.getFiles(path);
         if (files != null) {
@@ -63,13 +73,13 @@ public class MainActivity extends AppCompatActivity implements FilesAdapter.OnFi
         if (file.isDirectory()) {
             mTreeSteps++;
             String path = file.getAbsolutePath();
-            presentFiles(path);
+            showFiles(path);
         }
     }
 
     @Override
     public void onLongClick(File file) {
-        // TODO - show options - delete / move / rename
+        UpdateItemDialog.newInstance().show(getFragmentManager(), "update_item");
     }
 
     @Override
@@ -78,9 +88,33 @@ public class MainActivity extends AppCompatActivity implements FilesAdapter.OnFi
             String path = mPathView.getText().toString();
             path = path.substring(0, path.lastIndexOf(File.separator));
             mTreeSteps--;
-            presentFiles(path);
+            showFiles(path);
             return;
         }
         super.onBackPressed();
+    }
+
+    @Override
+    public void onListOptionClick(int which) {
+        switch (which) {
+            case R.id.new_file:
+                UIHelper.showSnackbar("New file", mRecyclerView);
+                break;
+            case R.id.new_folder:
+                UIHelper.showSnackbar("New folder", mRecyclerView);
+                break;
+            case R.id.delete:
+                UIHelper.showSnackbar("Delete", mRecyclerView);
+                break;
+            case R.id.rename:
+                UIHelper.showSnackbar("Rename", mRecyclerView);
+                break;
+            case R.id.move:
+                UIHelper.showSnackbar("Move", mRecyclerView);
+                break;
+            case R.id.copy:
+                UIHelper.showSnackbar("Copy", mRecyclerView);
+                break;
+        }
     }
 }
