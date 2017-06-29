@@ -6,7 +6,6 @@ import android.util.Log;
 import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 
@@ -48,6 +47,8 @@ import javax.crypto.spec.PBEKeySpec;
  * 
  */
 public class EncryptConfiguration {
+
+	private final static String TAG = "EncryptConfiguration";
 
 	/**
 	 * The best chunk size: <i>http://stackoverflow.com/a/237495/334522</i>
@@ -180,7 +181,7 @@ public class EncryptConfiguration {
 		 *      cipher mode of operation</a>
 		 * 
 		 */
-		public Builder setEncryptContent(String ivx, String secretKey) {
+		public Builder setEncryptContent(String ivx, String secretKey, byte[] salt) {
 			_isEncrypted = true;
 
 			// Set IV parameter
@@ -188,7 +189,7 @@ public class EncryptConfiguration {
 				_ivParameter = ivx.getBytes(UTF_8);
 			}
 			catch (UnsupportedEncodingException e) {
-				Log.e("SimpleStorageConfiguration", "UnsupportedEncodingException", e);
+				Log.e(TAG, "UnsupportedEncodingException", e);
 			}
 
 			// Set secret key
@@ -200,9 +201,6 @@ public class EncryptConfiguration {
 				int iterationCount = 1000; // recommended by PKCS#5
 				int keyLength = 128;
 
-				SecureRandom random = new SecureRandom();
-				byte[] salt = new byte[16]; // keyLength / 8 = salt length
-				random.nextBytes(salt);
 				KeySpec keySpec = new PBEKeySpec(secretKey.toCharArray(), salt, iterationCount, keyLength);
 				SecretKeyFactory keyFactory = null;
 				if (Build.VERSION.SDK_INT >= 19) {
@@ -226,10 +224,10 @@ public class EncryptConfiguration {
 
 			}
 			catch (InvalidKeySpecException e) {
-				Log.e("SimpleStorageConfiguration", "InvalidKeySpecException", e);
+				Log.e(TAG, "InvalidKeySpecException", e);
 			}
 			catch (NoSuchAlgorithmException e) {
-				Log.e("SimpleStorageConfiguration", "NoSuchAlgorithmException", e);
+				Log.e(TAG, "NoSuchAlgorithmException", e);
 			}
 
 			return this;
