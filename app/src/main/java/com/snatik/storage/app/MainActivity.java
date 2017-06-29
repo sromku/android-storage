@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity implements
     private int mTreeSteps = 0;
     private final static String IVX = "abcdefghijklmnop";
     private final static String SECRET_KEY = "secret1234567890";
+    private final static byte[] SALT = "0000111100001111".getBytes();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -155,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements
         String folderPath = currentPath + File.separator + name;
         if (encrypted) {
             mStorage.setEncryptConfiguration(new EncryptConfiguration.Builder()
-                    .setEncryptContent(IVX, SECRET_KEY)
+                    .setEncryptContent(IVX, SECRET_KEY, SALT)
                     .build());
         }
         mStorage.createFile(folderPath, content);

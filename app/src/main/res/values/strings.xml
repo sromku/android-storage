@@ -7,4 +7,5 @@
     <string name="encrypt_the_content">Encrypt the content</string>
     <string name="label_content">Content</string>
     <string name="label_name">Name</string>
+    <string name="label_decrypt">Decrypt</string>
 </resources>
