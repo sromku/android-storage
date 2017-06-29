@@ -85,15 +85,15 @@ public class Storage {
         return directory.mkdirs();
     }
 
-    public boolean createDirectory(String name, boolean override) {
+    public boolean createDirectory(String path, boolean override) {
 
         // Check if directory exists. If yes, then delete all directory
-        if (override && isDirectoryExists(name)) {
-            deleteDirectory(name);
+        if (override && isDirectoryExists(path)) {
+            deleteDirectory(path);
         }
 
         // Create new directory
-        return createDirectory(name);
+        return createDirectory(path);
     }
 
     public boolean deleteDirectory(String path) {
