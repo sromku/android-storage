@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity implements
     private FilesAdapter mFilesAdapter;
     private Storage mStorage;
     private TextView mPathView;
+    private TextView mMovingText;
+    private boolean mCopy;
     private View mMovingLayout;
     private int mTreeSteps = 0;
     private final static String IVX = "abcdefghijklmnop";
@@ -56,19 +58,28 @@ public class MainActivity extends AppCompatActivity implements
         mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
         mPathView = (TextView) findViewById(R.id.path);
         mMovingLayout = findViewById(R.id.moving_layout);
+        mMovingText = (TextView) mMovingLayout.findViewById(R.id.moving_file_name);
 
         mMovingLayout.findViewById(R.id.accept_move).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 mMovingLayout.setVisibility(View.GONE);
                 if (mMovingPath != null) {
-                    String toPath = getCurrentPath() + File.separator + mStorage.getFile(mMovingPath).getName();
-                    if (!mMovingPath.equals(toPath)) {
-                        mStorage.move(mMovingPath, toPath);
-                        UIHelper.showSnackbar("Moved", mRecyclerView);
-                        showFiles(getCurrentPath());
+
+                    if (!mCopy) {
+                        String toPath = getCurrentPath() + File.separator + mStorage.getFile(mMovingPath).getName();
+                        if (!mMovingPath.equals(toPath)) {
+                            mStorage.move(mMovingPath, toPath);
+                            UIHelper.showSnackbar("Moved", mRecyclerView);
+                            showFiles(getCurrentPath());
+                        } else {
+                            UIHelper.showSnackbar("The file is already here", mRecyclerView);
+                        }
                     } else {
-                        UIHelper.showSnackbar("The file is already here", mRecyclerView);
+                        String toPath = getCurrentPath() + File.separator + "copy " + mStorage.getFile(mMovingPath).getName();
+                        mStorage.copy(mMovingPath, toPath);
+                        UIHelper.showSnackbar("Copied", mRecyclerView);
+                        showFiles(getCurrentPath());
                     }
                     mMovingPath = null;
                 }
@@ -166,11 +177,16 @@ public class MainActivity extends AppCompatActivity implements
                 RenameDialog.newInstance(path).show(getFragmentManager(), "rename");
                 break;
             case R.id.move:
+                mMovingText.setText(getString(R.string.moving_file, mStorage.getFile(path).getName()));
                 mMovingPath = path;
+                mCopy = false;
                 mMovingLayout.setVisibility(View.VISIBLE);
                 break;
             case R.id.copy:
-                UIHelper.showSnackbar("Copy", mRecyclerView);
+                mMovingText.setText(getString(R.string.copy_file, mStorage.getFile(path).getName()));
+                mMovingPath = path;
+                mCopy = true;
+                mMovingLayout.setVisibility(View.VISIBLE);
                 break;
         }
     }

@@ -22,6 +22,7 @@
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/moving_file_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp"
