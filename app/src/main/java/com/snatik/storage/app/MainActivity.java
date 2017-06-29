@@ -8,9 +8,11 @@ import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.TextView;
 
+import com.snatik.storage.EncryptConfiguration;
 import com.snatik.storage.Storage;
 import com.snatik.storage.app.dialogs.AddItemsDialog;
 import com.snatik.storage.app.dialogs.NewFolderDialog;
+import com.snatik.storage.app.dialogs.NewTextFileDialog;
 import com.snatik.storage.app.dialogs.UpdateItemDialog;
 import com.snatik.storage.helpers.OrderType;
 
@@ -22,13 +24,16 @@ public class MainActivity extends AppCompatActivity implements
         FilesAdapter.OnFileItemListener,
         AddItemsDialog.DialogListener,
         UpdateItemDialog.DialogListener,
-        NewFolderDialog.DialogListener {
+        NewFolderDialog.DialogListener,
+        NewTextFileDialog.DialogListener {
 
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
     private Storage mStorage;
     private TextView mPathView;
     private int mTreeSteps = 0;
+    private final static String IVX = "abcdefghijklmnop";
+    private final static String SECRET_KEY = "secret1234567890";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements
     public void onListOptionClick(int which) {
         switch (which) {
             case R.id.new_file:
-                UIHelper.showSnackbar("New file", mRecyclerView);
+                NewTextFileDialog.newInstance().show(getFragmentManager(), "new_file");
                 break;
             case R.id.new_folder:
                 NewFolderDialog.newInstance().show(getFragmentManager(), "new_folder");
@@ -131,10 +136,24 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onNewFolder(String name) {
-        UIHelper.showSnackbar("New folder: " + name, mRecyclerView);
         String currentPath = getCurrentPath();
         String folderPath = currentPath + File.separator + name;
         mStorage.createDirectory(folderPath);
         showFiles(currentPath);
+        UIHelper.showSnackbar("New folder created: " + name, mRecyclerView);
+    }
+
+    @Override
+    public void onNewFile(String name, String content, boolean encrypted) {
+        String currentPath = getCurrentPath();
+        String folderPath = currentPath + File.separator + name;
+        if (encrypted) {
+            mStorage.setEncryptConfiguration(new EncryptConfiguration.Builder()
+                    .setEncryptContent(IVX, SECRET_KEY)
+                    .build());
+        }
+        mStorage.createFile(folderPath, content);
+        showFiles(currentPath);
+        UIHelper.showSnackbar("New file created: " + name, mRecyclerView);
     }
 }

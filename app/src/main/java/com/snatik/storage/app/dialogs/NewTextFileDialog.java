@@ -11,6 +11,7 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.EditText;
 
 import com.snatik.storage.app.R;
@@ -18,16 +19,16 @@ import com.snatik.storage.app.R;
 /**
  * Created by sromku on June, 2017.
  */
-public class NewFolderDialog extends DialogFragment {
+public class NewTextFileDialog extends DialogFragment {
 
-    private NewFolderDialog.DialogListener mListener;
+    private NewTextFileDialog.DialogListener mListener;
 
-    public static NewFolderDialog newInstance() {
-        NewFolderDialog fragment = new NewFolderDialog();
+    public static NewTextFileDialog newInstance() {
+        NewTextFileDialog fragment = new NewTextFileDialog();
         return fragment;
     }
 
-    public NewFolderDialog() {
+    public NewTextFileDialog() {
     }
 
     @Override
@@ -36,11 +37,14 @@ public class NewFolderDialog extends DialogFragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
         final View view = LayoutInflater.from(getActivity())
-                .inflate(R.layout.new_folder, (ViewGroup) getView(), false);
+                .inflate(R.layout.new_file, (ViewGroup) getView(), false);
 
         // if text is empty, disable the dialog positive button
-        final EditText editText = (EditText) view.findViewById(R.id.name);
-        editText.addTextChangedListener(new TextWatcher() {
+        final EditText nameEditText = (EditText) view.findViewById(R.id.name);
+        final EditText contentEditText = (EditText) view.findViewById(R.id.content);
+        final CheckBox encryptCheckbox = (CheckBox) view.findViewById(R.id.checkbox);
+
+        nameEditText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
             }
@@ -51,17 +55,31 @@ public class NewFolderDialog extends DialogFragment {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                ((AlertDialog) getDialog()).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(editable != null &&
-                        editable.length() > 0);
+                ((AlertDialog) getDialog()).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(editable.length() > 0 && contentEditText.getText().length() > 0);
             }
         });
 
-        builder.setTitle(R.string.new_folder);
+        contentEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                ((AlertDialog) getDialog()).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(editable.length() > 0 && nameEditText.getText().length() > 0);
+            }
+        });
+
+        builder.setTitle(R.string.new_file);
         builder.setView(view);
         builder.setPositiveButton(R.string.label_save, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                mListener.onNewFolder(editText.getText().toString());
+                mListener.onNewFile(nameEditText.getText().toString(), contentEditText.getText().toString(), encryptCheckbox.isChecked());
             }
         });
 
@@ -77,7 +95,7 @@ public class NewFolderDialog extends DialogFragment {
     }
 
     public interface DialogListener {
-        void onNewFolder(String name);
+        void onNewFile(String name, String content, boolean encrypt);
     }
 
     @Override

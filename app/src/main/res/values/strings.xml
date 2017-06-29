@@ -3,4 +3,8 @@
     <string name="title_activity_main">MainActivity</string>
     <string name="new_folder">New Folder</string>
     <string name="label_save">Save</string>
+    <string name="new_file">New File</string>
+    <string name="encrypt_the_content">Encrypt the content</string>
+    <string name="label_content">Content</string>
+    <string name="label_name">Name</string>
 </resources>
