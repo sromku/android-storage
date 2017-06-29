@@ -216,11 +216,10 @@ public class Storage {
         return new File(path);
     }
 
-    public void rename(File file, String newName) {
-        String name = file.getName();
-        String newFullName = file.getAbsolutePath().replaceAll(name, newName);
-        File newFile = new File(newFullName);
-        file.renameTo(newFile);
+    public boolean rename(String fromPath, String toPath) {
+        File file = getFile(fromPath);
+        File newFile = new File(toPath);
+        return file.renameTo(newFile);
     }
 
     public double getSize(File file, SizeUnit unit) {
@@ -261,30 +260,35 @@ public class Storage {
         return usedBytes / sizeUnit.inBytes();
     }
 
-    public void copy(File file, String path) {
+    public boolean copy(String fromPath, String toPath) {
+        File file = getFile(fromPath);
         if (!file.isFile()) {
-            return;
+            return false;
         }
 
         FileInputStream inStream = null;
         FileOutputStream outStream = null;
         try {
             inStream = new FileInputStream(file);
-            outStream = new FileOutputStream(new File(path));
+            outStream = new FileOutputStream(new File(toPath));
             FileChannel inChannel = inStream.getChannel();
             FileChannel outChannel = outStream.getChannel();
             inChannel.transferTo(0, inChannel.size(), outChannel);
         } catch (Exception e) {
             Log.e(TAG, "Failed copy", e);
+            return false;
         } finally {
             closeQuietly(inStream);
             closeQuietly(outStream);
         }
+        return true;
     }
 
-    public void move(File file, String path) {
-        copy(file, path);
-        file.delete();
+    public boolean move(String fromPath, String toPath) {
+        if (copy(fromPath, toPath)) {
+            return getFile(fromPath).delete();
+        }
+        return false;
     }
 
     protected byte[] readFile(final FileInputStream stream) {
