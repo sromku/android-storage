@@ -1,5 +1,6 @@
 package com.snatik.storage.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -82,6 +83,11 @@ public class MainActivity extends AppCompatActivity implements
             mTreeSteps++;
             String path = file.getAbsolutePath();
             showFiles(path);
+        } else {
+            Intent intent = new Intent(this, ViewTextActivity.class);
+            intent.putExtra(ViewTextActivity.EXTRA_FILE_NAME, file.getName());
+            intent.putExtra(ViewTextActivity.EXTRA_FILE_PATH, file.getAbsolutePath());
+            startActivity(intent);
         }
     }
 
