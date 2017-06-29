@@ -4,7 +4,7 @@ package com.snatik.storage.security;
  * Supported types:
  * http://docs.oracle.com/javase/7/docs/api/javax/crypto/Cipher.html<br>
  * <br>
- * 
+ *
  * Every implementation of the Java platform is required to support the
  * following standard Cipher transformations with the keysizes in parentheses:
  * <ul>
@@ -24,9 +24,9 @@ package com.snatik.storage.security;
  * <li>RSA/ECB/OAEPWithSHA-1AndMGF1Padding (1024, 2048)</li>
  * <li>RSA/ECB/OAEPWithSHA-256AndMGF1Padding (1024, 2048)</li>
  * </ul>
- * 
+ *
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
- * 
+ *
  */
 public class CipherTransformationType {
 	private static final String _ = "/";
