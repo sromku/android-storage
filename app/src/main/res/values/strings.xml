@@ -10,4 +10,7 @@
     <string name="label_decrypt">Decrypt</string>
     <string name="label_cancel">Cancel</string>
     <string name="label_delete">Delete</string>
+    <string name="new_name">New name</string>
+    <string name="current_name">Current name</string>
+    <string name="rename">Rename</string>
 </resources>

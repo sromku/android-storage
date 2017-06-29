@@ -15,6 +15,7 @@ import com.snatik.storage.app.dialogs.AddItemsDialog;
 import com.snatik.storage.app.dialogs.ConfirmDeleteDialog;
 import com.snatik.storage.app.dialogs.NewFolderDialog;
 import com.snatik.storage.app.dialogs.NewTextFileDialog;
+import com.snatik.storage.app.dialogs.RenameDialog;
 import com.snatik.storage.app.dialogs.UpdateItemDialog;
 import com.snatik.storage.helpers.OrderType;
 
@@ -28,7 +29,8 @@ public class MainActivity extends AppCompatActivity implements
         UpdateItemDialog.DialogListener,
         NewFolderDialog.DialogListener,
         NewTextFileDialog.DialogListener,
-        ConfirmDeleteDialog.ConfirmListener {
+        ConfirmDeleteDialog.ConfirmListener,
+        RenameDialog.DialogListener {
 
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
@@ -123,16 +125,16 @@ public class MainActivity extends AppCompatActivity implements
     public void onOptionClick(int which, String path) {
         switch (which) {
             case R.id.new_file:
-                NewTextFileDialog.newInstance().show(getFragmentManager(), "new_file");
+                NewTextFileDialog.newInstance().show(getFragmentManager(), "new_file_dialog");
                 break;
             case R.id.new_folder:
-                NewFolderDialog.newInstance().show(getFragmentManager(), "new_folder");
+                NewFolderDialog.newInstance().show(getFragmentManager(), "new_folder_dialog");
                 break;
             case R.id.delete:
                 ConfirmDeleteDialog.newInstance(path).show(getFragmentManager(), "confirm_delete");
                 break;
             case R.id.rename:
-                UIHelper.showSnackbar("Rename", mRecyclerView);
+                RenameDialog.newInstance(path).show(getFragmentManager(), "rename");
                 break;
             case R.id.move:
                 UIHelper.showSnackbar("Move", mRecyclerView);
@@ -176,5 +178,12 @@ public class MainActivity extends AppCompatActivity implements
             UIHelper.showSnackbar("File was deleted", mRecyclerView);
         }
         showFiles(getCurrentPath());
+    }
+
+    @Override
+    public void onRename(String fromPath, String toPath) {
+        mStorage.rename(fromPath, toPath);
+        showFiles(getCurrentPath());
+        UIHelper.showSnackbar("Renamed", mRecyclerView);
     }
 }

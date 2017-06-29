@@ -13,34 +13,51 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 
+import com.snatik.storage.Storage;
 import com.snatik.storage.app.R;
+
+import java.io.File;
 
 /**
  * Created by sromku on June, 2017.
  */
-public class NewFolderDialog extends DialogFragment {
+public class RenameDialog extends DialogFragment {
 
-    private NewFolderDialog.DialogListener mListener;
+    private final static String PATH = "path";
+    private DialogListener mListener;
+    private Storage mStorage;
 
-    public static NewFolderDialog newInstance() {
-        NewFolderDialog fragment = new NewFolderDialog();
+    public static RenameDialog newInstance(String path) {
+        RenameDialog fragment = new RenameDialog();
+        Bundle args = new Bundle();
+        args.putString(PATH, path);
+        fragment.setArguments(args);
         return fragment;
     }
 
-    public NewFolderDialog() {
+    public RenameDialog() {
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
 
+        mStorage = new Storage(getActivity());
+
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
         final View view = LayoutInflater.from(getActivity())
-                .inflate(R.layout.new_folder_dialog, (ViewGroup) getView(), false);
+                .inflate(R.layout.rename_dialog, (ViewGroup) getView(), false);
 
         // if text is empty, disable the dialog positive button
-        final EditText editText = (EditText) view.findViewById(R.id.name);
-        editText.addTextChangedListener(new TextWatcher() {
+        final EditText currentNameText = (EditText) view.findViewById(R.id.current_name);
+        String path = getArguments().getString(PATH);
+
+        final File file = mStorage.getFile(path);
+        currentNameText.setText(file.getName());
+        final String parent = file.getParent();
+
+        final EditText newNameText = (EditText) view.findViewById(R.id.new_name);
+        newNameText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
             }
@@ -56,12 +73,14 @@ public class NewFolderDialog extends DialogFragment {
             }
         });
 
-        builder.setTitle(R.string.new_folder);
+        builder.setTitle(R.string.rename);
         builder.setView(view);
         builder.setPositiveButton(R.string.label_save, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                mListener.onNewFolder(editText.getText().toString());
+                String newName = newNameText.getText().toString();
+                String toPath = parent == null ? newName : parent + File.separator + newName;
+                mListener.onRename(file.getPath(), toPath);
             }
         });
 
@@ -77,7 +96,7 @@ public class NewFolderDialog extends DialogFragment {
     }
 
     public interface DialogListener {
-        void onNewFolder(String name);
+        void onRename(String fromPath, String toPath);
     }
 
     @Override

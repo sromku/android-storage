@@ -37,7 +37,7 @@ public class NewTextFileDialog extends DialogFragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 
         final View view = LayoutInflater.from(getActivity())
-                .inflate(R.layout.new_file, (ViewGroup) getView(), false);
+                .inflate(R.layout.new_file_dialog, (ViewGroup) getView(), false);
 
         // if text is empty, disable the dialog positive button
         final EditText nameEditText = (EditText) view.findViewById(R.id.name);

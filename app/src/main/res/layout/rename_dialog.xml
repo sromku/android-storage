@@ -11,34 +11,28 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/label_name"
-        android:textColor="@color/colorPrimary"
+        android:text="@string/current_name"
+        android:textColor="@color/colorAccent"
         android:textSize="14sp"/>
 
     <EditText
-        android:id="@+id/name"
+        android:id="@+id/current_name"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:enabled="false"/>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/label_content"
+        android:text="@string/new_name"
         android:textColor="@color/colorPrimary"
         android:textSize="14sp"/>
 
     <EditText
-        android:id="@+id/content"
+        android:id="@+id/new_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:lines="3"/>
-
-    <CheckBox
-        android:id="@+id/checkbox"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/encrypt_the_content"/>
+        android:maxLines="1"/>
 
 </LinearLayout>
