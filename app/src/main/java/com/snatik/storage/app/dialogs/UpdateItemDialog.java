@@ -1,4 +1,4 @@
-package com.snatik.storage.app;
+package com.snatik.storage.app.dialogs;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -9,6 +9,8 @@ import android.support.design.widget.BottomSheetDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import com.snatik.storage.app.R;
 
 public class UpdateItemDialog extends DialogFragment {
 

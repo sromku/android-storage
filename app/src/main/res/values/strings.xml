@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">Files Manager</string>
     <string name="title_activity_main">MainActivity</string>
+    <string name="new_folder">New Folder</string>
+    <string name="label_save">Save</string>
 </resources>

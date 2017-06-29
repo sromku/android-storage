@@ -9,6 +9,9 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.snatik.storage.Storage;
+import com.snatik.storage.app.dialogs.AddItemsDialog;
+import com.snatik.storage.app.dialogs.NewFolderDialog;
+import com.snatik.storage.app.dialogs.UpdateItemDialog;
 import com.snatik.storage.helpers.OrderType;
 
 import java.io.File;
@@ -18,14 +21,14 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity implements
         FilesAdapter.OnFileItemListener,
         AddItemsDialog.DialogListener,
-        UpdateItemDialog.DialogListener {
+        UpdateItemDialog.DialogListener,
+        NewFolderDialog.DialogListener {
 
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
     private Storage mStorage;
     private TextView mPathView;
     private int mTreeSteps = 0;
-    private String mLastPath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,13 +88,21 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onBackPressed() {
         if (mTreeSteps > 0) {
-            String path = mPathView.getText().toString();
-            path = path.substring(0, path.lastIndexOf(File.separator));
+            String path = getPreviousPath();
             mTreeSteps--;
             showFiles(path);
             return;
         }
         super.onBackPressed();
+    }
+
+    private String getCurrentPath() {
+        return mPathView.getText().toString();
+    }
+
+    private String getPreviousPath() {
+        String path = getCurrentPath();
+        return path.substring(0, path.lastIndexOf(File.separator));
     }
 
     @Override
@@ -101,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements
                 UIHelper.showSnackbar("New file", mRecyclerView);
                 break;
             case R.id.new_folder:
-                UIHelper.showSnackbar("New folder", mRecyclerView);
+                NewFolderDialog.newInstance().show(getFragmentManager(), "new_folder");
                 break;
             case R.id.delete:
                 UIHelper.showSnackbar("Delete", mRecyclerView);
@@ -116,5 +127,14 @@ public class MainActivity extends AppCompatActivity implements
                 UIHelper.showSnackbar("Copy", mRecyclerView);
                 break;
         }
+    }
+
+    @Override
+    public void onNewFolder(String name) {
+        UIHelper.showSnackbar("New folder: " + name, mRecyclerView);
+        String currentPath = getCurrentPath();
+        String folderPath = currentPath + File.separator + name;
+        mStorage.createDirectory(folderPath);
+        showFiles(currentPath);
     }
 }
