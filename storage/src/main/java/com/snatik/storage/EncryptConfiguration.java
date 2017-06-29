@@ -47,7 +47,7 @@ import javax.crypto.spec.PBEKeySpec;
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  * 
  */
-public class StorageConfiguration {
+public class EncryptConfiguration {
 
 	/**
 	 * The best chunk size: <i>http://stackoverflow.com/a/237495/334522</i>
@@ -57,7 +57,7 @@ public class StorageConfiguration {
 	private byte[] mIvParameter;
 	private byte[] mSecretKey;
 
-	private StorageConfiguration(Builder builder) {
+	private EncryptConfiguration(Builder builder) {
 		mChunkSize = builder._chunkSize;
 		mIsEncrypted = builder._isEncrypted;
 		mIvParameter = builder._ivParameter;
@@ -125,8 +125,8 @@ public class StorageConfiguration {
 		 * 
 		 * @return
 		 */
-		public StorageConfiguration build() {
-			return new StorageConfiguration(this);
+		public EncryptConfiguration build() {
+			return new EncryptConfiguration(this);
 		}
 
 		/**

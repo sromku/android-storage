@@ -38,14 +38,14 @@ public class Storage {
     private static final String TAG = "Storage";
 
     private final Context mContext;
-    private StorageConfiguration mConfiguration;
+    private EncryptConfiguration mConfiguration;
     private String mPublicDirectory;
 
     public Storage(Context context) {
         mContext = context;
     }
 
-    public void setConfiguration(StorageConfiguration configuration) {
+    public void setEncryptConfiguration(EncryptConfiguration configuration) {
         mConfiguration = configuration;
     }
 
