@@ -12,6 +12,7 @@ import android.widget.TextView;
 import com.snatik.storage.EncryptConfiguration;
 import com.snatik.storage.Storage;
 import com.snatik.storage.app.dialogs.AddItemsDialog;
+import com.snatik.storage.app.dialogs.ConfirmDeleteDialog;
 import com.snatik.storage.app.dialogs.NewFolderDialog;
 import com.snatik.storage.app.dialogs.NewTextFileDialog;
 import com.snatik.storage.app.dialogs.UpdateItemDialog;
@@ -26,7 +27,8 @@ public class MainActivity extends AppCompatActivity implements
         AddItemsDialog.DialogListener,
         UpdateItemDialog.DialogListener,
         NewFolderDialog.DialogListener,
-        NewTextFileDialog.DialogListener {
+        NewTextFileDialog.DialogListener,
+        ConfirmDeleteDialog.ConfirmListener {
 
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
@@ -94,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onLongClick(File file) {
-        UpdateItemDialog.newInstance().show(getFragmentManager(), "update_item");
+        UpdateItemDialog.newInstance(file.getAbsolutePath()).show(getFragmentManager(), "update_item");
     }
 
     @Override
@@ -118,7 +120,7 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onListOptionClick(int which) {
+    public void onOptionClick(int which, String path) {
         switch (which) {
             case R.id.new_file:
                 NewTextFileDialog.newInstance().show(getFragmentManager(), "new_file");
@@ -127,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements
                 NewFolderDialog.newInstance().show(getFragmentManager(), "new_folder");
                 break;
             case R.id.delete:
-                UIHelper.showSnackbar("Delete", mRecyclerView);
+                ConfirmDeleteDialog.newInstance(path).show(getFragmentManager(), "confirm_delete");
                 break;
             case R.id.rename:
                 UIHelper.showSnackbar("Rename", mRecyclerView);
@@ -162,5 +164,17 @@ public class MainActivity extends AppCompatActivity implements
         mStorage.createFile(folderPath, content);
         showFiles(currentPath);
         UIHelper.showSnackbar("New file created: " + name, mRecyclerView);
+    }
+
+    @Override
+    public void onConfirmDelete(String path) {
+        if (mStorage.getFile(path).isDirectory()) {
+            mStorage.deleteDirectory(path);
+            UIHelper.showSnackbar("Folder was deleted", mRecyclerView);
+        } else {
+            mStorage.deleteFile(path);
+            UIHelper.showSnackbar("File was deleted", mRecyclerView);
+        }
+        showFiles(getCurrentPath());
     }
 }

@@ -14,10 +14,14 @@ import com.snatik.storage.app.R;
 
 public class UpdateItemDialog extends DialogFragment {
 
+    private final static String PATH = "path";
     private DialogListener mListener;
 
-    public static UpdateItemDialog newInstance() {
+    public static UpdateItemDialog newInstance(String path) {
         UpdateItemDialog fragment = new UpdateItemDialog();
+        Bundle args = new Bundle();
+        args.putString(PATH, path);
+        fragment.setArguments(args);
         return fragment;
     }
 
@@ -28,7 +32,7 @@ public class UpdateItemDialog extends DialogFragment {
     public Dialog onCreateDialog(Bundle savedInstanceState) {
 
         final Dialog dialog = new BottomSheetDialog(getActivity(), getTheme());
-
+        final String path = getArguments().getString(PATH);
         View view = LayoutInflater.from(getActivity()).inflate(R.layout.update_item_dialog, null);
         dialog.setContentView(view);
         dialog.setCancelable(true);
@@ -37,7 +41,7 @@ public class UpdateItemDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.rename);
+                mListener.onOptionClick(R.id.rename, path);
             }
         });
 
@@ -45,7 +49,7 @@ public class UpdateItemDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.delete);
+                mListener.onOptionClick(R.id.delete, path);
             }
         });
 
@@ -53,7 +57,7 @@ public class UpdateItemDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.move);
+                mListener.onOptionClick(R.id.move, path);
             }
         });
 
@@ -61,7 +65,7 @@ public class UpdateItemDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.copy);
+                mListener.onOptionClick(R.id.copy, path);
             }
         });
 
@@ -80,7 +84,7 @@ public class UpdateItemDialog extends DialogFragment {
     }
 
     public interface DialogListener {
-        void onListOptionClick(int which);
+        void onOptionClick(int which, String path);
     }
 
     @Override

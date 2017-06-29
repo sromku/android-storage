@@ -8,4 +8,6 @@
     <string name="label_content">Content</string>
     <string name="label_name">Name</string>
     <string name="label_decrypt">Decrypt</string>
+    <string name="label_cancel">Cancel</string>
+    <string name="label_delete">Delete</string>
 </resources>

@@ -37,7 +37,7 @@ public class AddItemsDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.new_folder);
+                mListener.onOptionClick(R.id.new_folder, null);
             }
         });
 
@@ -45,7 +45,7 @@ public class AddItemsDialog extends DialogFragment {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
-                mListener.onListOptionClick(R.id.new_file);
+                mListener.onOptionClick(R.id.new_file, null);
             }
         });
 
@@ -64,7 +64,7 @@ public class AddItemsDialog extends DialogFragment {
     }
 
     public interface DialogListener {
-        void onListOptionClick(int which);
+        void onOptionClick(int which, String path);
     }
 
     @Override
