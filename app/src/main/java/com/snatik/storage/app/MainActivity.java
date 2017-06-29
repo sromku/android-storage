@@ -36,10 +36,12 @@ public class MainActivity extends AppCompatActivity implements
     private FilesAdapter mFilesAdapter;
     private Storage mStorage;
     private TextView mPathView;
+    private View mMovingLayout;
     private int mTreeSteps = 0;
     private final static String IVX = "abcdefghijklmnop";
     private final static String SECRET_KEY = "secret1234567890";
     private final static byte[] SALT = "0000111100001111".getBytes();
+    private String mMovingPath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +55,33 @@ public class MainActivity extends AppCompatActivity implements
 
         mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
         mPathView = (TextView) findViewById(R.id.path);
+        mMovingLayout = findViewById(R.id.moving_layout);
+
+        mMovingLayout.findViewById(R.id.accept_move).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mMovingLayout.setVisibility(View.GONE);
+                if (mMovingPath != null) {
+                    String toPath = getCurrentPath() + File.separator + mStorage.getFile(mMovingPath).getName();
+                    if (!mMovingPath.equals(toPath)) {
+                        mStorage.move(mMovingPath, toPath);
+                        UIHelper.showSnackbar("Moved", mRecyclerView);
+                        showFiles(getCurrentPath());
+                    } else {
+                        UIHelper.showSnackbar("The file is already here", mRecyclerView);
+                    }
+                    mMovingPath = null;
+                }
+            }
+        });
+
+        mMovingLayout.findViewById(R.id.decline_move).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mMovingLayout.setVisibility(View.GONE);
+                mMovingPath = null;
+            }
+        });
 
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(layoutManager);
@@ -137,7 +166,8 @@ public class MainActivity extends AppCompatActivity implements
                 RenameDialog.newInstance(path).show(getFragmentManager(), "rename");
                 break;
             case R.id.move:
-                UIHelper.showSnackbar("Move", mRecyclerView);
+                mMovingPath = path;
+                mMovingLayout.setVisibility(View.VISIBLE);
                 break;
             case R.id.copy:
                 UIHelper.showSnackbar("Copy", mRecyclerView);

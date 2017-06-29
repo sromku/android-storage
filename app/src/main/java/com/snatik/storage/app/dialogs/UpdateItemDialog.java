@@ -9,7 +9,9 @@ import android.support.design.widget.BottomSheetDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
+import com.snatik.storage.Storage;
 import com.snatik.storage.app.R;
 
 public class UpdateItemDialog extends DialogFragment {
@@ -33,11 +35,21 @@ public class UpdateItemDialog extends DialogFragment {
 
         final Dialog dialog = new BottomSheetDialog(getActivity(), getTheme());
         final String path = getArguments().getString(PATH);
+        boolean isDirectory = new Storage(getActivity()).getFile(path).isDirectory();
         View view = LayoutInflater.from(getActivity()).inflate(R.layout.update_item_dialog, null);
         dialog.setContentView(view);
         dialog.setCancelable(true);
 
-        view.findViewById(R.id.rename).setOnClickListener(new View.OnClickListener() {
+        // title
+        TextView title = (TextView) view.findViewById(R.id.title);
+        title.setText(isDirectory ? getString(R.string.folder_options) : getString(R.string.file_options));
+
+        View rename = view.findViewById(R.id.rename);
+        View delete = view.findViewById(R.id.delete);
+        View move = view.findViewById(R.id.move);
+        View copy = view.findViewById(R.id.copy);
+
+        rename.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
@@ -45,7 +57,7 @@ public class UpdateItemDialog extends DialogFragment {
             }
         });
 
-        view.findViewById(R.id.delete).setOnClickListener(new View.OnClickListener() {
+        delete.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 dialog.dismiss();
@@ -53,21 +65,26 @@ public class UpdateItemDialog extends DialogFragment {
             }
         });
 
-        view.findViewById(R.id.move).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                dialog.dismiss();
-                mListener.onOptionClick(R.id.move, path);
-            }
-        });
+        if (!isDirectory) {
+            move.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    dialog.dismiss();
+                    mListener.onOptionClick(R.id.move, path);
+                }
+            });
 
-        view.findViewById(R.id.copy).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                dialog.dismiss();
-                mListener.onOptionClick(R.id.copy, path);
-            }
-        });
+            copy.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    dialog.dismiss();
+                    mListener.onOptionClick(R.id.copy, path);
+                }
+            });
+        } else {
+            move.setVisibility(View.GONE);
+            copy.setVisibility(View.GONE);
+        }
 
         // control dialog width on different devices
         dialog.setOnShowListener(new DialogInterface.OnShowListener() {
