@@ -22,6 +22,7 @@ import com.snatik.storage.app.dialogs.NewTextFileDialog;
 import com.snatik.storage.app.dialogs.RenameDialog;
 import com.snatik.storage.app.dialogs.UpdateItemDialog;
 import com.snatik.storage.helpers.OrderType;
+import com.snatik.storage.helpers.SizeUnit;
 
 import java.io.File;
 import java.util.Collections;
@@ -179,6 +180,10 @@ public class MainActivity extends AppCompatActivity implements
             String path = file.getAbsolutePath();
             showFiles(path);
         } else {
+            if (mStorage.getSize(file, SizeUnit.KB) > 500) {
+                UIHelper.showSnackbar("The file is too big for preview", mRecyclerView);
+                return;
+            }
             Intent intent = new Intent(this, ViewTextActivity.class);
             intent.putExtra(ViewTextActivity.EXTRA_FILE_NAME, file.getName());
             intent.putExtra(ViewTextActivity.EXTRA_FILE_PATH, file.getAbsolutePath());
