@@ -56,6 +56,10 @@ public class Storage {
         return Environment.getExternalStoragePublicDirectory(publicDirectory).getAbsolutePath();
     }
 
+    public String getInternalRootDirectory() {
+        return Environment.getRootDirectory().getAbsolutePath();
+    }
+
     public String getInternalFilesDirectory() {
         return mContext.getFilesDir().getAbsolutePath();
     }
@@ -221,6 +225,11 @@ public class Storage {
     public double getSize(File file, SizeUnit unit) {
         long length = file.length();
         return (double) length / (double) unit.inBytes();
+    }
+
+    public String getReadableSize(File file) {
+        long length = file.length();
+        return SizeUnit.readableSizeUnit(length);
     }
 
     public long getFreeSpace(String dir, SizeUnit sizeUnit) {
