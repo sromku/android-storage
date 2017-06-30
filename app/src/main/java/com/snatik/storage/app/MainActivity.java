@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements
 
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(layoutManager);
-        mFilesAdapter = new FilesAdapter();
+        mFilesAdapter = new FilesAdapter(getApplicationContext());
         mFilesAdapter.setListener(this);
         mRecyclerView.setAdapter(mFilesAdapter);
 
@@ -282,7 +282,7 @@ public class MainActivity extends AppCompatActivity implements
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.switch_type:
-                String path = mStorage.getInternalFilesDirectory();
+                String path = mStorage.getInternalRootDirectory();
                 showFiles(path);
                 break;
         }
