@@ -6,6 +6,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
@@ -76,7 +79,8 @@ public class MainActivity extends AppCompatActivity implements
                             UIHelper.showSnackbar("The file is already here", mRecyclerView);
                         }
                     } else {
-                        String toPath = getCurrentPath() + File.separator + "copy " + mStorage.getFile(mMovingPath).getName();
+                        String toPath = getCurrentPath() + File.separator + "copy " + mStorage.getFile(mMovingPath)
+                                .getName();
                         mStorage.copy(mMovingPath, toPath);
                         UIHelper.showSnackbar("Copied", mRecyclerView);
                         showFiles(getCurrentPath());
@@ -108,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements
         });
 
         // load files
-        showFiles(mStorage.getRoot(Storage.StorageType.EXTERNAL));
+        showFiles(mStorage.getExternalStorageDirectory());
     }
 
     private void showFiles(String path) {
@@ -195,9 +199,13 @@ public class MainActivity extends AppCompatActivity implements
     public void onNewFolder(String name) {
         String currentPath = getCurrentPath();
         String folderPath = currentPath + File.separator + name;
-        mStorage.createDirectory(folderPath);
-        showFiles(currentPath);
-        UIHelper.showSnackbar("New folder created: " + name, mRecyclerView);
+        boolean created = mStorage.createDirectory(folderPath);
+        if (created) {
+            showFiles(currentPath);
+            UIHelper.showSnackbar("New folder created: " + name, mRecyclerView);
+        } else {
+            UIHelper.showSnackbar("Failed create folder: " + name, mRecyclerView);
+        }
     }
 
     @Override
@@ -231,5 +239,24 @@ public class MainActivity extends AppCompatActivity implements
         mStorage.rename(fromPath, toPath);
         showFiles(getCurrentPath());
         UIHelper.showSnackbar("Renamed", mRecyclerView);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.switch_type:
+                String path = mStorage.getInternalFilesDirectory();
+                showFiles(path);
+                break;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 }
