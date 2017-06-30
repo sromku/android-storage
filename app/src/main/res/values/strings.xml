@@ -19,4 +19,7 @@
     <string name="file_options">File options</string>
     <string name="moving_file">Moving: %1$s</string>
     <string name="copy_file">Copying: %1$s</string>
+    <string name="switch_to_internal">Switch to internal</string>
+    <string name="order_by">Order by ...</string>
+    <string name="filter">Filter</string>
 </resources>

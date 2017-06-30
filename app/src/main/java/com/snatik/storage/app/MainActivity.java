@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements
     private final static String SECRET_KEY = "secret1234567890";
     private final static byte[] SALT = "0000111100001111".getBytes();
     private String mMovingPath;
+    private boolean mInternal = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,6 +128,10 @@ public class MainActivity extends AppCompatActivity implements
         PopupMenu popupmenu = new PopupMenu(this, mPathView);
         MenuInflater inflater = popupmenu.getMenuInflater();
         inflater.inflate(R.menu.path_menu, popupmenu.getMenu());
+
+        popupmenu.getMenu().findItem(R.id.go_internal).setVisible(!mInternal);
+        popupmenu.getMenu().findItem(R.id.go_external).setVisible(mInternal);
+
         popupmenu.show();
 
         popupmenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
@@ -138,6 +143,17 @@ public class MainActivity extends AppCompatActivity implements
                         String previousPath = getPreviousPath();
                         mTreeSteps = 0;
                         showFiles(previousPath);
+                        break;
+                    case R.id.go_internal:
+                        showFiles(mStorage.getInternalFilesDirectory());
+                        mInternal = true;
+                        break;
+                    case R.id.go_external:
+                        showFiles(mStorage.getExternalStorageDirectory());
+                        mInternal = false;
+                        break;
+                    case R.id.go_public:
+                        // TODO
                         break;
                 }
                 return true;
@@ -192,7 +208,12 @@ public class MainActivity extends AppCompatActivity implements
 
     private String getPreviousPath() {
         String path = getCurrentPath();
-        return path.substring(0, path.lastIndexOf(File.separator));
+        int lastIndexOf = path.lastIndexOf(File.separator);
+        if (lastIndexOf < 0) {
+            UIHelper.showSnackbar("Can't go anymore", mRecyclerView);
+            return getCurrentPath();
+        }
+        return path.substring(0, lastIndexOf);
     }
 
     @Override
@@ -281,9 +302,11 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.switch_type:
-                String path = mStorage.getInternalRootDirectory();
-                showFiles(path);
+            case R.id.order:
+                // TODO
+                break;
+            case R.id.filter:
+                // TODO
                 break;
         }
 
