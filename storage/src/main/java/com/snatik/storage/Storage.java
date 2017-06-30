@@ -39,7 +39,6 @@ public class Storage {
 
     private final Context mContext;
     private EncryptConfiguration mConfiguration;
-    private String mPublicDirectory;
 
     public Storage(Context context) {
         mContext = context;
@@ -49,23 +48,20 @@ public class Storage {
         mConfiguration = configuration;
     }
 
-    public String getRoot(StorageType storageType) {
-        switch (storageType) {
-            case INTERNAL:
-                return Environment.getRootDirectory().getAbsolutePath();
-            case EXTERNAL:
-                if (mPublicDirectory != null) {
-                    return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
-                } else {
-                    return Environment.getExternalStorageDirectory().getAbsolutePath();
-                }
-        }
-        return null;
+    public String getExternalStorageDirectory() {
+        return Environment.getExternalStorageDirectory().getAbsolutePath();
     }
 
-    public enum StorageType {
-        INTERNAL,
-        EXTERNAL
+    public String getExternalStorageDirectory(String publicDirectory) {
+        return Environment.getExternalStoragePublicDirectory(publicDirectory).getAbsolutePath();
+    }
+
+    public String getInternalFilesDirectory() {
+        return mContext.getFilesDir().getAbsolutePath();
+    }
+
+    public String getInternalCacheDirectory() {
+        return mContext.getCacheDir().getAbsolutePath();
     }
 
     public static boolean isExternalWritable() {
@@ -354,49 +350,6 @@ public class Storage {
             return reader.array;
         }
     }
-
-    public void setPublicDirectory(String publicDirectory) {
-        mPublicDirectory = publicDirectory;
-    }
-
-//    protected String buildAbsolutePath() {
-//        switch (mStorageType) {
-//            case INTERNAL:
-//                return Environment.getRootDirectory().getAbsolutePath();
-//            case EXTERNAL:
-//                if (mPublicDirectory != null) {
-//                    return Environment.getExternalStoragePublicDirectory(mPublicDirectory).getAbsolutePath();
-//                } else {
-//                    return Environment.getExternalStorageDirectory().getAbsolutePath();
-//                }
-//        }
-//        return null;
-//    }
-
-//    protected String buildPath(String name) {
-//        switch (mStorageType) {
-//            case INTERNAL:
-//                return mContext.getDir(name, Context.MODE_PRIVATE).getAbsolutePath();
-//            case EXTERNAL:
-//                String path = buildAbsolutePath();
-//                if (!TextUtils.isEmpty(name)) {
-//                    path = path + File.separator + name;
-//                }
-//                return path;
-//        }
-//        return null;
-//    }
-
-//    protected String buildPath(String directoryName, String fileName) {
-//        switch (mStorageType) {
-//            case INTERNAL:
-//                String path = mContext.getDir(directoryName, Context.MODE_PRIVATE).getAbsolutePath();
-//                return path + File.separator + fileName;
-//            case EXTERNAL:
-//                return buildAbsolutePath() + File.separator + directoryName + File.separator + fileName;
-//        }
-//        return null;
-//    }
 
     /**
      * Encrypt or Descrypt the content. <br>
