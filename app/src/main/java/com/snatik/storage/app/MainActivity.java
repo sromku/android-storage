@@ -10,6 +10,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import com.snatik.storage.EncryptConfiguration;
@@ -111,8 +112,37 @@ public class MainActivity extends AppCompatActivity implements
             }
         });
 
+        mPathView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showPathMenu();
+            }
+        });
+
         // load files
         showFiles(mStorage.getExternalStorageDirectory());
+    }
+
+    private void showPathMenu() {
+        PopupMenu popupmenu = new PopupMenu(this, mPathView);
+        MenuInflater inflater = popupmenu.getMenuInflater();
+        inflater.inflate(R.menu.path_menu, popupmenu.getMenu());
+        popupmenu.show();
+
+        popupmenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                switch (item.getItemId()) {
+                    case R.id.go_up:
+                        String previousPath = getPreviousPath();
+                        mTreeSteps = 0;
+                        showFiles(previousPath);
+                        break;
+                }
+                return true;
+            }
+        });
     }
 
     private void showFiles(String path) {
