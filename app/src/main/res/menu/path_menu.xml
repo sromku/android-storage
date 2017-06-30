@@ -17,9 +17,9 @@
         android:title="Go to External"
         android:visible="false"/>
 
-    <item
-        android:id="@+id/go_public"
-        android:orderInCategory="4"
-        android:title="Public Directories ..."/>
+    <!--<item-->
+        <!--android:id="@+id/go_public"-->
+        <!--android:orderInCategory="4"-->
+        <!--android:title="Public Directories ..."/>-->
 
 </menu>

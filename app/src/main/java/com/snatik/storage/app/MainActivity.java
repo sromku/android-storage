@@ -1,12 +1,16 @@
 package com.snatik.storage.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
-import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -37,6 +41,7 @@ public class MainActivity extends AppCompatActivity implements
         ConfirmDeleteDialog.ConfirmListener,
         RenameDialog.DialogListener {
 
+    private static final int PERMISSION_REQUEST_CODE = 1000;
     private RecyclerView mRecyclerView;
     private FilesAdapter mFilesAdapter;
     private Storage mStorage;
@@ -123,6 +128,8 @@ public class MainActivity extends AppCompatActivity implements
 
         // load files
         showFiles(mStorage.getExternalStorageDirectory());
+
+        checkPermission();
     }
 
     private void showPathMenu() {
@@ -152,9 +159,6 @@ public class MainActivity extends AppCompatActivity implements
                     case R.id.go_external:
                         showFiles(mStorage.getExternalStorageDirectory());
                         mInternal = false;
-                        break;
-                    case R.id.go_public:
-                        // TODO
                         break;
                 }
                 return true;
@@ -297,24 +301,41 @@ public class MainActivity extends AppCompatActivity implements
         UIHelper.showSnackbar("Renamed", mRecyclerView);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.main_menu, menu);
-        return true;
+//    @Override
+//    public boolean onCreateOptionsMenu(Menu menu) {
+//        MenuInflater inflater = getMenuInflater();
+//        inflater.inflate(R.menu.main_menu, menu);
+//        return true;
+//    }
+//
+//    @Override
+//    public boolean onOptionsItemSelected(MenuItem item) {
+//        switch (item.getItemId()) {
+//            case R.id.order:
+//                break;
+//            case R.id.filter:
+//                break;
+//        }
+//
+//        return super.onOptionsItemSelected(item);
+//    }
+
+    private void checkPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    PERMISSION_REQUEST_CODE);
+        }
     }
 
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.order:
-                // TODO
-                break;
-            case R.id.filter:
-                // TODO
-                break;
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[]
+            grantResults) {
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            showFiles(mStorage.getExternalStorageDirectory());
+        } else {
+            finish();
         }
-
-        return super.onOptionsItemSelected(item);
     }
 }
