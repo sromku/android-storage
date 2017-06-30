@@ -31,7 +31,7 @@ ext {
     siteUrl = 'https://github.com/snatik/android-storage'
     gitUrl = 'https://github.com/snatik/android-storage.git'
 
-    libraryVersion = '2.0.2'
+    libraryVersion = '2.1.0'
 
     developerId = 'sromku'
     developerName = 'Roman Kushnarenko'
