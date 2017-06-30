@@ -283,8 +283,8 @@ public class Storage {
             Log.e(TAG, "Failed copy", e);
             return false;
         } finally {
-            closeQuietly(inStream);
-            closeQuietly(outStream);
+            closeSilently(inStream);
+            closeSilently(outStream);
         }
         return true;
     }
@@ -427,7 +427,7 @@ public class Storage {
         }
     }
 
-    private void closeQuietly(Closeable closeable) {
+    private void closeSilently(Closeable closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
