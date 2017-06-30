@@ -193,7 +193,7 @@ public class Storage {
 
     public List<File> getFiles(String dir, final String matchRegex) {
         File file = new File(dir);
-        List<File> out;
+        File[] files = null;
         if (matchRegex != null) {
             FilenameFilter filter = new FilenameFilter() {
                 @Override
@@ -201,11 +201,11 @@ public class Storage {
                     return fileName.matches(matchRegex);
                 }
             };
-            out = Arrays.asList(file.listFiles(filter));
+            files = file.listFiles(filter);
         } else {
-            out = Arrays.asList(file.listFiles());
+            files = file.listFiles();
         }
-        return out;
+        return files != null ? Arrays.asList(files) : null;
     }
 
     public File getFile(String path) {
