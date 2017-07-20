@@ -74,7 +74,7 @@ public class ViewTextActivity extends AppCompatActivity {
                 if (bytes != null) {
                     mContentView.setText(new String(bytes));
                 } else {
-                    UIHelper.showSnackbar("Failed to decrypt", mContentView);
+                    Helper.showSnackbar("Failed to decrypt", mContentView);
                 }
                 break;
         }

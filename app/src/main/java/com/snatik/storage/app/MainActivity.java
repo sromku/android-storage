@@ -1,12 +1,15 @@
 package com.snatik.storage.app;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -14,6 +17,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
@@ -31,6 +35,8 @@ import com.snatik.storage.helpers.SizeUnit;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+
+import static com.snatik.storage.app.Helper.fileExt;
 
 public class MainActivity extends AppCompatActivity implements
         FilesAdapter.OnFileItemListener,
@@ -81,16 +87,16 @@ public class MainActivity extends AppCompatActivity implements
                         String toPath = getCurrentPath() + File.separator + mStorage.getFile(mMovingPath).getName();
                         if (!mMovingPath.equals(toPath)) {
                             mStorage.move(mMovingPath, toPath);
-                            UIHelper.showSnackbar("Moved", mRecyclerView);
+                            Helper.showSnackbar("Moved", mRecyclerView);
                             showFiles(getCurrentPath());
                         } else {
-                            UIHelper.showSnackbar("The file is already here", mRecyclerView);
+                            Helper.showSnackbar("The file is already here", mRecyclerView);
                         }
                     } else {
                         String toPath = getCurrentPath() + File.separator + "copy " + mStorage.getFile(mMovingPath)
                                 .getName();
                         mStorage.copy(mMovingPath, toPath);
-                        UIHelper.showSnackbar("Copied", mRecyclerView);
+                        Helper.showSnackbar("Copied", mRecyclerView);
                         showFiles(getCurrentPath());
                     }
                     mMovingPath = null;
@@ -184,14 +190,28 @@ public class MainActivity extends AppCompatActivity implements
             String path = file.getAbsolutePath();
             showFiles(path);
         } else {
-            if (mStorage.getSize(file, SizeUnit.KB) > 500) {
-                UIHelper.showSnackbar("The file is too big for preview", mRecyclerView);
-                return;
+
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                String mimeType =  MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExt(file.getAbsolutePath()));
+                Uri apkURI = FileProvider.getUriForFile(
+                        this,
+                        getApplicationContext()
+                                .getPackageName() + ".provider", file);
+                intent.setDataAndType(apkURI, mimeType);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(intent);
+            } catch (ActivityNotFoundException e) {
+                if (mStorage.getSize(file, SizeUnit.KB) > 500) {
+                    Helper.showSnackbar("The file is too big for preview", mRecyclerView);
+                    return;
+                }
+                Intent intent = new Intent(this, ViewTextActivity.class);
+                intent.putExtra(ViewTextActivity.EXTRA_FILE_NAME, file.getName());
+                intent.putExtra(ViewTextActivity.EXTRA_FILE_PATH, file.getAbsolutePath());
+                startActivity(intent);
             }
-            Intent intent = new Intent(this, ViewTextActivity.class);
-            intent.putExtra(ViewTextActivity.EXTRA_FILE_NAME, file.getName());
-            intent.putExtra(ViewTextActivity.EXTRA_FILE_PATH, file.getAbsolutePath());
-            startActivity(intent);
+
         }
     }
 
@@ -219,7 +239,7 @@ public class MainActivity extends AppCompatActivity implements
         String path = getCurrentPath();
         int lastIndexOf = path.lastIndexOf(File.separator);
         if (lastIndexOf < 0) {
-            UIHelper.showSnackbar("Can't go anymore", mRecyclerView);
+            Helper.showSnackbar("Can't go anymore", mRecyclerView);
             return getCurrentPath();
         }
         return path.substring(0, lastIndexOf);
@@ -262,9 +282,9 @@ public class MainActivity extends AppCompatActivity implements
         boolean created = mStorage.createDirectory(folderPath);
         if (created) {
             showFiles(currentPath);
-            UIHelper.showSnackbar("New folder created: " + name, mRecyclerView);
+            Helper.showSnackbar("New folder created: " + name, mRecyclerView);
         } else {
-            UIHelper.showSnackbar("Failed create folder: " + name, mRecyclerView);
+            Helper.showSnackbar("Failed create folder: " + name, mRecyclerView);
         }
     }
 
@@ -279,17 +299,17 @@ public class MainActivity extends AppCompatActivity implements
         }
         mStorage.createFile(folderPath, content);
         showFiles(currentPath);
-        UIHelper.showSnackbar("New file created: " + name, mRecyclerView);
+        Helper.showSnackbar("New file created: " + name, mRecyclerView);
     }
 
     @Override
     public void onConfirmDelete(String path) {
         if (mStorage.getFile(path).isDirectory()) {
             mStorage.deleteDirectory(path);
-            UIHelper.showSnackbar("Folder was deleted", mRecyclerView);
+            Helper.showSnackbar("Folder was deleted", mRecyclerView);
         } else {
             mStorage.deleteFile(path);
-            UIHelper.showSnackbar("File was deleted", mRecyclerView);
+            Helper.showSnackbar("File was deleted", mRecyclerView);
         }
         showFiles(getCurrentPath());
     }
@@ -298,7 +318,7 @@ public class MainActivity extends AppCompatActivity implements
     public void onRename(String fromPath, String toPath) {
         mStorage.rename(fromPath, toPath);
         showFiles(getCurrentPath());
-        UIHelper.showSnackbar("Renamed", mRecyclerView);
+        Helper.showSnackbar("Renamed", mRecyclerView);
     }
 
 //    @Override
