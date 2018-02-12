@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Files Manager</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="new_folder">New Folder</string>
+    <string name="label_save">Save</string>
+    <string name="new_file">New File</string>
+    <string name="encrypt_the_content">Encrypt the content</string>
+    <string name="label_content">Content</string>
+    <string name="label_name">Name</string>
+    <string name="label_decrypt">Decrypt</string>
+    <string name="label_cancel">Cancel</string>
+    <string name="label_delete">Delete</string>
+    <string name="new_name">New name</string>
+    <string name="current_name">Current name</string>
+    <string name="rename">Rename</string>
+    <string name="drop_here">DROP HERE</string>
+    <string name="decline">DECLINE</string>
+    <string name="folder_options">Folder options</string>
+    <string name="file_options">File options</string>
+    <string name="moving_file">Moving: %1$s</string>
+    <string name="copy_file">Copying: %1$s</string>
+    <string name="switch_to_internal">Switch to internal</string>
+    <string name="order_by">Order by ...</string>
+    <string name="filter">Filter</string>
+</resources>

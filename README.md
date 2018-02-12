@@ -1,12 +1,49 @@
-<img src="http://code.sromku.com/static/img/img_android_code.jpg" height="30" width="30"/> android-simple-storage
+android-storage
 ======================
 
 Library to create, read, delete, append, encrypt files and more, on internal or external disk spaces with a really simple API.
 
-Many times in our apps, we need to manage files on disk. It can be on external or internal storage. Sometimes we need to create a directory, add files, append text to some file, delete files and even encrypt the data in the files. <br><br>
-In my projects, I found myself reading the same Android doc - [Storage Options](http://developer.android.com/guide/topics/data/data-storage.html) many times to create the same methods. After a while, I wrote a simple library to be used in my apps. Now, it's the time to share and make it better thanks to you.
+## Latest Release
 
-## Features
+[ ![Download](https://api.bintray.com/packages/sromku/maven/storage/images/download.svg) ](https://bintray.com/sromku/maven/storage/_latestVersion)
+
+``` groovy
+dependencies {
+    compile 'com.snatik:storage:2.1.0'
+}
+```
+
+Don't forget to update `AndroidManifest.xml` and add next line:
+
+``` xml
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+
+## Usage
+
+``` java
+
+// init
+Storage storage = new Storage(getApplicationContext());
+
+// get external storage
+String path = storage.getExternalStorageDirectory();
+
+// new dir
+String newDir = path + File.separator + "My Sample Directory";
+storage.createDirectory(newDir);
+```
+
+Check all options, scroll down ;)
+
+
+## Sample app
+
+The app has some simple UI screens and uses the storage library. This is just an example of what can be done with this lib.
+
+<img src="assets/sample_app.png"/>
+
+## Options
 * [Easy define Internal or External storage](#initialize)
 * [Create directory](#create-directory)
 * [Create file](#create-file)
@@ -20,91 +57,72 @@ In my projects, I found myself reading the same Android doc - [Storage Options](
 * [More options](#more)
 * [Encrypt the file content](#security-configuration)
 
-## Setup Project
-
-1. Clone and import this (Simple Storage) project to your workspace.
-
-2. Add reference from **your app** to `Simple Storage` project.
-
-3. Update the `manifest.xml` of your application and add next line:
-
-	``` java
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-	```
-
-### Gradle build
-
-To deploy the library to your local Maven repository run the following task:
-
-```
-$ ./gradlew install
-```
-
-Then, to use the library in your project add the following to your `build.gradle`:
-
-```groovy
-dependencies {
-    compile 'com.sromku.simple.storage:library:1.0.0'
-}
-```
-
-## Usage
-
 ### Initialize
-You have the next options to initialize the simple storage:
 
-- Prepere to work on **External Storage**.
+```
+Storage storage = new Storage(getApplicationContext());
+```
+
+Work on **External Storage**.
+
+- Check if external writable
 
 	``` java
-	Storage storage = SimpleStorage.getExternalStorage();
+	boolean isWritable = storage.isExternalWritable();
 	```
 
-- Prepare to work on **Internal Storage**. In your `Activity` or `Application` or any other place where you have `Context`:
+- Root external storage path
 
 	``` java
-	Storage storage = SimpleStorage.getInternalStorage(mContext);
+	String path = storage.getExternalStorageDirectory();
 	```
-    
-- You prefer to use **External Storage**, but if it doesn't exist on the device, then use **Internal Storage**.
+
+- If you want to use a particular public directory
+
+    ``` java
+    Storage storage = SimpleStorage.getExternalStorage(Environment.DIRECTORY_PICTURES);
+    ```
+
+Work on **Internal Storage**. 
+
+- Directory for storing app internal files ([documentation](https://developer.android.com/training/basics/data-storage/files.html#WriteInternalStorage)):
 
 	``` java
- 	Storage storage = null;
- 	if (SimpleStorage.isExternalStorageWritable()) {
-		storage = SimpleStorage.getExternalStorage();
-	}
-	else {
-		storage = SimpleStorage.getInternalStorage(mContext);
-	}
+	String path = SimpleStorage.getInternalFilesDirectory();
+	```
+	
+- Cache dir
+
+	``` java
+	String path = SimpleStorage.getInternalCacheDirectory();
+	```
+	
+- Root internal storage dir
+
+	``` java
+	String path = SimpleStorage.getInternalRootDirectory();
 	```
 
 ### Create directory
 
-- Create directory under the root path.
+- Create directory
 
 	``` java
-	// create directory
-	storage.createDirectory("MyDirName");
-	```
- 
-- Create **sub directory**. 
-
-	``` java
-	// create directory
-	storage.createDirectory("MyDirName/MySubDirectory");
+	storage.createDirectory(path);
 	```
 
 - Create directory and **override** the existing one. 
 
 	``` java
-	// create directory
-	storage.createDirectory("MyDirName", true);
+	storage.createDirectory(path, true);
 	```
 
 ### Create file
+
 Create a new file with the content in it.
+
 ``` java
-// create new file
-storage.createFile("MyDirName", "fileName", "some content of the file");
+storage.createFile(path, "some content of the file");
 ```
 
 The `content` of the file can be one of the next types:
@@ -116,18 +134,19 @@ The `content` of the file can be one of the next types:
 ### Read file
 
 Read the content of any file to byte array.
+
 ``` java
-byte[] bytes = storage.readFile("MyDirName", "fileName");
+byte[] bytes = storage.readFile(path);
 ```
 
 Read the content of the file to String.
 ``` java
-String content = storage.readTextFile("MyDirName", "my_text.txt");
+String content = storage.readTextFile(path);
 ```
 
 ### Append content to file
 ``` java
-storage.appendFile("MyDirName", "fileName", "more new data");
+storage.appendFile(path, "more new data");
 ```
 
 You can append:
@@ -136,52 +155,53 @@ You can append:
 
 ### Copy
 ``` java
-storage.copy(file, "MyDirName", "newFileName");
+storage.copy(fromPath, toPath);
 ```
 
 ### Move
 ``` java
-storage.move(file, "MyDirName", "newFileName");
+storage.move(fromPath, toPath);
 ```
 
 ### Delete directory
 ``` java
-storage.deleteDirectory("MyDirName");
+storage.deleteDirectory(path);
 ```
 
 ### Delete file
 ``` java
-storage.deleteFile("MyDirName", "fileName");
+storage.deleteFile(path);
 ```
 
 ### Get files
 - Get files in ordered way by: `name`, `date`, `size`
 	``` java
-	List<File> files = storage.getFiles("MyDirName", OrderType.DATE);
+	List<File> files = storage.getFiles(path, OrderType.DATE);
 	```
 
 - Get files and filter by regular expression:
 	``` java
 	String regex = ...;
-	List<File> files = storage.getFiles("MyDirName", regex);
+	List<File> files = storage.getFiles(path, regex);
 	```
 
 * Get all nested files (without the directories)
 	``` java
-	List<File> files = storage.getNestedFiles("MyDirName");
+	List<File> files = storage.getNestedFiles(path);
 	```
 
 ### More...
 
 * Is directory exists
 	``` java
-	boolean dirExists = storage.isDirectoryExists("MyDirName");
+	boolean dirExists = storage.isDirectoryExists(path);
 	```
 
 * Is file exists
 	``` java
-	boolean fileExists = storage.isFileExist("MyDirName", "fileName");
+	boolean fileExists = storage.isFileExist(path);
 	```
+
 
 ## Security configuration
 You can write and read files while the content is **encrypted**. It means, that no one can read the data of your files from external or internal storage.
@@ -192,14 +212,15 @@ You will continue using the same api as before. The only thing you need to do is
 // set encryption
 String IVX = "abcdefghijklmnop"; // 16 lenght - not secret
 String SECRET_KEY = "secret1234567890"; // 16 lenght - secret
+byte[] SALT = "0000111100001111".getBytes(); // random 16 bytes array
 
 // build configuratio
-SimpleStorageConfiguration configuration = new SimpleStorageConfiguration.Builder()
-	.setEncryptContent(IVX, SECRET_KEY)
+EncryptConfiguration configuration = new EncryptConfiguration.Builder()
+	.setEncryptContent(IVX, SECRET_KEY, SALT)
 	.build();
 	
 // configure the simple storage
-SimpleStorage.updateConfiguration(configuration);
+storage.setEncryptConfiguration(configuration);
 ```
 
 Now, you can create a new file with content and the content will be automatically encrypted.<br>
@@ -209,17 +230,24 @@ You can read the file and the content will be decrypted.
 
 Create file with next content `"this is the secret data"`:
 ``` java
-storage.createFile("MyDirName", "fileName", "this is the secret data");
+storage.setEncryptConfiguration(configuration);
+storage.createFile(path, "this is the secret data");
 ```
 
 If we open the file to see it's content then it we will something like this: `„f°α�ΤG†_iΐp` . It looks good :)
 
 And now, read the file data with the same api:
 ``` java
-String content = storage.readTextFile("MyDirName", "fileName");
+storage.setEncryptConfiguration(configuration);
+String content = storage.readTextFile(path);
 ```
 You will see that the content will be: `"this is the secret data"`.
 
 ## Tests
 
-Test project includes android junits which covers most of the functionality.
+Just play and check the sample app ;)
+
+## Follow us
+
+[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=https://github.com/snatik/android-storage)
+[![Twitter Follow](https://img.shields.io/twitter/follow/snatikteam.svg?style=social)](https://twitter.com/snatikteam)
