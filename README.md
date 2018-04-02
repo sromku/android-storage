@@ -246,8 +246,3 @@ You will see that the content will be: `"this is the secret data"`.
 ## Tests
 
 Just play and check the sample app ;)
-
-## Follow us
-
-[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=https://github.com/snatik/android-storage)
-[![Twitter Follow](https://img.shields.io/twitter/follow/snatikteam.svg?style=social)](https://twitter.com/snatikteam)
