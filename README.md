@@ -210,11 +210,11 @@ You will continue using the same api as before. The only thing you need to do is
 
 ``` java
 // set encryption
-String IVX = "abcdefghijklmnop"; // 16 lenght - not secret
-String SECRET_KEY = "secret1234567890"; // 16 lenght - secret
+String IVX = "abcdefghijklmnop"; // 16 length - not secret
+String SECRET_KEY = "secret1234567890"; // 16 length - secret
 byte[] SALT = "0000111100001111".getBytes(); // random 16 bytes array
 
-// build configuratio
+// build configuration
 EncryptConfiguration configuration = new EncryptConfiguration.Builder()
 	.setEncryptContent(IVX, SECRET_KEY, SALT)
 	.build();
