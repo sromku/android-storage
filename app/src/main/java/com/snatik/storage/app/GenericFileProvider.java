@@ -1,6 +1,6 @@
 package com.snatik.storage.app;
 
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 
 /**
  * Created by sromku on July, 2017.

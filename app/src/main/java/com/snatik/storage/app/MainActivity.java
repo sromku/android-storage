@@ -6,14 +6,15 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.content.FileProvider;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.appcompat.widget.Toolbar;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -69,13 +70,13 @@ public class MainActivity extends AppCompatActivity implements
         mStorage = new Storage(getApplicationContext());
 
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
-        mPathView = (TextView) findViewById(R.id.path);
+        mRecyclerView = findViewById(R.id.recycler);
+        mPathView = findViewById(R.id.path);
         mMovingLayout = findViewById(R.id.moving_layout);
-        mMovingText = (TextView) mMovingLayout.findViewById(R.id.moving_file_name);
+        mMovingText = mMovingLayout.findViewById(R.id.moving_file_name);
 
         mMovingLayout.findViewById(R.id.accept_move).setOnClickListener(new View.OnClickListener() {
             @Override
