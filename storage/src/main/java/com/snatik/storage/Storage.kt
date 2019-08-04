@@ -6,25 +6,11 @@ import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import android.util.Log
-
 import com.snatik.storage.helpers.ImmutablePair
 import com.snatik.storage.helpers.SizeUnit
 import com.snatik.storage.security.SecurityUtil
-
-import java.io.ByteArrayOutputStream
-import java.io.Closeable
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileNotFoundException
-import java.io.FileOutputStream
-import java.io.FilenameFilter
-import java.io.IOException
-import java.io.OutputStream
-import java.nio.channels.FileChannel
-import java.util.ArrayList
-import java.util.Arrays
-import java.util.LinkedList
-
+import java.io.*
+import java.util.*
 import javax.crypto.Cipher
 
 /**
@@ -131,12 +117,12 @@ class Storage(private val mContext: Context) {
 
     fun readFile(path: String): ByteArray? {
         val stream: FileInputStream
-        try {
+        return try {
             stream = FileInputStream(File(path))
-            return readFile(stream)
+            readFile(stream)
         } catch (e: FileNotFoundException) {
             Log.e(TAG, "Failed to read file to input stream", e)
-            return null
+            null
         }
 
     }
@@ -181,15 +167,18 @@ class Storage(private val mContext: Context) {
     @JvmOverloads
     fun getFiles(dir: String, matchRegex: String? = null): List<File>? {
         val file = File(dir)
-        var files: Array<File>? = null
-        files = if (matchRegex != null) {
+        val files = if (matchRegex != null) {
             val filter = FilenameFilter { _, fileName -> fileName.matches(matchRegex.toRegex()) }
             file.listFiles(filter)
         } else {
             file.listFiles()
         }
-        return if (files != null) Arrays.asList(*files) else null
+        return if (files != null) listOf(*files) else null
     }
+
+    @JvmOverloads
+    fun getDirectories(dir: String, matchRegex: String? = null): List<File>? =
+            getFiles(dir, matchRegex)?.filter { it.isDirectory }
 
     fun getFile(path: String): File {
         return File(path)
@@ -391,14 +380,12 @@ class Storage(private val mContext: Context) {
 
     companion object {
 
-        private val TAG = "Storage"
+        private const val TAG = "Storage"
 
         val isExternalWritable: Boolean
             get() {
                 val state = Environment.getExternalStorageState()
-                return if (Environment.MEDIA_MOUNTED == state) {
-                    true
-                } else false
+                return Environment.MEDIA_MOUNTED == state
             }
     }
 }
