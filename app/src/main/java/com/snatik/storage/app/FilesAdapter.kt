@@ -19,11 +19,7 @@ class FilesAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.ViewHol
 
     private var mFiles: List<File>? = null
     private var mListener: OnFileItemListener? = null
-    private val mStorage: Storage
-
-    init {
-        mStorage = Storage(context)
-    }
+    private val mStorage: Storage = Storage(context)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.file_line_view, parent, false)
@@ -66,16 +62,9 @@ class FilesAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     internal class FileViewHolder(v: View) : RecyclerView.ViewHolder(v) {
-
-        var mName: TextView
-        var mSize: TextView
-        var mIcon: ImageView
-
-        init {
-            mName = v.findViewById<View>(R.id.name) as TextView
-            mSize = v.findViewById<View>(R.id.size) as TextView
-            mIcon = v.findViewById<View>(R.id.icon) as ImageView
-        }
+        var mName: TextView = v.findViewById<View>(R.id.name) as TextView
+        var mSize: TextView = v.findViewById<View>(R.id.size) as TextView
+        var mIcon: ImageView = v.findViewById<View>(R.id.icon) as ImageView
     }
 
     interface OnFileItemListener {

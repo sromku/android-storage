@@ -111,16 +111,16 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
     }
 
     private fun showPathMenu() {
-        val popupmenu = PopupMenu(this, mPathView)
-        val inflater = popupmenu.menuInflater
-        inflater.inflate(R.menu.path_menu, popupmenu.menu)
+        val popUpMenu = PopupMenu(this, mPathView)
+        val inflater = popUpMenu.menuInflater
+        inflater.inflate(R.menu.path_menu, popUpMenu.menu)
 
-        popupmenu.menu.findItem(R.id.go_internal).isVisible = !mInternal
-        popupmenu.menu.findItem(R.id.go_external).isVisible = mInternal
+        popUpMenu.menu.findItem(R.id.go_internal).isVisible = !mInternal
+        popUpMenu.menu.findItem(R.id.go_external).isVisible = mInternal
 
-        popupmenu.show()
+        popUpMenu.show()
 
-        popupmenu.setOnMenuItemClickListener { item ->
+        popUpMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.go_up -> {
                     val previousPath = previousPath
@@ -288,7 +288,7 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             showFiles(mStorage!!.externalStorageDirectory)
         } else {
             finish()
@@ -297,9 +297,9 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
 
     companion object {
 
-        private val PERMISSION_REQUEST_CODE = 1000
-        private val IVX = "abcdefghijklmnop"
-        private val SECRET_KEY = "secret1234567890"
+        private const val PERMISSION_REQUEST_CODE = 1000
+        private const val IVX = "abcdefghijklmnop"
+        private const val SECRET_KEY = "secret1234567890"
         private val SALT = "0000111100001111".toByteArray()
     }
 }
