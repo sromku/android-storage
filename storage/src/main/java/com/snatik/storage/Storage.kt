@@ -316,7 +316,7 @@ class Storage(private val mContext: Context) {
                 var offset = 0
                 for (chunk in chunks) {
                     // flush chunk to array
-                    System.arraycopy(chunk.element1, 0, array!!, offset, chunk.element2)
+                    System.arraycopy(chunk.element1!!, 0, array!!, offset, chunk.element2!!)
                     offset += chunk.element2
                 }
             }
@@ -341,7 +341,7 @@ class Storage(private val mContext: Context) {
     private fun encrypt(content: ByteArray?, encryptionMode: Int): ByteArray? {
         val secretKey = mConfiguration!!.secretKey
         val ivx = mConfiguration!!.ivParameter
-        return SecurityUtil.encrypt(content, encryptionMode, secretKey, ivx)
+        return SecurityUtil.encrypt(content, encryptionMode, secretKey!!, ivx!!)
     }
 
     private fun deleteDirectoryImpl(path: String): Boolean {

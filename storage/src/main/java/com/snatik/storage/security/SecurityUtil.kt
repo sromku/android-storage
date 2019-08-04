@@ -74,7 +74,7 @@ class SecurityUtil {
          * must be 16 long**
          * @return
          */
-        fun encrypt(content: ByteArray, encryptionMode: Int, secretKey: ByteArray, ivx: ByteArray): ByteArray? {
+        fun encrypt(content: ByteArray?, encryptionMode: Int, secretKey: ByteArray, ivx: ByteArray): ByteArray? {
             if (secretKey.size != 16 || ivx.size != 16) {
                 Log.w(TAG, "Set the encryption parameters correctly. The must be 16 length long each")
                 return null
