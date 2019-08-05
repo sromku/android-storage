@@ -55,7 +55,7 @@ class FilesAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.ViewHol
         return if (mFiles != null) mFiles!!.size else 0
     }
 
-    fun setFiles(files: List<File>) {
+    fun setFiles(files: List<File>?) {
         mFiles = files
     }
 

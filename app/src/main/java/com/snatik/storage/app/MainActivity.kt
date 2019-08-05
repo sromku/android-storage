@@ -15,7 +15,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.snatik.storage.EncryptConfiguration
 import com.snatik.storage.Storage
@@ -23,6 +22,7 @@ import com.snatik.storage.app.Helper.fileExt
 import com.snatik.storage.app.dialogs.*
 import com.snatik.storage.helpers.OrderType
 import com.snatik.storage.helpers.SizeUnit
+import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.util.*
 
@@ -31,15 +31,14 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
     private var mFilesAdapter: FilesAdapter? = null
     private var mStorage: Storage? = null
     private var mPathView: TextView? = null
+    private var currentPath: String = ""
     private var mMovingText: TextView? = null
     private var mCopy: Boolean = false
     private var mMovingLayout: View? = null
     private var mTreeSteps = 0
     private var mMovingPath: String? = null
     private var mInternal = false
-
-    private val currentPath: String
-        get() = mPathView!!.text.toString()
+    lateinit var toolbar: Toolbar
 
     private val previousPath: String
         get() {
@@ -58,7 +57,7 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
         mStorage = Storage(applicationContext)
 
         setContentView(R.layout.activity_main)
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
         mRecyclerView = findViewById(R.id.recycler)
@@ -142,13 +141,29 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
     }
 
     private fun showFiles(path: String) {
-        mPathView!!.text = path
+        toolbar.title = File(path).name
+        currentPath = path
+
+        mPathView!!.text = getPathString(path)
         val files = mStorage!!.getFiles(path)
         if (files != null) {
             Collections.sort(files, OrderType.NAME.comparator)
         }
-        mFilesAdapter!!.setFiles(files!!)
+        mFilesAdapter!!.setFiles(files)
         mFilesAdapter!!.notifyDataSetChanged()
+    }
+
+    private fun getPathString(path: String): CharSequence? {
+        val file = File(path)
+        val sb = StringBuilder()
+        if (file.parentFile != null && file.parentFile!!.parentFile != null) {
+            sb.append("...")
+                    .append(" > ")
+        }
+        sb.append(file.parentFile!!.name)
+                .append(" > ")
+                .append(file.name)
+        return sb.toString()
     }
 
 
