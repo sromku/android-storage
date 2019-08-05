@@ -15,7 +15,7 @@ import javax.crypto.CipherOutputStream
  *
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  */
-enum class CipherAlgorithmType private constructor(
+enum class CipherAlgorithmType(
         /**
          * Get the algorithm name of the enum value.
          *

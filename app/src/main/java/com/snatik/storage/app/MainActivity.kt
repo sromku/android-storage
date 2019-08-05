@@ -14,6 +14,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.snatik.storage.EncryptConfiguration
@@ -94,7 +95,7 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
             mMovingPath = null
         }
 
-        val layoutManager = LinearLayoutManager(this)
+        val layoutManager = GridLayoutManager(this, 3)
         mRecyclerView!!.layoutManager = layoutManager
         mFilesAdapter = FilesAdapter(applicationContext)
         mFilesAdapter!!.setListener(this)
@@ -229,10 +230,10 @@ class MainActivity : AppCompatActivity(), FilesAdapter.OnFileItemListener, AddIt
         }
     }
 
-    override fun onNewFile(name: String, content: String, encrypted: Boolean) {
+    override fun onNewFile(name: String, content: String, encrypt: Boolean) {
         val currentPath = currentPath
         val folderPath = currentPath + File.separator + name
-        if (encrypted) {
+        if (encrypt) {
             mStorage!!.setEncryptConfiguration(EncryptConfiguration.Builder()
                     .setEncryptContent(IVX, SECRET_KEY, SALT)
                     .build())

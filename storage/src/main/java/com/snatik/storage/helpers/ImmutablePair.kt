@@ -6,20 +6,10 @@ import java.io.Serializable
  * @param <T>
  * @param <S>
 </S></T> */
-class ImmutablePair<T, S> : Serializable {
+class ImmutablePair<T, S>(element1: T, element2: S) : Serializable {
 
-    val element1: T?
-    val element2: S?
-
-    constructor() {
-        element1 = null
-        element2 = null
-    }
-
-    constructor(element1: T, element2: S) {
-        this.element1 = element1
-        this.element2 = element2
-    }
+    val element1: T? = element1
+    val element2: S? = element2
 
     override fun equals(`object`: Any?): Boolean {
         if (`object` !is ImmutablePair<*, *>) {

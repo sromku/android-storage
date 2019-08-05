@@ -55,7 +55,7 @@ class NewTextFileDialog : DialogFragment() {
 
         builder.setTitle(R.string.new_file)
         builder.setView(view)
-        builder.setPositiveButton(R.string.label_save) { dialogInterface, i -> mListener!!.onNewFile(nameEditText.text.toString(), contentEditText.text.toString(), encryptCheckbox.isChecked) }
+        builder.setPositiveButton(R.string.label_save) { _, _ -> mListener!!.onNewFile(nameEditText.text.toString(), contentEditText.text.toString(), encryptCheckbox.isChecked) }
 
         val dialog = builder.create()
         view.post { dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false }

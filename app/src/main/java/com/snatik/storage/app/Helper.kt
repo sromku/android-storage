@@ -13,21 +13,21 @@ object Helper {
     }
 
     fun fileExt(url: String): String? {
-        var url = url
-        if (url.indexOf("?") > -1) {
-            url = url.substring(0, url.indexOf("?"))
+        var newUrl = url
+        if (newUrl.indexOf("?") > -1) {
+            newUrl = newUrl.substring(0, newUrl.indexOf("?"))
         }
-        if (url.lastIndexOf(".") == -1) {
-            return null
+        return if (newUrl.lastIndexOf(".") == -1) {
+            null
         } else {
-            var ext = url.substring(url.lastIndexOf(".") + 1)
+            var ext = newUrl.substring(newUrl.lastIndexOf(".") + 1)
             if (ext.indexOf("%") > -1) {
                 ext = ext.substring(0, ext.indexOf("%"))
             }
             if (ext.indexOf("/") > -1) {
                 ext = ext.substring(0, ext.indexOf("/"))
             }
-            return ext.toLowerCase()
+            ext.toLowerCase()
 
         }
     }

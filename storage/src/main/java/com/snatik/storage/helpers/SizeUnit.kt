@@ -3,7 +3,7 @@ package com.snatik.storage.helpers
 import java.text.DecimalFormat
 
 const val BYTES = 1024L
-enum class SizeUnit private constructor(private val inBytes: Long) {
+enum class SizeUnit(private val inBytes: Long) {
     B(1),
     KB(BYTES),
     MB(BYTES * BYTES),

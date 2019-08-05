@@ -3,7 +3,7 @@ package com.snatik.storage.security
 /**
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  */
-enum class CipherPaddingType private constructor(
+enum class CipherPaddingType(
         /**
          * Get the algorithm name of the enum value.
          *

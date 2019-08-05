@@ -5,7 +5,7 @@ package com.snatik.storage.security
  *
  * @author Roman Kushnarenko - sromku (sromku@gmail.com)
  */
-enum class CipherModeType private constructor(
+enum class CipherModeType(
         /**
          * Get the algorithm name of the enum value.
          *

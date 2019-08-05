@@ -35,19 +35,21 @@ class FilesAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.ViewHol
             true
         }
         fileViewHolder.mName.text = file.name
-        fileViewHolder.mIcon.setImageResource(if (file.isDirectory)
-            R.drawable.ic_folder_primary_24dp
-        else
-            R.drawable
-                    .ic_file_primary_24dp)
+        fileViewHolder.mIcon.setImageResource(getIcon(file))
         if (file.isDirectory) {
-            fileViewHolder.mSize.visibility = View.GONE
+            fileViewHolder.mSize.visibility = View.VISIBLE
+            fileViewHolder.mSize.text = ""
         } else {
             fileViewHolder.mSize.visibility = View.VISIBLE
             fileViewHolder.mSize.text = mStorage.getReadableSize(file)
         }
 
     }
+
+    private fun getIcon(file: File) = if (file.isDirectory)
+        R.drawable.ic_folder_primary_24dp
+    else
+        R.drawable.ic_file_primary_24dp
 
     override fun getItemCount(): Int {
         return if (mFiles != null) mFiles!!.size else 0

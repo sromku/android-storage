@@ -21,12 +21,26 @@ enum class OrderType {
     val comparator: Comparator<File>?
         get() {
             when (ordinal) {
-                0 -> return Comparator { lhs, rhs -> lhs.name.compareTo(rhs.name) }
-                1 -> return Comparator { lhs, rhs -> (rhs.lastModified() - lhs.lastModified()).toInt() }
-                2 -> return Comparator { lhs, rhs -> (lhs.length() - rhs.length()).toInt() }
+                0 -> return comparatorForName()
+                1 -> return comparatorForDate()
+                2 -> return comparatorForSize()
                 else -> {
                 }
             }
             return null
         }
+
+    private fun comparatorForName(): Comparator<File> {
+        return Comparator { lhs, rhs -> lhs.name.compareTo(rhs.name) }
+    }
+
+    private fun comparatorForDate(): Comparator<File> {
+        return Comparator { lhs, rhs -> (rhs.lastModified() - lhs.lastModified()).toInt() }
+    }
+
+    private fun comparatorForSize(): Comparator<File> {
+        return Comparator { lhs, rhs -> (lhs.length() - rhs.length()).toInt() }
+    }
+
+
 }
