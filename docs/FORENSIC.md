@@ -56,9 +56,14 @@ These go in an experimental root-gated track (L), clearly labeled.
   on the app detail (`cmd package compile` speed / speed-profile / verify /
   reset). Bulk ops already exist via the browser's multi-select. FFmpeg
   transcode deferred (a large native dependency), noted in docs/ROOT.md.
-- **K:** introspection graphs — app permeability node graph, component
-  profiler, asset ripper, permission-vs-footprint matrix, global command
-  palette; expose all tools through MCP.
+- **K (done):** a global command palette (fuzzy-jump to every tool and tab),
+  a permission-vs-footprint ranking (apps by dangerous-permission count against
+  size), and every new forensic capability exposed through the REST + MCP API
+  (27 tools total: device_stats, permission_matrix, app_ops_timeline, network,
+  storage_insights, app_storage, elf_inspect, system_report, telemetry_forecast,
+  capture_telemetry, search_files). The app permeability node graph and asset
+  ripper are deferred as visual nice-to-haves; the analytical substance
+  (components, permissions, footprint) is already surfaced.
 - **L (root, experimental):** ptrace tracer, fanotify staging watcher,
   iotop-style I/O monitor. Visual toys (sonification, haptics, particles, 3D,
   live wallpaper) parked as optional flourish.

@@ -38,6 +38,26 @@ import com.snatik.storage.app.feature.system.SystemScreen
 import com.snatik.storage.app.feature.viewer.ElfViewerScreen
 import com.snatik.storage.app.feature.timemachine.TimeMachineScreen
 import com.snatik.storage.app.feature.benchmark.BenchmarkScreen
+import com.snatik.storage.app.feature.palette.Command
+import com.snatik.storage.app.feature.palette.CommandPaletteScreen
+import com.snatik.storage.app.feature.dashboard.PermissionFootprintScreen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Api
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.automirrored.filled.Send
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -190,6 +210,8 @@ fun AppNavigation() {
                     onOpenSystem = { push(Route.System) },
                     onOpenTimeMachine = { push(Route.TimeMachine) },
                     onOpenBenchmark = { push(Route.Benchmark) },
+                    onOpenPermFootprint = { push(Route.PermissionFootprint) },
+                    onOpenPalette = { push(Route.CommandPalette) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
@@ -206,6 +228,33 @@ fun AppNavigation() {
             entry<Route.System> { SystemScreen(onBack = ::pop) }
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
+            entry<Route.PermissionFootprint> { PermissionFootprintScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
+            entry<Route.CommandPalette> {
+                val open: (Route) -> Unit = { r -> pop(); push(r) }
+                val commands = listOf(
+                    Command("Storage", "Volumes and file browser", "files volumes browse", Icons.Default.Dashboard) { pop(); switchTab(TopLevel.STORAGE) },
+                    Command("Apps", "Installed apps", "apps packages", Icons.Default.GridOn) { pop(); switchTab(TopLevel.APPS) },
+                    Command("Data", "Content providers", "providers sqlite data", Icons.Default.Dashboard) { pop(); switchTab(TopLevel.DATA) },
+                    Command("Dashboard", "Device health", "battery memory selinux uptime", Icons.Default.Dashboard) { open(Route.Dashboard) },
+                    Command("Permission matrix", "Apps vs dangerous permissions", "permissions grant", Icons.Default.GridOn) { open(Route.PermissionMatrix) },
+                    Command("Permission vs footprint", "Rank apps by permissions and size", "permissions size risk", Icons.Default.GridOn) { open(Route.PermissionFootprint) },
+                    Command("App-ops timeline", "Recent sensitive access", "location camera mic appops", Icons.Default.History) { open(Route.AppOpsTimeline) },
+                    Command("Network", "Per-app connections", "network sockets connections", Icons.Default.Lan) { open(Route.Network()) },
+                    Command("Search", "Find files by name or content", "search find grep", Icons.Default.Search) { open(Route.Search) },
+                    Command("Notification monitor", "Log notifications", "notifications", Icons.Default.NotificationsActive) { open(Route.Notifications) },
+                    Command("Provider watch", "Watch content providers", "provider observer changes", Icons.Default.Sensors) { open(Route.ProviderWatch) },
+                    Command("Clipboard", "Clipboard history", "clipboard clip", Icons.Default.ContentPaste) { open(Route.Clipboard) },
+                    Command("Storage insights", "Duplicates, empties, ghosts", "duplicates reclaim insights", Icons.Default.Insights) { open(Route.Insights) },
+                    Command("System", "Mounts, ZRAM, smaps", "mounts partitions zram smaps kernel", Icons.Default.Memory) { open(Route.System) },
+                    Command("Time Machine", "Storage growth forecast", "telemetry growth forecast", Icons.Default.Timeline) { open(Route.TimeMachine) },
+                    Command("Benchmark", "Read/write throughput", "benchmark speed iops", Icons.Default.Speed) { open(Route.Benchmark) },
+                    Command("Intents", "Build and watch intents", "intents broadcast deeplink", Icons.AutoMirrored.Filled.Send) { open(Route.Intents) },
+                    Command("Capture", "Snapshots and recording", "snapshot diff record", Icons.Default.FiberManualRecord) { open(Route.Capture()) },
+                    Command("Receive files", "HTTP drop and transfer", "transfer receive files", Icons.Default.Wifi) { open(Route.Receive) },
+                    Command("Agent API", "REST and MCP server", "api mcp agent", Icons.Default.Api) { open(Route.Api) },
+                )
+                CommandPaletteScreen(commands = commands, onBack = ::pop)
+            }
             entry<Route.ElfViewer> { route -> ElfViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) }) }
             entry<Route.Intents> {
                 IntentsScreen(

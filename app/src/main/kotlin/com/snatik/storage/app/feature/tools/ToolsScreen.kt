@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
@@ -71,6 +73,8 @@ fun ToolsScreen(
     onOpenSystem: () -> Unit,
     onOpenTimeMachine: () -> Unit,
     onOpenBenchmark: () -> Unit,
+    onOpenPermFootprint: () -> Unit,
+    onOpenPalette: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val tools = listOf(
@@ -90,10 +94,11 @@ fun ToolsScreen(
         Tool(stringResource(R.string.system_title), stringResource(R.string.tools_system_sub), Icons.Default.Memory, onOpenSystem),
         Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine),
         Tool(stringResource(R.string.bench_title), stringResource(R.string.tools_bench_sub), Icons.Default.Speed, onOpenBenchmark),
+        Tool(stringResource(R.string.permfoot_title), stringResource(R.string.tools_permfoot_sub), Icons.Default.Balance, onOpenPermFootprint),
     )
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.tab_tools)) }, scrollBehavior = scrollBehavior) },
+        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.tab_tools)) }, scrollBehavior = scrollBehavior, actions = { androidx.compose.material3.IconButton(onClick = onOpenPalette) { Icon(Icons.Default.Bolt, contentDescription = stringResource(R.string.palette_open)) } }) },
         bottomBar = { TopLevelBar(current = TopLevel.TOOLS, onSelect = onSwitchTab) },
     ) { padding ->
         LazyVerticalGrid(

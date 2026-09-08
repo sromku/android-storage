@@ -687,4 +687,11 @@
     <string name="compile_verify">Verify only</string>
     <string name="compile_reset">Reset</string>
     <string name="compile_done">Compiled · filter now %1$s</string>
+    <!-- Round K: palette + introspection -->
+    <string name="palette_title">Command palette</string>
+    <string name="palette_hint">Jump to a tool or screen</string>
+    <string name="palette_open">Command palette</string>
+    <string name="permfoot_title">Permission vs footprint</string>
+    <string name="tools_permfoot_sub">Rank apps by dangerous permissions and size.</string>
+    <string name="permfoot_body">Apps ranked by how many dangerous permissions they hold, with their on-device size.</string>
 </resources>

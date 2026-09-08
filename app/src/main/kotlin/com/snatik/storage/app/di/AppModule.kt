@@ -36,6 +36,7 @@ import com.snatik.storage.core.apps.TelemetryRepository
 import com.snatik.storage.app.feature.timemachine.TimeMachineViewModel
 import com.snatik.storage.core.apps.StorageBenchmark
 import com.snatik.storage.app.feature.benchmark.BenchmarkViewModel
+import com.snatik.storage.app.feature.dashboard.PermissionFootprintViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -149,7 +150,7 @@ val appModule = module {
     single { ScreenRecorder(androidContext()) }
     single { ApiConfig(androidContext()) }
     single { AuditLog() }
-    single { ApiOperations(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { ApiOperations(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { ApiService(get(), get(), get()) }
     single { TransferHub(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get<ApiService>().routes, get()) }
 
@@ -198,4 +199,5 @@ val appModule = module {
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
     viewModelOf(::TimeMachineViewModel)
     viewModel { BenchmarkViewModel(androidContext(), get()) }
+    viewModelOf(::PermissionFootprintViewModel)
 }

@@ -147,6 +147,12 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object Benchmark : Route
+
+    @Serializable
+    data object CommandPalette : Route
+
+    @Serializable
+    data object PermissionFootprint : Route
 }
 
 /** The destinations reachable from the bottom bar. */

@@ -46,6 +46,16 @@ class ApiOperations(
     private val snapshots: SnapshotRepository,
     private val privilege: PrivilegeManager,
     private val config: ApiConfig,
+    private val deviceStats: com.snatik.storage.core.apps.DeviceStatsRepository,
+    private val permissionMatrix: com.snatik.storage.core.apps.PermissionMatrixRepository,
+    private val appOpsTimeline: com.snatik.storage.core.apps.AppOpsTimeline,
+    private val network: com.snatik.storage.core.apps.NetworkInspector,
+    private val storageInsights: com.snatik.storage.core.apps.StorageInsights,
+    private val appStorage: com.snatik.storage.core.apps.AppStorageAnalyzer,
+    private val elf: com.snatik.storage.core.apps.ElfInspector,
+    private val system: com.snatik.storage.core.apps.SystemInspector,
+    private val telemetry: com.snatik.storage.core.apps.TelemetryRepository,
+    private val search: com.snatik.storage.core.apps.FileSearch,
 ) {
     class Op(val name: String, val description: String, val privileged: Boolean, val destructive: Boolean, val schema: JsonObject, val run: suspend (JsonObject) -> JsonElement)
 
@@ -182,6 +192,97 @@ class ApiOperations(
             val shell = privilege.executor.value ?: throw ApiException.forbidden("No shell")
             val result = shell.run(p.str("command"), timeoutMs = p.longOr("timeoutMs", 60_000))
             buildJsonObject { put("exitCode", result.exitCode); put("stdout", result.out); put("stderr", result.err) }
+        },
+        Op("device_stats", "Device health: model, OS, patch, kernel, SELinux, uptime, RAM, battery, ZRAM, wakelocks", false, false, schemaOf()) { _ ->
+            val s = deviceStats.stats()
+            buildJsonObject {
+                put("model", s.model); put("androidRelease", s.androidRelease); put("sdk", s.sdk); put("securityPatch", s.securityPatch)
+                put("buildId", s.buildId); put("kernel", s.kernel); put("selinux", s.selinux); put("uptimeMs", s.uptimeMs)
+                put("totalRamBytes", s.totalRamBytes); put("availRamBytes", s.availRamBytes)
+                put("batteryPercent", s.batteryPercent); put("batteryStatus", s.batteryStatus); put("batteryTempC", s.batteryTempC)
+                put("zramTotalBytes", s.zramTotalBytes); put("zramUsedBytes", s.zramUsedBytes)
+                put("wakelocks", buildJsonArray { s.wakelocks.take(20).forEach { w -> add(buildJsonObject { put("name", w.name); put("heldMs", w.heldMs); put("count", w.count) }) } })
+            }
+        },
+        Op("permission_matrix", "Every app against the dangerous permissions, granted vs requested", false, false, schemaOf("includeSystem" to "boolean")) { p ->
+            val m = permissionMatrix.matrix(p.boolOr("includeSystem", false))
+            buildJsonObject {
+                put("permissions", buildJsonArray { m.permissions.forEach { add(it) } })
+                put("apps", buildJsonArray { m.apps.forEach { a -> add(buildJsonObject { put("package", a.packageName); put("label", a.label); put("system", a.system); put("granted", buildJsonArray { a.granted.forEach { add(it) } }); put("requested", buildJsonArray { a.requested.forEach { add(it) } }) }) } })
+            }
+        },
+        Op("app_ops_timeline", "Recent sensitive app-ops access device-wide (shell)", true, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray {
+                appOpsTimeline.recent(p.intOr("limit", 300)).forEach { e ->
+                    add(buildJsonObject { put("package", e.packageName); put("label", e.label); put("op", e.op); put("agoMs", e.agoMs); put("sensitive", e.sensitive) })
+                }
+            }
+        },
+        Op("network", "Live network connections per app from /proc/net (shell)", true, false, schemaOf()) { _ ->
+            buildJsonArray {
+                network.connections().forEach { a ->
+                    add(buildJsonObject {
+                        put("uid", a.uid); put("package", a.packageName); put("label", a.label)
+                        put("rxBytes", a.rxBytes); put("txBytes", a.txBytes)
+                        put("remoteHosts", buildJsonArray { a.remoteHosts.take(20).forEach { add(it) } })
+                        put("connections", a.connections.size)
+                    })
+                }
+            }
+        },
+        Op("storage_insights", "Find duplicates, empty dirs, zero-byte files and ghost footprints under a root", false, false, schemaOf("root" to "string")) { p ->
+            val done = storageInsights.scan(p.strOrNull("root") ?: "/storage/emulated/0").last()
+            val report = (done as? com.snatik.storage.core.apps.InsightsEvent.Done)?.report ?: throw ApiException.failed("Scan did not finish")
+            buildJsonObject {
+                put("totalFiles", report.totalFiles); put("totalBytes", report.totalBytes); put("wastedByDuplicates", report.wastedByDuplicates)
+                put("duplicateSets", buildJsonArray { report.duplicateSets.take(50).forEach { d -> add(buildJsonObject { put("size", d.size); put("wasted", d.wasted); put("paths", buildJsonArray { d.paths.forEach { add(it) } }) }) } })
+                put("zeroByteFiles", buildJsonArray { report.zeroByteFiles.take(100).forEach { add(it) } })
+                put("emptyDirs", buildJsonArray { report.emptyDirs.take(100).forEach { add(it) } })
+            }
+        },
+        Op("app_storage", "Decompose an app's footprint into apk/splits/oat/lib/data/cache", false, false, schemaOf("package" to "string")) { p ->
+            val fp = appStorage.analyze(p.str("package")) ?: throw ApiException.notFound("Not installed: ${p.str("package")}")
+            buildJsonObject {
+                put("package", fp.packageName); put("totalBytes", fp.total)
+                put("slices", buildJsonArray { fp.slices.forEach { s -> add(buildJsonObject { put("label", s.label); put("bytes", s.bytes); put("path", s.path) }) } })
+            }
+        },
+        Op("elf_inspect", "Parse an ELF binary: header, sections+entropy, needed libs, packer signatures", false, false, schemaOf("path" to "string")) { p ->
+            val r = elf.inspect(p.str("path")) ?: throw ApiException.badRequest("Not an ELF file")
+            buildJsonObject {
+                put("is64Bit", r.is64Bit); put("machine", r.machine); put("type", r.typeName); put("stripped", r.stripped)
+                put("soname", r.soname ?: ""); put("buildId", r.buildId ?: ""); put("entropy", r.overallEntropy); put("packer", r.packer ?: "")
+                put("needed", buildJsonArray { r.needed.forEach { add(it) } })
+                put("sections", buildJsonArray { r.sections.take(50).forEach { sec -> add(buildJsonObject { put("name", sec.name); put("size", sec.size); put("entropy", sec.entropy) }) } })
+            }
+        },
+        Op("system_report", "Kernel view: mounts, partitions, swap, ZRAM, this app's smaps", false, false, schemaOf()) { _ ->
+            val r = system.report()
+            buildJsonObject {
+                put("mounts", buildJsonArray { r.mounts.take(200).forEach { m -> add(buildJsonObject { put("mountPoint", m.mountPoint); put("device", m.device); put("type", m.type) }) } })
+                put("partitions", buildJsonArray { r.partitions.forEach { pt -> add(buildJsonObject { put("name", pt.name); put("bytes", pt.bytes) }) } })
+                put("swaps", buildJsonArray { r.swaps.forEach { sw -> add(buildJsonObject { put("name", sw.name); put("sizeKb", sw.sizeKb); put("usedKb", sw.usedKb) }) } })
+                r.zram?.let { z -> put("zram", buildJsonObject { put("disksizeBytes", z.disksizeBytes); put("originalBytes", z.originalBytes); put("compressedBytes", z.compressedBytes) }) }
+                r.smaps?.let { m -> put("smaps", buildJsonObject { put("rssKb", m.rssKb); put("pssKb", m.pssKb); put("privateDirtyKb", m.privateDirtyKb); put("regions", m.regions) }) }
+            }
+        },
+        Op("telemetry_forecast", "Storage growth trend and a forecast of when free space runs out", false, false, schemaOf()) { _ ->
+            val r = telemetry.report()
+            buildJsonObject {
+                put("snapshots", r.snapshots); put("cacheBytesPerDay", r.cacheBytesPerDay)
+                r.forecast?.let { f -> put("forecast", buildJsonObject { put("bytesPerDay", f.bytesPerDay); put("daysUntilFull", f.daysUntilFull ?: -1.0); put("confident", f.confident) }) }
+                put("topGrowers", buildJsonArray { r.topGrowers.forEach { g -> add(buildJsonObject { put("package", g.packageName); put("label", g.label); put("deltaBytes", g.deltaBytes); put("versionChanged", g.versionChanged) }) } })
+            }
+        },
+        Op("capture_telemetry", "Record one storage/memory telemetry snapshot now", false, false, schemaOf()) { _ ->
+            telemetry.capture()
+            buildJsonObject { put("captured", true) }
+        },
+        Op("search_files", "Find files by name or content under a root", false, false, schemaOf("root" to "string", "query" to "string", "mode" to "string")) { p ->
+            val mode = if (p.strOrNull("mode")?.lowercase() == "content") com.snatik.storage.core.apps.SearchMode.CONTENT else com.snatik.storage.core.apps.SearchMode.NAME
+            val hits = ArrayList<com.snatik.storage.core.apps.SearchHit>()
+            search.search(p.strOrNull("root") ?: "/storage/emulated/0", p.str("query"), mode, limit = 300).collect { hits.add(it) }
+            buildJsonArray { hits.forEach { h -> add(buildJsonObject { put("path", h.path); put("size", h.size); h.line?.let { put("line", it) } }) } }
         },
     ).associateBy { it.name }
 
