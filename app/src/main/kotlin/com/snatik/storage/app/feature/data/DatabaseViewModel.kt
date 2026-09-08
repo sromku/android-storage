@@ -2,7 +2,9 @@ package com.snatik.storage.app.feature.data
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.snatik.storage.core.data.ForeignKey
 import com.snatik.storage.core.data.TableInfo
+import com.snatik.storage.core.data.TableStat
 import com.snatik.storage.core.data.Tabular
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -15,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
-enum class DbTab { TABLES, SQL }
+enum class DbTab { TABLES, SCHEMA, SQL }
 
 data class DatabaseUiState(
     val loading: Boolean = true,
@@ -29,6 +31,10 @@ data class DatabaseUiState(
     val sqlError: String? = null,
     val sqlRunning: Boolean = false,
     val selectedRow: Int? = null,
+    val schema: List<TableStat> = emptyList(),
+    val relationships: List<ForeignKey> = emptyList(),
+    val schemaLoaded: Boolean = false,
+    val maintenanceRunning: Boolean = false,
 )
 
 class DatabaseViewModel(val path: String, private val sessions: DatabaseSessions) : ViewModel() {
@@ -55,7 +61,41 @@ class DatabaseViewModel(val path: String, private val sessions: DatabaseSessions
         }
     }
 
-    fun selectTab(tab: DbTab) = _state.update { it.copy(tab = tab) }
+    fun selectTab(tab: DbTab) {
+        _state.update { it.copy(tab = tab) }
+        if (tab == DbTab.SCHEMA && !_state.value.schemaLoaded) loadSchema()
+    }
+
+    private fun loadSchema() {
+        viewModelScope.launch {
+            runCatching {
+                val db = sessions.get(path)
+                withContext(Dispatchers.IO) { db.tableStats() to db.relationships() }
+            }.onSuccess { (stats, rels) ->
+                _state.update { it.copy(schema = stats, relationships = rels, schemaLoaded = true) }
+            }
+        }
+    }
+
+    fun vacuum() {
+        viewModelScope.launch {
+            _state.update { it.copy(maintenanceRunning = true) }
+            runCatching { val db = sessions.get(path); withContext(Dispatchers.IO) { db.vacuum() } }
+                .onSuccess { reclaimed -> _messages.send("vacuum:$reclaimed"); _state.update { it.copy(dirty = it.isCopy || it.dirty) } }
+                .onFailure { _messages.send(it.message ?: it.toString()) }
+            _state.update { it.copy(maintenanceRunning = false) }
+        }
+    }
+
+    fun integrityCheck() {
+        viewModelScope.launch {
+            _state.update { it.copy(maintenanceRunning = true) }
+            runCatching { val db = sessions.get(path); withContext(Dispatchers.IO) { db.integrityCheck() } }
+                .onSuccess { _messages.send("integrity:$it") }
+                .onFailure { _messages.send(it.message ?: it.toString()) }
+            _state.update { it.copy(maintenanceRunning = false) }
+        }
+    }
     fun setSql(sql: String) = _state.update { it.copy(sql = sql) }
     fun selectRow(index: Int?) = _state.update { it.copy(selectedRow = index) }
 

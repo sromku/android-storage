@@ -50,3 +50,10 @@ and CMake, add a `:core:native` library module with `externalNativeBuild`
 the file-info sheet and DiskScanner through it when present. The shell path
 already covers the data on privileged devices, so this is a performance and
 no-shell-fallback improvement, not a capability gap.
+
+## FFmpeg transcode — deferred
+
+Round J's optional media transcode is not built. Bundling FFmpeg pulls in large
+per-ABI native libraries (tens of MB) and its own build wiring, which is a poor
+trade for an inspection app. If wanted later, add a prebuilt FFmpeg AAR behind a
+feature flag and a dedicated transcode screen; it needs no root.

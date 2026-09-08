@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
@@ -69,6 +70,7 @@ fun ToolsScreen(
     onOpenInsights: () -> Unit,
     onOpenSystem: () -> Unit,
     onOpenTimeMachine: () -> Unit,
+    onOpenBenchmark: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val tools = listOf(
@@ -87,6 +89,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.insights_title), stringResource(R.string.tools_insights_sub), Icons.Default.Insights, onOpenInsights),
         Tool(stringResource(R.string.system_title), stringResource(R.string.tools_system_sub), Icons.Default.Memory, onOpenSystem),
         Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine),
+        Tool(stringResource(R.string.bench_title), stringResource(R.string.tools_bench_sub), Icons.Default.Speed, onOpenBenchmark),
     )
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

@@ -50,9 +50,12 @@ These go in an experimental root-gated track (L), clearly labeled.
   a free-space line graph, predictive exhaustion by least-squares regression,
   per-app growth deltas with version-change flags, and cache velocity. On-demand
   capture too. TelemetryForecastTest covers the regression.
-- **J:** power tools — SQLite VACUUM + ER view, benchmark engine (seq/random
-  R/W), ART recompile dashboard (cmd package compile), bulk ops, optional
-  FFmpeg transcode.
+- **J (done):** power tools — SQLite VACUUM + integrity check + schema/ER
+  overview (table stats and foreign-key edges), storage benchmark engine
+  (sequential + random read/write throughput and IOPS), ART recompile actions
+  on the app detail (`cmd package compile` speed / speed-profile / verify /
+  reset). Bulk ops already exist via the browser's multi-select. FFmpeg
+  transcode deferred (a large native dependency), noted in docs/ROOT.md.
 - **K:** introspection graphs — app permeability node graph, component
   profiler, asset ripper, permission-vs-footprint matrix, global command
   palette; expose all tools through MCP.

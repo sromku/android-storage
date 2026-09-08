@@ -65,9 +65,14 @@ fun DatabaseScreen(path: String, onBack: () -> Unit, onOpenTable: (String) -> Un
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { m ->
             snackbar.showSnackbar(
-                when (m) {
-                    "saved" -> resources.getString(R.string.db_saved)
-                    "ran" -> resources.getString(R.string.db_sql_done)
+                when {
+                    m == "saved" -> resources.getString(R.string.db_saved)
+                    m == "ran" -> resources.getString(R.string.db_sql_done)
+                    m.startsWith("vacuum:") -> resources.getString(R.string.db_vacuum_done, formatBytes(m.removePrefix("vacuum:").toLongOrNull() ?: 0))
+                    m.startsWith("integrity:") -> {
+                        val res = m.removePrefix("integrity:")
+                        if (res == "ok") resources.getString(R.string.db_integrity_ok) else resources.getString(R.string.db_integrity_bad, res)
+                    }
                     else -> m
                 },
             )
@@ -103,12 +108,14 @@ fun DatabaseScreen(path: String, onBack: () -> Unit, onOpenTable: (String) -> Un
                     }
                     PrimaryTabRow(selectedTabIndex = state.tab.ordinal) {
                         Tab(selected = state.tab == DbTab.TABLES, onClick = { viewModel.selectTab(DbTab.TABLES) }, text = { Text(stringResource(R.string.db_tables)) })
+                        Tab(selected = state.tab == DbTab.SCHEMA, onClick = { viewModel.selectTab(DbTab.SCHEMA) }, text = { Text(stringResource(R.string.db_schema)) })
                         Tab(selected = state.tab == DbTab.SQL, onClick = { viewModel.selectTab(DbTab.SQL) }, text = { Text(stringResource(R.string.db_sql)) })
                     }
                     when (state.tab) {
                         DbTab.TABLES -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                             items(state.tables, key = { it.name }) { table -> TableRow(table, onClick = { onOpenTable(table.name) }) }
                         }
+                        DbTab.SCHEMA -> SchemaTab(state, viewModel)
                         DbTab.SQL -> SqlConsole(state, viewModel)
                     }
                 }
@@ -121,6 +128,49 @@ fun DatabaseScreen(path: String, onBack: () -> Unit, onOpenTable: (String) -> Un
     if (selected != null && result != null && selected in result.rows.indices) {
         RowSheet(columns = result.columns, row = result.rows[selected], onDismiss = { viewModel.selectRow(null) })
     }
+}
+
+@Composable
+private fun SchemaTab(state: DatabaseUiState, viewModel: DatabaseViewModel) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = viewModel::vacuum, enabled = !state.maintenanceRunning) { Text(stringResource(R.string.db_vacuum)) }
+                Button(onClick = viewModel::integrityCheck, enabled = !state.maintenanceRunning) { Text(stringResource(R.string.db_integrity)) }
+            }
+        }
+        if (state.maintenanceRunning) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+        item { Text(stringResource(R.string.db_schema_tables, state.schema.size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+        items(state.schema, key = { it.name }) { st ->
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(if (st.type == "view") Icons.Default.ViewList else Icons.Default.TableChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(st.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(R.string.db_schema_meta, st.rowCount, st.columnCount), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (state.relationships.isNotEmpty()) {
+            item { Text(stringResource(R.string.db_relationships, state.relationships.size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp)) }
+            items(state.relationships) { fk ->
+                Text(
+                    "${fk.fromTable}.${fk.fromColumn}  →  ${fk.toTable}.${fk.toColumn}",
+                    style = MonoStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val units = listOf("KB", "MB", "GB")
+    var v = bytes.toDouble() / 1024
+    var i = 0
+    while (v >= 1024 && i < units.size - 1) { v /= 1024; i++ }
+    return "${(v * 10).toLong() / 10.0} ${units[i]}"
 }
 
 @Composable

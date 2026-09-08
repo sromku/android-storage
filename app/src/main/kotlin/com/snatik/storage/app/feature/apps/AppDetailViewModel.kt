@@ -124,6 +124,21 @@ class AppDetailViewModel(
     fun uninstall() { dismissDialog(); shellAction { actions.uninstall(packageName) } }
     fun setPermission(permission: String, grant: Boolean) = shellAction { actions.grantPermission(packageName, permission, grant) }
 
+    fun compile(mode: com.snatik.storage.core.apps.CompileMode) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true) }
+            try {
+                actions.compile(packageName, mode)
+                val filter = actions.compilationFilter(packageName)
+                _messages.send(if (filter != null) "compile:$filter" else "done")
+            } catch (e: Exception) {
+                _messages.send(e.message ?: e.toString())
+            } finally {
+                _state.update { it.copy(busy = false) }
+            }
+        }
+    }
+
     private fun shellAction(block: suspend () -> Unit) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true) }

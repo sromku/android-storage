@@ -89,6 +89,7 @@ fun AppDetailScreen(
             val text = when {
                 message == "done" -> resources.getString(R.string.action_done)
                 message.startsWith("exported:") -> resources.getString(R.string.apk_exported, message.removePrefix("exported:"))
+                message.startsWith("compile:") -> resources.getString(R.string.compile_done, message.removePrefix("compile:"))
                 else -> message
             }
             snackbar.showSnackbar(text)
@@ -141,6 +142,7 @@ fun AppDetailScreen(
                             onUninstall = viewModel::requestUninstall,
                             onBrowse = onBrowse,
                             onDiskUsage = onDiskUsage,
+                            onCompile = viewModel::compile,
                         )
                         DetailTab.BEHAVIOR -> BehaviorTab(state.watch, state.watchLoading)
                         DetailTab.MANIFEST -> ManifestTab(state, onQuery = viewModel::setManifestQuery)
@@ -210,6 +212,7 @@ private fun OverviewTab(
     onUninstall: () -> Unit,
     onBrowse: (String, String) -> Unit,
     onDiskUsage: (String, String) -> Unit,
+    onCompile: (com.snatik.storage.core.apps.CompileMode) -> Unit,
 ) {
     val context = LocalContext.current
     val s = details.summary
@@ -243,6 +246,15 @@ private fun OverviewTab(
             }
             if (!shellAvailable) {
                 Text(stringResource(R.string.shell_actions_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            if (shellAvailable) {
+                Text(stringResource(R.string.compile_title), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.SPEED) }, label = { Text(stringResource(R.string.compile_speed)) })
+                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.SPEED_PROFILE) }, label = { Text(stringResource(R.string.compile_profile)) })
+                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.VERIFY) }, label = { Text(stringResource(R.string.compile_verify)) })
+                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.RESET) }, label = { Text(stringResource(R.string.compile_reset)) })
+                }
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         }

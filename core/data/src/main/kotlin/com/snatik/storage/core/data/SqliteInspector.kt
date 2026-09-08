@@ -13,6 +13,12 @@ data class TableInfo(val name: String, val type: String, val rowCount: Long?)
 
 data class ColumnInfo(val name: String, val type: String, val notNull: Boolean, val primaryKey: Boolean, val defaultValue: String?)
 
+/** A foreign-key edge: fromTable.fromColumn -> toTable.toColumn. */
+data class ForeignKey(val fromTable: String, val fromColumn: String, val toTable: String, val toColumn: String)
+
+/** A row in the schema overview. */
+data class TableStat(val name: String, val type: String, val rowCount: Long, val columnCount: Int)
+
 /**
  * Opens SQLite files from anywhere the routed file system can read. Files this uid cannot open
  * directly are copied into the cache, so changes made there need [OpenDatabase.saveBack].
@@ -97,6 +103,44 @@ class SqliteInspector(private val context: Context, private val fs: FileSystem) 
         }
 
         /** Write the working copy back over the original. Only meaningful when [isCopy]. */
+        /** Run VACUUM to rebuild and compact the database file, returning bytes reclaimed. */
+        fun vacuum(): Long {
+            val before = workingFile.length()
+            db.execSQL("VACUUM")
+            return (before - workingFile.length()).coerceAtLeast(0)
+        }
+
+        /** PRAGMA integrity_check — "ok" or the list of problems found. */
+        fun integrityCheck(): String = db.rawQuery("PRAGMA integrity_check", null).use { c ->
+            val out = ArrayList<String>()
+            while (c.moveToNext()) out += c.getString(0)
+            out.joinToString("\n")
+        }
+
+        /** Foreign-key relationships across all tables, for an ER-style overview. */
+        fun relationships(): List<ForeignKey> {
+            val out = ArrayList<ForeignKey>()
+            tables().filter { it.type == "table" }.forEach { t ->
+                runCatching {
+                    db.rawQuery("PRAGMA foreign_key_list(${quote(t.name)})", null).use { c ->
+                        while (c.moveToNext()) {
+                            val toTable = c.getString(c.getColumnIndexOrThrow("table"))
+                            val fromCol = c.getString(c.getColumnIndexOrThrow("from"))
+                            val toCol = c.getString(c.getColumnIndexOrThrow("to"))
+                            out += ForeignKey(t.name, fromCol, toTable, toCol)
+                        }
+                    }
+                }
+            }
+            return out
+        }
+
+        /** Column count and rough page footprint per table, for the schema overview. */
+        fun tableStats(): List<TableStat> = tables().map { t ->
+            val cols = if (t.type == "table") runCatching { columns(t.name).size }.getOrDefault(0) else 0
+            TableStat(t.name, t.type, t.rowCount ?: 0, cols)
+        }
+
         suspend fun saveBack() {
             if (!isCopy) return
             db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
