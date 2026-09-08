@@ -59,7 +59,7 @@ class RoutedFileSystem(
     override suspend fun stat(path: String): FsEntry? = pick(path).stat(path)
     override suspend fun list(path: String): List<FsEntry> = pick(path).list(path)
     override suspend fun readBytes(path: String, offset: Long, maxLength: Int): ByteArray = pick(path).readBytes(path, offset, maxLength)
-    override suspend fun writeText(path: String, text: String) = pick(path, write = true).writeText(path, text)
+    override suspend fun writeBytes(path: String, bytes: ByteArray) = pick(path, write = true).writeBytes(path, bytes)
     override suspend fun createDirectory(path: String): FsEntry = pick(path, write = true).createDirectory(path)
     override suspend fun createFile(path: String): FsEntry = pick(path, write = true).createFile(path)
     override suspend fun rename(path: String, newName: String): FsEntry = pick(path, write = true).rename(path, newName)

@@ -58,8 +58,8 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
         return result.stdout
     }
 
-    override suspend fun writeText(path: String, text: String) {
-        val result = shell.run("cat > ${path.shellQuote()}", stdin = text.toByteArray())
+    override suspend fun writeBytes(path: String, bytes: ByteArray) {
+        val result = shell.run("cat > ${path.shellQuote()}", stdin = bytes, timeoutMs = 10 * 60_000)
         if (!result.ok) throw failure(path, result)
     }
 

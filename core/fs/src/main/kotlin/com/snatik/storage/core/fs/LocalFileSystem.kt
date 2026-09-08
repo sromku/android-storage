@@ -57,8 +57,8 @@ class LocalFileSystem(private val storage: Storage) : FileSystem {
         }
     }
 
-    override suspend fun writeText(path: String, text: String) = withContext(Dispatchers.IO) {
-        storage.createFile(path, text).getOrThrow()
+    override suspend fun writeBytes(path: String, bytes: ByteArray) = withContext(Dispatchers.IO) {
+        storage.createFile(path, bytes).getOrThrow()
         Unit
     }
 

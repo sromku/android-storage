@@ -39,6 +39,7 @@ dependencies {
     implementation(project(":core:fs"))
     implementation(project(":core:shell"))
     implementation(project(":core:apps"))
+    implementation(project(":core:data"))
 
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)

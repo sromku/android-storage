@@ -30,7 +30,22 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class DiskUsage(val label: String, val path: String) : Route
+
+    @Serializable
+    data object Data : Route
+
+    @Serializable
+    data class ProviderQuery(val uri: String, val title: String) : Route
+
+    @Serializable
+    data class Database(val path: String) : Route
+
+    @Serializable
+    data class DbTable(val path: String, val table: String) : Route
+
+    @Serializable
+    data class Prefs(val path: String) : Route
 }
 
 /** The destinations reachable from the bottom bar. */
-enum class TopLevel { STORAGE, APPS }
+enum class TopLevel { STORAGE, APPS, DATA }

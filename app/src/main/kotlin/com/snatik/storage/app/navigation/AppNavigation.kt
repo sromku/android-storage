@@ -10,6 +10,11 @@ import androidx.navigation3.ui.NavDisplay
 import com.snatik.storage.app.feature.apps.AppDetailScreen
 import com.snatik.storage.app.feature.apps.AppsScreen
 import com.snatik.storage.app.feature.browser.BrowserScreen
+import com.snatik.storage.app.feature.data.DataScreen
+import com.snatik.storage.app.feature.data.DatabaseScreen
+import com.snatik.storage.app.feature.data.DbTableScreen
+import com.snatik.storage.app.feature.data.PrefsScreen
+import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
 import com.snatik.storage.app.feature.viewer.HexViewerScreen
@@ -26,7 +31,11 @@ fun AppNavigation() {
     fun pop() { backStack.removeLastOrNull() }
 
     fun switchTab(tab: TopLevel) {
-        val root: Route = if (tab == TopLevel.STORAGE) Route.Home else Route.Apps
+        val root: Route = when (tab) {
+            TopLevel.STORAGE -> Route.Home
+            TopLevel.APPS -> Route.Apps
+            TopLevel.DATA -> Route.Data
+        }
         if (backStack.size == 1 && backStack.first() == root) return
         backStack.add(root)
         while (backStack.size > 1) backStack.removeAt(0)
@@ -46,6 +55,8 @@ fun AppNavigation() {
 
     fun openFile(entry: FsEntry, forceKind: FileKind? = null) {
         when (forceKind ?: entry.kind) {
+            FileKind.DATABASE -> push(Route.Database(entry.path))
+            FileKind.XML -> if (entry.parentPath?.endsWith("/shared_prefs") == true) push(Route.Prefs(entry.path)) else push(Route.TextViewer(entry.path))
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
             FileKind.TEXT, FileKind.CODE, FileKind.JSON, FileKind.XML -> push(Route.TextViewer(entry.path))
             else -> push(Route.HexViewer(entry.path))
@@ -88,8 +99,25 @@ fun AppNavigation() {
                     onOpenFile = { entry -> openFile(entry) },
                     onViewAsText = { entry -> openFile(entry, FileKind.TEXT) },
                     onViewAsHex = { entry -> openFile(entry, FileKind.OTHER) },
+                    onOpenAsDatabase = { entry -> push(Route.Database(entry.path)) },
+                    onOpenAsPrefs = { entry -> push(Route.Prefs(entry.path)) },
                     onDiskUsage = { push(Route.DiskUsage(route.path.substringAfterLast('/').ifEmpty { route.rootLabel }, route.path)) },
                 )
+            }
+            entry<Route.Data> {
+                DataScreen(onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) }, onSwitchTab = ::switchTab)
+            }
+            entry<Route.ProviderQuery> { route ->
+                ProviderQueryScreen(route = route, onBack = ::pop)
+            }
+            entry<Route.Database> { route ->
+                DatabaseScreen(path = route.path, onBack = ::pop, onOpenTable = { table -> push(Route.DbTable(route.path, table)) })
+            }
+            entry<Route.DbTable> { route ->
+                DbTableScreen(route = route, onBack = ::pop)
+            }
+            entry<Route.Prefs> { route ->
+                PrefsScreen(path = route.path, onBack = ::pop)
             }
             entry<Route.TextViewer> { route ->
                 TextViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) })

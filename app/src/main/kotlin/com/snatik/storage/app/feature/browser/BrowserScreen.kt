@@ -123,6 +123,8 @@ fun BrowserScreen(
     onOpenFile: (FsEntry) -> Unit,
     onViewAsText: (FsEntry) -> Unit,
     onViewAsHex: (FsEntry) -> Unit,
+    onOpenAsDatabase: (FsEntry) -> Unit,
+    onOpenAsPrefs: (FsEntry) -> Unit,
     onDiskUsage: () -> Unit,
     viewModel: BrowserViewModel = koinViewModel(parameters = { parametersOf(route) }),
 ) {
@@ -222,6 +224,8 @@ fun BrowserScreen(
                         onDelete = { viewModel.requestDelete(listOf(it.path)) },
                         onViewAsText = onViewAsText,
                         onViewAsHex = onViewAsHex,
+                        onOpenAsDatabase = onOpenAsDatabase,
+                        onOpenAsPrefs = onOpenAsPrefs,
                     )
                 }
             }
@@ -442,6 +446,8 @@ private fun EntryList(
     onDelete: (FsEntry) -> Unit,
     onViewAsText: (FsEntry) -> Unit,
     onViewAsHex: (FsEntry) -> Unit,
+    onOpenAsDatabase: (FsEntry) -> Unit,
+    onOpenAsPrefs: (FsEntry) -> Unit,
 ) {
     LazyColumn(
         state = listState,
@@ -462,6 +468,8 @@ private fun EntryList(
                         DropdownMenuItem(text = { Text(stringResource(R.string.share)) }, leadingIcon = { Icon(Icons.Default.Share, null) }, onClick = { dismiss(); onShare(entry) })
                         if (!entry.kind.isTextLike) DropdownMenuItem(text = { Text(stringResource(R.string.view_as_text)) }, onClick = { dismiss(); onViewAsText(entry) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.view_as_hex)) }, onClick = { dismiss(); onViewAsHex(entry) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.open_as_database)) }, onClick = { dismiss(); onOpenAsDatabase(entry) })
+                        if (entry.kind == FileKind.XML) DropdownMenuItem(text = { Text(stringResource(R.string.open_as_prefs)) }, onClick = { dismiss(); onOpenAsPrefs(entry) })
                         HorizontalDivider()
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.copy)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) }, onClick = { dismiss(); onCopy(entry) })

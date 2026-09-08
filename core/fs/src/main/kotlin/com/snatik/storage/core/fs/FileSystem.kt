@@ -20,7 +20,9 @@ interface FileSystem {
     /** Read up to [maxLength] bytes starting at [offset]. */
     suspend fun readBytes(path: String, offset: Long = 0, maxLength: Int = Int.MAX_VALUE): ByteArray
 
-    suspend fun writeText(path: String, text: String)
+    suspend fun writeBytes(path: String, bytes: ByteArray)
+
+    suspend fun writeText(path: String, text: String) = writeBytes(path, text.toByteArray())
 
     suspend fun createDirectory(path: String): FsEntry
 

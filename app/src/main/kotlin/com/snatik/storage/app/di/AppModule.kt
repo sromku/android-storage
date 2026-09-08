@@ -12,6 +12,15 @@ import com.snatik.storage.core.apps.AppActions
 import com.snatik.storage.core.apps.AppRepository
 import com.snatik.storage.core.apps.ManifestDecoder
 import com.snatik.storage.core.fs.DiskScanner
+import com.snatik.storage.core.data.ProviderRepository
+import com.snatik.storage.core.data.ProviderQuery
+import com.snatik.storage.core.data.SqliteInspector
+import com.snatik.storage.app.feature.data.DatabaseSessions
+import com.snatik.storage.app.feature.data.DataViewModel
+import com.snatik.storage.app.feature.data.ProviderQueryViewModel
+import com.snatik.storage.app.feature.data.DatabaseViewModel
+import com.snatik.storage.app.feature.data.DbTableViewModel
+import com.snatik.storage.app.feature.data.PrefsViewModel
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
@@ -48,6 +57,10 @@ val appModule = module {
     single { ManifestDecoder(androidContext()) }
     single { AppActions(get()) }
     single { DiskScanner(get()) }
+    single { ProviderRepository(androidContext()) }
+    single { ProviderQuery(androidContext(), get()) }
+    single { SqliteInspector(androidContext(), get()) }
+    single { DatabaseSessions(get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
@@ -56,4 +69,9 @@ val appModule = module {
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DiskUsageViewModel(path, get()) }
+    viewModelOf(::DataViewModel)
+    viewModel { (route: Route.ProviderQuery) -> ProviderQueryViewModel(route, get(), get()) }
+    viewModel { (path: String) -> DatabaseViewModel(path, get()) }
+    viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
+    viewModel { (path: String) -> PrefsViewModel(path, get()) }
 }

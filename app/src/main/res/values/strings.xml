@@ -125,6 +125,76 @@
     <string name="files_in_dir">%1$d files here</string>
     <string name="other_files">Files in this folder</string>
 
+    <string name="tab_data">Data</string>
+
+    <!-- Data tab -->
+    <string name="data_title">Data</string>
+    <string name="section_shortcuts">System providers</string>
+    <string name="section_all_providers">All providers</string>
+    <string name="providers_search">Search authority or app</string>
+    <string name="providers_count">%1$d providers</string>
+    <string name="no_providers">No providers match</string>
+    <string name="open_as_database">Open as database</string>
+    <string name="open_as_prefs">Open as preferences</string>
+
+    <!-- Provider query -->
+    <string name="query_uri">URI</string>
+    <string name="query_projection">Projection (comma separated)</string>
+    <string name="query_selection">Selection (WHERE)</string>
+    <string name="query_args">Selection args (comma separated)</string>
+    <string name="query_sort">Sort order</string>
+    <string name="query_limit">Limit</string>
+    <string name="query_run">Run</string>
+    <string name="query_edit">Edit query</string>
+    <string name="query_results">%1$d rows · page %2$d</string>
+    <string name="query_via_shell">Fetched through the shell because the app has no permission; values with commas may be split.</string>
+    <string name="query_no_rows">No rows</string>
+    <string name="query_permission_denied">Permission denied</string>
+    <string name="query_permission_hint">This provider needs a permission the app does not hold. Connect Shizuku to query it as the shell user.</string>
+    <string name="query_failed">Query failed</string>
+    <string name="query_mime">MIME %1$s</string>
+    <string name="export_csv">Export CSV</string>
+    <string name="export_json">Export JSON</string>
+    <string name="exported_to">Saved to %1$s</string>
+    <string name="page_prev">Previous</string>
+    <string name="page_next">Next</string>
+    <string name="row_detail">Row</string>
+    <string name="null_value">NULL</string>
+
+    <!-- Database -->
+    <string name="db_tables">Tables</string>
+    <string name="db_sql">SQL</string>
+    <string name="db_copied_banner">Working on a copy in the app cache. Changes stay here until you save them back.</string>
+    <string name="db_save_back">Save back</string>
+    <string name="db_saved">Saved to the original file</string>
+    <string name="db_read_only">Read only</string>
+    <string name="db_rows">%1$d rows</string>
+    <string name="db_rows_paged">%1$d rows · page %2$d</string>
+    <string name="db_view">view</string>
+    <string name="db_sql_hint">SELECT * FROM …</string>
+    <string name="db_sql_done">Statement ran</string>
+    <string name="db_schema">Schema</string>
+    <string name="db_create_sql">CREATE statement</string>
+    <string name="db_open_failed">Could not open database</string>
+    <string name="db_pk">PK</string>
+    <string name="db_not_null">NOT NULL</string>
+    <string name="db_default">default %1$s</string>
+
+    <!-- Preferences -->
+    <string name="prefs_title">Preferences</string>
+    <string name="prefs_save">Save</string>
+    <string name="prefs_saved">Preferences saved</string>
+    <string name="prefs_unsaved">Unsaved changes</string>
+    <string name="prefs_add">Add entry</string>
+    <string name="prefs_key">Key</string>
+    <string name="prefs_value">Value</string>
+    <string name="prefs_type">Type</string>
+    <string name="prefs_set_hint">One value per line</string>
+    <string name="prefs_edit">Edit %1$s</string>
+    <string name="prefs_empty">No entries</string>
+    <string name="prefs_parse_failed">Could not parse this file as preferences</string>
+    <string name="save">Save</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>
