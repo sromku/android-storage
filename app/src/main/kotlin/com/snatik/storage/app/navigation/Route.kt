@@ -78,6 +78,12 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class Recording(val id: Long) : Route
+
+    @Serializable
+    data object Receive : Route
+
+    @Serializable
+    data class SendTo(val paths: List<String>) : Route
 }
 
 /** The destinations reachable from the bottom bar. */

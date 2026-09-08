@@ -41,6 +41,9 @@ import com.snatik.storage.app.feature.capture.FileDiffViewModel
 import com.snatik.storage.app.feature.capture.RecordingViewModel
 import com.snatik.storage.app.feature.capture.SnapshotDiffViewModel
 import com.snatik.storage.app.feature.capture.SnapshotViewModel
+import com.snatik.storage.app.feature.transfer.ReceiveViewModel
+import com.snatik.storage.app.feature.transfer.SendToViewModel
+import com.snatik.storage.app.feature.transfer.TransferHub
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
@@ -90,6 +93,7 @@ val appModule = module {
     single { SnapshotRepository(androidContext(), get(), get()) }
     single { RecordingEngine(androidContext(), get(), get(), get(), get()) }
     single { ScreenRecorder(androidContext()) }
+    single { TransferHub(androidContext(), get(), get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
@@ -114,4 +118,6 @@ val appModule = module {
     viewModel { (route: Route.SnapshotDiff) -> SnapshotDiffViewModel(route, get()) }
     viewModel { (route: Route.FileDiff) -> FileDiffViewModel(route, get()) }
     viewModel { (id: Long) -> RecordingViewModel(id, get()) }
+    viewModelOf(::ReceiveViewModel)
+    viewModel { (route: Route.SendTo) -> SendToViewModel(route, get()) }
 }

@@ -22,6 +22,8 @@ import com.snatik.storage.app.feature.data.PrefsScreen
 import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
+import com.snatik.storage.app.feature.transfer.ReceiveScreen
+import com.snatik.storage.app.feature.transfer.SendToScreen
 import com.snatik.storage.app.feature.intents.BroadcastHistoryScreen
 import com.snatik.storage.app.feature.intents.BroadcastMonitorScreen
 import com.snatik.storage.app.feature.intents.DeepLinkScreen
@@ -86,6 +88,7 @@ fun AppNavigation() {
             entry<Route.Home> {
                 HomeScreen(
                     onOpenVolume = ::openBrowser,
+                    onOpenReceive = { push(Route.Receive) },
                     onOpenDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onSwitchTab = ::switchTab,
                 )
@@ -116,6 +119,7 @@ fun AppNavigation() {
                     onOpenAsPrefs = { entry -> push(Route.Prefs(entry.path)) },
                     onDiskUsage = { push(Route.DiskUsage(route.path.substringAfterLast('/').ifEmpty { route.rootLabel }, route.path)) },
                     onSnapshot = { push(Route.Capture(newSnapshotPath = route.path)) },
+                    onSendTo = { paths -> push(Route.SendTo(paths)) },
                 )
             }
             entry<Route.Data> {
@@ -167,6 +171,8 @@ fun AppNavigation() {
             }
             entry<Route.FileDiff> { route -> FileDiffScreen(route = route, onBack = ::pop) }
             entry<Route.Recording> { route -> RecordingScreen(id = route.id, onBack = ::pop) }
+            entry<Route.Receive> { ReceiveScreen(onBack = ::pop, onOpenInbox = { path -> openBrowser("Storage Received", path) }) }
+            entry<Route.SendTo> { route -> SendToScreen(route = route, onBack = ::pop) }
             entry<Route.TextViewer> { route ->
                 TextViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) })
             }

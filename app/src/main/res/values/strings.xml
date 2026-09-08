@@ -348,6 +348,35 @@
     <string name="notification_title">Recording %1$s</string>
     <string name="notification_text">Capturing %1$s</string>
 
+    <!-- Transfer -->
+    <string name="receive_title">Receive files</string>
+    <string name="receive_body">From a laptop browser or another phone on the same network.</string>
+    <string name="receive_server_on">Receiving on</string>
+    <string name="receive_server_off">Server is off</string>
+    <string name="receive_start">Start receiving</string>
+    <string name="receive_stop">Stop</string>
+    <string name="receive_code">Pairing code</string>
+    <string name="receive_new_code">New code</string>
+    <string name="receive_open_url">Open this address in a browser on the same Wi‑Fi, or scan the code.</string>
+    <string name="receive_no_network">No Wi‑Fi address found. Connect to a network, or use adb forward tcp:%1$d tcp:%1$d for localhost.</string>
+    <string name="receive_inbox">Received files</string>
+    <string name="receive_open_inbox">Open folder</string>
+    <string name="receive_none">Nothing received yet</string>
+    <string name="receive_from">from %1$s</string>
+    <string name="send_to_device">Send to device…</string>
+    <string name="send_title">Send to device</string>
+    <string name="send_files">%1$d files · %2$s</string>
+    <string name="send_searching">Looking for devices on this network…</string>
+    <string name="send_none">No other device found yet. Open Receive files on the other phone.</string>
+    <string name="send_manual">Or type an address</string>
+    <string name="send_address">host:port</string>
+    <string name="send_code_prompt">Enter the pairing code shown on %1$s</string>
+    <string name="send_send">Send</string>
+    <string name="send_progress">%1$s · %2$d of %3$d</string>
+    <string name="send_done">Sent %1$d files</string>
+    <string name="send_failed">Sending failed</string>
+    <string name="send_wrong_code">Wrong code</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>

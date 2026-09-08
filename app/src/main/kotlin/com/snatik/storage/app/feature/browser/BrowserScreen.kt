@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -128,6 +129,7 @@ fun BrowserScreen(
     onOpenAsPrefs: (FsEntry) -> Unit,
     onDiskUsage: () -> Unit,
     onSnapshot: () -> Unit,
+    onSendTo: (List<String>) -> Unit,
     viewModel: BrowserViewModel = koinViewModel(parameters = { parametersOf(route) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -166,7 +168,7 @@ fun BrowserScreen(
                 label = "topbar",
             ) { selecting ->
                 if (selecting) {
-                    SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) })
+                    SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) }, onSendTo = { onSendTo(state.selected.toList()) })
                 } else {
                     BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot)
                 }
@@ -345,7 +347,7 @@ private fun SortMenu(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SelectionTopBar(state: BrowserUiState, viewModel: BrowserViewModel, onShare: () -> Unit) {
+private fun SelectionTopBar(state: BrowserUiState, viewModel: BrowserViewModel, onShare: () -> Unit, onSendTo: () -> Unit) {
     val single = state.selected.singleOrNull()?.let { path -> state.entries.firstOrNull { it.path == path } }
     TopAppBar(
         title = { Text(pluralStringResource(R.plurals.selected_count, state.selected.size, state.selected.size)) },
@@ -366,6 +368,11 @@ private fun SelectionTopBar(state: BrowserUiState, viewModel: BrowserViewModel, 
                     text = { Text(stringResource(R.string.share)) },
                     leadingIcon = { Icon(Icons.Default.Share, null) },
                     onClick = { more = false; onShare() },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.send_to_device)) },
+                    leadingIcon = { Icon(Icons.Default.Wifi, null) },
+                    onClick = { more = false; viewModel.clearSelection(); onSendTo() },
                 )
                 if (single != null) {
                     DropdownMenuItem(
