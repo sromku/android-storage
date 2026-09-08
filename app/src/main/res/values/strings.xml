@@ -43,6 +43,7 @@
     <!-- Apps -->
     <string name="apps_title">Apps</string>
     <string name="apps_search">Search apps</string>
+    <string name="apps_filter_label">Show</string>
     <string name="apps_filter_all">All</string>
     <string name="apps_filter_user">User</string>
     <string name="apps_filter_system">System</string>
@@ -126,6 +127,11 @@
     <string name="other_files">Files in this folder</string>
 
     <string name="tab_data">Data</string>
+    <string name="tab_tools">Tools</string>
+    <string name="tools_intents_sub">Build, send, watch and intercept intents.</string>
+    <string name="tools_capture_sub">Snapshots, diffs and recording sessions.</string>
+    <string name="tools_transfer_sub">Receive files from a browser or another phone.</string>
+    <string name="tools_api_sub">Drive the device over HTTP and MCP.</string>
 
     <!-- Data tab -->
     <string name="data_title">Data</string>

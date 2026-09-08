@@ -22,6 +22,7 @@ import com.snatik.storage.app.feature.data.PrefsScreen
 import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
+import com.snatik.storage.app.feature.tools.ToolsScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -49,8 +50,7 @@ fun AppNavigation() {
             TopLevel.STORAGE -> Route.Home
             TopLevel.APPS -> Route.Apps
             TopLevel.DATA -> Route.Data
-            TopLevel.INTENTS -> Route.Intents
-            TopLevel.CAPTURE -> Route.Capture()
+            TopLevel.TOOLS -> Route.Tools
         }
         if (backStack.size == 1 && backStack.first()::class == root::class) return
         backStack.add(root)
@@ -89,8 +89,6 @@ fun AppNavigation() {
             entry<Route.Home> {
                 HomeScreen(
                     onOpenVolume = ::openBrowser,
-                    onOpenReceive = { push(Route.Receive) },
-                    onOpenApi = { push(Route.Api) },
                     onOpenDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onSwitchTab = ::switchTab,
                 )
@@ -139,9 +137,18 @@ fun AppNavigation() {
             entry<Route.Prefs> { route ->
                 PrefsScreen(path = route.path, onBack = ::pop)
             }
+            entry<Route.Tools> {
+                ToolsScreen(
+                    onSwitchTab = ::switchTab,
+                    onOpenIntents = { push(Route.Intents) },
+                    onOpenCapture = { push(Route.Capture()) },
+                    onOpenReceive = { push(Route.Receive) },
+                    onOpenApi = { push(Route.Api) },
+                )
+            }
             entry<Route.Intents> {
                 IntentsScreen(
-                    onSwitchTab = ::switchTab,
+                    onBack = ::pop,
                     onOpenBuilder = { push(Route.IntentBuilder()) },
                     onOpenPreset = { id -> push(Route.IntentBuilder(presetId = id)) },
                     onOpenLog = { push(Route.IntentLog) },
@@ -160,7 +167,7 @@ fun AppNavigation() {
             entry<Route.Capture> { route ->
                 CaptureScreen(
                     route = route,
-                    onSwitchTab = ::switchTab,
+                    onBack = ::pop,
                     onOpenSnapshot = { id -> push(Route.Snapshot(id)) },
                     onOpenRecording = { id -> push(Route.Recording(id)) },
                 )

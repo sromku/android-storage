@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
@@ -42,15 +43,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
-import com.snatik.storage.app.navigation.TopLevel
-import com.snatik.storage.app.ui.components.TopLevelBar
 import com.snatik.storage.app.ui.theme.MonoStyle
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IntentsScreen(
-    onSwitchTab: (TopLevel) -> Unit,
+    onBack: () -> Unit,
     onOpenBuilder: () -> Unit,
     onOpenPreset: (Long) -> Unit,
     onOpenLog: () -> Unit,
@@ -64,8 +63,7 @@ fun IntentsScreen(
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.intents_title)) }, scrollBehavior = scrollBehavior) },
-        bottomBar = { TopLevelBar(current = TopLevel.INTENTS, onSelect = onSwitchTab) },
+        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.intents_title)) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } }, scrollBehavior = scrollBehavior) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),

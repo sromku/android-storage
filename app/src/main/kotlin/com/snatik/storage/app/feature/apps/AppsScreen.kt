@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,6 +28,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -106,8 +108,24 @@ fun AppsScreen(onOpenApp: (String) -> Unit, onSwitchTab: (TopLevel) -> Unit, vie
                         IconButton(onClick = { viewModel.setSearchActive(false) }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
                     } else {
                         IconButton(onClick = { viewModel.setSearchActive(true) }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
-                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort)) }
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.sort)) }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            Text(stringResource(R.string.apps_filter_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                            AppFilter.entries.forEach { filter ->
+                                val flabel = when (filter) {
+                                    AppFilter.ALL -> R.string.apps_filter_all
+                                    AppFilter.USER -> R.string.apps_filter_user
+                                    AppFilter.SYSTEM -> R.string.apps_filter_system
+                                    AppFilter.DEBUGGABLE -> R.string.apps_filter_debuggable
+                                }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(flabel)) },
+                                    leadingIcon = { RadioButton(selected = state.filter == filter, onClick = null) },
+                                    onClick = { viewModel.setFilter(filter) },
+                                )
+                            }
+                            HorizontalDivider()
+                            Text(stringResource(R.string.sort_by), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                             AppSort.entries.forEach { sort ->
                                 val label = when (sort) {
                                     AppSort.NAME -> R.string.apps_sort_name
@@ -129,20 +147,6 @@ fun AppsScreen(onOpenApp: (String) -> Unit, onSwitchTab: (TopLevel) -> Unit, vie
         bottomBar = { TopLevelBar(current = TopLevel.APPS, onSelect = onSwitchTab) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(AppFilter.entries) { filter ->
-                    val label = when (filter) {
-                        AppFilter.ALL -> R.string.apps_filter_all
-                        AppFilter.USER -> R.string.apps_filter_user
-                        AppFilter.SYSTEM -> R.string.apps_filter_system
-                        AppFilter.DEBUGGABLE -> R.string.apps_filter_debuggable
-                    }
-                    FilterChip(selected = state.filter == filter, onClick = { viewModel.setFilter(filter) }, label = { Text(stringResource(label)) })
-                }
-            }
             Text(
                 stringResource(R.string.apps_summary, state.totalCount, if (state.hasUsageAccess) state.totalBytes.readableSize() else stringResource(R.string.size_unknown)),
                 style = MaterialTheme.typography.bodySmall,

@@ -87,7 +87,10 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object Api : Route
+
+    @Serializable
+    data object Tools : Route
 }
 
 /** The destinations reachable from the bottom bar. */
-enum class TopLevel { STORAGE, APPS, DATA, INTENTS, CAPTURE }
+enum class TopLevel { STORAGE, APPS, DATA, TOOLS }

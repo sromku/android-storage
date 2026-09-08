@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
@@ -58,10 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.navigation.Route
-import com.snatik.storage.app.navigation.TopLevel
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.Tag
-import com.snatik.storage.app.ui.components.TopLevelBar
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.app.util.relativeTime
@@ -75,7 +74,7 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun CaptureScreen(
     route: Route.Capture,
-    onSwitchTab: (TopLevel) -> Unit,
+    onBack: () -> Unit,
     onOpenSnapshot: (Long) -> Unit,
     onOpenRecording: (Long) -> Unit,
     viewModel: CaptureViewModel = koinViewModel(parameters = { parametersOf(route) }),
@@ -97,8 +96,7 @@ fun CaptureScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.capture_title)) }, scrollBehavior = scrollBehavior) },
-        bottomBar = { TopLevelBar(current = TopLevel.CAPTURE, onSelect = onSwitchTab) },
+        topBar = { LargeTopAppBar(title = { Text(stringResource(R.string.capture_title)) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } }, scrollBehavior = scrollBehavior) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
