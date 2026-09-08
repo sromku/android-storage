@@ -1,7 +1,9 @@
 *.iml
 .gradle
+.kotlin
 local.properties
 .idea
 .DS_Store
-/build
+build/
 /captures
+*.hprof
