@@ -1,0 +1,215 @@
+package com.snatik.storage.app.feature.capture
+
+import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.snatik.storage.app.R
+import com.snatik.storage.app.ui.components.EmptyState
+import com.snatik.storage.app.ui.components.Tag
+import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.app.util.fullDateTime
+import com.snatik.storage.core.capture.RecordSource
+import com.snatik.storage.core.capture.RecordingEngine
+import com.snatik.storage.core.capture.RecordingEntity
+import com.snatik.storage.core.capture.RecordingEventEntity
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+data class RecordingUiState(
+    val recording: RecordingEntity? = null,
+    val events: List<RecordingEventEntity> = emptyList(),
+    val loading: Boolean = true,
+    val source: RecordSource? = null,
+    val query: String = "",
+)
+
+class RecordingViewModel(private val id: Long, private val engine: RecordingEngine) : ViewModel() {
+    private val _state = MutableStateFlow(RecordingUiState())
+    val state: StateFlow<RecordingUiState> = _state.asStateFlow()
+
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
+
+    init {
+        viewModelScope.launch {
+            // Refresh while the session is still running so the timeline grows live.
+            while (true) {
+                val rec = engine.recording(id)
+                _state.update { it.copy(recording = rec, events = engine.events(id), loading = false) }
+                if (rec?.endedAt != null) break
+                delay(1500)
+            }
+        }
+    }
+
+    fun setSource(source: RecordSource?) = _state.update { it.copy(source = source) }
+    fun setQuery(q: String) = _state.update { it.copy(query = q) }
+
+    fun export() {
+        viewModelScope.launch {
+            try {
+                val zip = engine.export(id, File("/storage/emulated/0/Download"))
+                _messages.send("saved:" + zip.absolutePath)
+            } catch (e: Exception) {
+                _messages.send(e.message ?: e.toString())
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel = koinViewModel(parameters = { parametersOf(id) })) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel, resources) {
+        viewModel.messages.collect { m -> snackbar.showSnackbar(if (m.startsWith("saved:")) resources.getString(R.string.recording_exported, m.removePrefix("saved:")) else m) }
+    }
+    val rec = state.recording
+    val timeFormat = remember { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(rec?.name ?: "", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        rec?.let {
+                            Text(
+                                it.startedAt.fullDateTime(context) + "  ·  " + (if (it.endedAt == null) stringResource(R.string.recording_in_progress) else stringResource(R.string.recording_events, state.events.size)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+                actions = {
+                    rec?.videoPath?.let { path ->
+                        IconButton(onClick = {
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path))
+                            context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                        }) { Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.recording_video)) }
+                    }
+                    var more by remember { mutableStateOf(false) }
+                    IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
+                    DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.recording_export)) }, onClick = { more = false; viewModel.export() })
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            val sources = remember(rec) { rec?.sources?.split(',')?.filter { it.isNotBlank() }?.map { RecordSource.valueOf(it) }.orEmpty() }
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { FilterChip(selected = state.source == null, onClick = { viewModel.setSource(null) }, label = { Text(stringResource(R.string.recording_filter_all)) }) }
+                items(sources.filter { it != RecordSource.SCREEN }) { s ->
+                    FilterChip(selected = state.source == s, onClick = { viewModel.setSource(s) }, label = { Text(s.name.lowercase()) })
+                }
+            }
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = viewModel::setQuery,
+                placeholder = { Text(stringResource(R.string.recording_search)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = { if (state.query.isNotEmpty()) IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) } },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            val visible = remember(state.events, state.source, state.query) {
+                state.events.filter { (state.source == null || it.source == state.source!!.name) && (state.query.isBlank() || it.text.contains(state.query, true) || it.tag?.contains(state.query, true) == true) }
+            }
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    visible.isEmpty() -> EmptyState(Icons.Default.FiberManualRecord, stringResource(R.string.recording_events, 0), null)
+                    else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                        items(visible, key = { it.id }) { e ->
+                            var expanded by remember { mutableStateOf(false) }
+                            Row(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(timeFormat.format(Date(e.time)), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Tag(e.source.take(5).lowercase(), sourceColor(e.source))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    e.tag?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                    Text(e.text, style = MonoStyle, maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun sourceColor(source: String) = when (source) {
+    RecordSource.LOGCAT.name -> MaterialTheme.colorScheme.secondary
+    RecordSource.BROADCASTS.name -> MaterialTheme.colorScheme.tertiary
+    RecordSource.FILES.name -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.outline
+}

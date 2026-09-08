@@ -108,7 +108,7 @@ class LocalFileSystem(private val storage: Storage) : FileSystem {
         digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    override fun walk(path: String): Flow<Pair<String, Long>> = walkLocal(path)
+    override fun walk(path: String): Flow<WalkEntry> = walkLocal(path)
 
     override fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress> = flow {
         val plan = plan(sources, destinationDir)

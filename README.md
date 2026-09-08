@@ -149,6 +149,7 @@ What it does today:
 - Data tab: every content provider on the device with its permissions, shortcuts for MediaStore, contacts, call log, SMS, calendar and settings. Query any URI with projection, selection, sort and paging, export the result as CSV or JSON. Providers the app may not read are queried as the shell user when Shizuku is connected.
 - SQLite: open any database the current access tier can reach, including a debuggable app's private one. Tables with row counts, schema, sortable paged rows, and a SQL console. Databases that cannot be opened in place are copied and can be saved back.
 - Shared preferences: open the XML of any app you can reach, edit typed values, add or delete keys, save back.
+- Capture tab: freeze any folder into a snapshot with sizes, mtimes, optional hashes and optional copies, then compare two snapshots into added, removed, modified and moved files with a line diff for text. Recording sessions capture logcat (through the shell, filtered by package or spec), broadcasts, file changes and optionally the screen, run as a foreground service, and export as a zip.
 - Intents tab: build any activity, broadcast or service intent with typed extras and flags, see which components would receive it, send it or save it as a preset. An optional intent sink appears in share sheets and link choosers, logs every intent it receives with all extras, and forwards it on. A live broadcast monitor, the system's recent broadcast history from dumpsys (shell), and a deep-link tester that shows every app claiming a URL.
 
 <p>
@@ -157,7 +158,7 @@ What it does today:
 <img src="assets/hex.png" width="230"/>
 </p>
 
-Architecture: `core/fs` holds the file system abstraction, volumes, operations and the disk scanner; `core/apps` holds package inspection and the binary XML decoder; `core/data` holds provider queries, the SQLite inspector and the preferences codec; `core/intents` holds the intent model, sender, sink log, broadcast monitor and history parser; `core/shell` holds the privilege layer, a `ShellExecutor` with plain, Shizuku and root backends and a shell-backed file system, all without UI dependencies. The Shizuku side is a hand-written Kotlin `Binder`, so there is no AIDL and no generated Java. `app` is Compose only with Navigation 3, Koin and Coil. Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API will call later.
+Architecture: `core/fs` holds the file system abstraction, volumes, operations and the disk scanner; `core/apps` holds package inspection and the binary XML decoder; `core/data` holds provider queries, the SQLite inspector and the preferences codec; `core/intents` holds the intent model, sender, sink log, broadcast monitor and history parser; `core/capture` holds the Room database, snapshots, diffs and the recording engine; `core/shell` holds the privilege layer, a `ShellExecutor` with plain, Shizuku and root backends and a shell-backed file system, all without UI dependencies. The Shizuku side is a hand-written Kotlin `Binder`, so there is no AIDL and no generated Java. `app` is Compose only with Navigation 3, Koin and Coil. Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API will call later.
 
 ## Building
 

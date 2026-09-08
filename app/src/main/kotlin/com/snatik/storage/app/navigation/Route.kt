@@ -63,7 +63,22 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object DeepLink : Route
+
+    @Serializable
+    data class Capture(val newSnapshotPath: String? = null) : Route
+
+    @Serializable
+    data class Snapshot(val id: Long) : Route
+
+    @Serializable
+    data class SnapshotDiff(val aId: Long, val bId: Long) : Route
+
+    @Serializable
+    data class FileDiff(val aId: Long, val bId: Long, val path: String) : Route
+
+    @Serializable
+    data class Recording(val id: Long) : Route
 }
 
 /** The destinations reachable from the bottom bar. */
-enum class TopLevel { STORAGE, APPS, DATA, INTENTS }
+enum class TopLevel { STORAGE, APPS, DATA, INTENTS, CAPTURE }

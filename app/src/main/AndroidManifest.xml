@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
@@ -68,6 +72,15 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".feature.capture.RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: records logcat, broadcasts and file changes on request" />
+        </service>
 
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

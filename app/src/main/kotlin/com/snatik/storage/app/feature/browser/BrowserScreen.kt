@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
@@ -126,6 +127,7 @@ fun BrowserScreen(
     onOpenAsDatabase: (FsEntry) -> Unit,
     onOpenAsPrefs: (FsEntry) -> Unit,
     onDiskUsage: () -> Unit,
+    onSnapshot: () -> Unit,
     viewModel: BrowserViewModel = koinViewModel(parameters = { parametersOf(route) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -166,7 +168,7 @@ fun BrowserScreen(
                 if (selecting) {
                     SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) })
                 } else {
-                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage)
+                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot)
                 }
             }
         },
@@ -241,7 +243,7 @@ fun BrowserScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit) {
+private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit, onSnapshot: () -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     TopAppBar(
@@ -285,6 +287,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                     onDismiss = { sortMenu = false },
                     onSort = viewModel::setSort,
                     onShowHidden = viewModel::setShowHidden,
+                    onSnapshot = onSnapshot,
                 )
             }
         },
@@ -298,6 +301,7 @@ private fun SortMenu(
     onDismiss: () -> Unit,
     onSort: (SortField, Boolean) -> Unit,
     onShowHidden: (Boolean) -> Unit,
+    onSnapshot: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         Text(
@@ -329,6 +333,12 @@ private fun SortMenu(
             text = { Text(stringResource(R.string.show_hidden)) },
             leadingIcon = { Checkbox(checked = preferences.showHidden, onCheckedChange = null) },
             onClick = { onShowHidden(!preferences.showHidden) },
+        )
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.snapshot_folder)) },
+            leadingIcon = { Icon(Icons.Default.CameraAlt, null) },
+            onClick = { onDismiss(); onSnapshot() },
         )
     }
 }

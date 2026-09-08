@@ -3,6 +3,7 @@ package com.snatik.storage.core.shell
 import com.snatik.storage.core.fs.FileSystem
 import com.snatik.storage.core.fs.FsEntry
 import com.snatik.storage.core.fs.OperationProgress
+import com.snatik.storage.core.fs.WalkEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
@@ -65,7 +66,7 @@ class RoutedFileSystem(
     override suspend fun rename(path: String, newName: String): FsEntry = pick(path, write = true).rename(path, newName)
     override suspend fun directorySize(path: String): Long = pick(path).directorySize(path)
     override suspend fun sha256(path: String): String = pick(path).sha256(path)
-    override fun walk(path: String): Flow<Pair<String, Long>> = pick(path).walk(path)
+    override fun walk(path: String): Flow<WalkEntry> = pick(path).walk(path)
 
     override fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress> =
         routedOperation(sources, destinationDir) { fs, list -> fs.copy(list, destinationDir) }

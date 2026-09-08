@@ -288,6 +288,66 @@
     <string name="deeplink_none">No app handles this link</string>
     <string name="deeplink_launch">Launch</string>
 
+    <string name="tab_capture">Capture</string>
+    <string name="snapshot_folder">Snapshot this folder</string>
+
+    <!-- Capture -->
+    <string name="capture_title">Capture</string>
+    <string name="recording_now">Recording</string>
+    <string name="recording_idle">Not recording</string>
+    <string name="recording_events">%1$d events</string>
+    <string name="recording_start">New recording</string>
+    <string name="recording_begin">Start</string>
+    <string name="recording_stop">Stop</string>
+    <string name="recording_name">Name</string>
+    <string name="recording_sources">Sources</string>
+    <string name="source_logcat">Logcat</string>
+    <string name="source_broadcasts">Broadcasts</string>
+    <string name="source_files">File changes</string>
+    <string name="source_screen">Screen</string>
+    <string name="logcat_package">Only this package (optional)</string>
+    <string name="logcat_filter">Filter spec, e.g. MyTag:V *:S</string>
+    <string name="logcat_needs_shell">Logcat needs shell access.</string>
+    <string name="broadcasts_hint">Records the actions switched on in the broadcast monitor.</string>
+    <string name="watch_paths">Paths to watch, one per line</string>
+    <string name="screen_hint">Android asks for permission when the recording starts.</string>
+    <string name="notifications_hint">The recording runs as a foreground service with a notification.</string>
+    <string name="section_snapshots">Snapshots</string>
+    <string name="section_recordings">Recordings</string>
+    <string name="snapshot_new">New snapshot</string>
+    <string name="snapshot_path">Folder</string>
+    <string name="snapshot_label">Label</string>
+    <string name="snapshot_hash">Hash contents (slower, detects renames)</string>
+    <string name="snapshot_copies">Keep copies of files (enables text diffs)</string>
+    <string name="snapshot_progress">%1$d files · %2$s</string>
+    <string name="snapshot_summary">%1$d files · %2$s</string>
+    <string name="snapshot_none">No snapshots yet</string>
+    <string name="snapshot_none_hint">Freeze a folder now, change something, snapshot again and compare.</string>
+    <string name="recording_none">No recordings yet</string>
+    <string name="snapshot_compare">Compare with…</string>
+    <string name="snapshot_compare_title">Compare against</string>
+    <string name="snapshot_files">Files</string>
+    <string name="snapshot_search">Search files</string>
+    <string name="diff_title">Changes</string>
+    <string name="diff_added">Added</string>
+    <string name="diff_removed">Removed</string>
+    <string name="diff_modified">Modified</string>
+    <string name="diff_moved">Moved</string>
+    <string name="diff_unchanged">%1$d unchanged</string>
+    <string name="diff_none">No differences</string>
+    <string name="diff_no_copies">Text diff needs a snapshot that kept copies.</string>
+    <string name="diff_binary">Binary file</string>
+    <string name="recording_export">Export zip</string>
+    <string name="recording_exported">Saved to %1$s</string>
+    <string name="recording_video">Play video</string>
+    <string name="recording_filter_all">All</string>
+    <string name="recording_search">Search events</string>
+    <string name="recording_duration">%1$s · %2$d events</string>
+    <string name="recording_in_progress">In progress</string>
+    <string name="notification_channel">Recording</string>
+    <string name="notification_title">Recording %1$s</string>
+    <string name="notification_text">Capturing %1$s</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>

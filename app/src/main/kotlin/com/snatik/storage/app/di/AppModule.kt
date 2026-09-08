@@ -32,6 +32,15 @@ import com.snatik.storage.core.intents.BroadcastMonitor
 import com.snatik.storage.core.intents.IntentLog
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.intents.IntentSender
+import com.snatik.storage.core.capture.CaptureDatabase
+import com.snatik.storage.core.capture.RecordingEngine
+import com.snatik.storage.core.capture.ScreenRecorder
+import com.snatik.storage.core.capture.SnapshotRepository
+import com.snatik.storage.app.feature.capture.CaptureViewModel
+import com.snatik.storage.app.feature.capture.FileDiffViewModel
+import com.snatik.storage.app.feature.capture.RecordingViewModel
+import com.snatik.storage.app.feature.capture.SnapshotDiffViewModel
+import com.snatik.storage.app.feature.capture.SnapshotViewModel
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
@@ -77,6 +86,10 @@ val appModule = module {
     single { IntentPresets(androidContext()) }
     single { BroadcastMonitor(androidContext()) }
     single { BroadcastHistory() }
+    single { CaptureDatabase.create(androidContext()) }
+    single { SnapshotRepository(androidContext(), get(), get()) }
+    single { RecordingEngine(androidContext(), get(), get(), get(), get()) }
+    single { ScreenRecorder(androidContext()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
@@ -96,4 +109,9 @@ val appModule = module {
     viewModelOf(::BroadcastMonitorViewModel)
     viewModel { BroadcastHistoryViewModel(get(), get()) }
     viewModelOf(::DeepLinkViewModel)
+    viewModel { (route: Route.Capture) -> CaptureViewModel(route, androidContext(), get(), get(), get()) }
+    viewModel { (id: Long) -> SnapshotViewModel(id, get()) }
+    viewModel { (route: Route.SnapshotDiff) -> SnapshotDiffViewModel(route, get()) }
+    viewModel { (route: Route.FileDiff) -> FileDiffViewModel(route, get()) }
+    viewModel { (id: Long) -> RecordingViewModel(id, get()) }
 }

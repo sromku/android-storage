@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":core:apps"))
     implementation(project(":core:data"))
     implementation(project(":core:intents"))
+    implementation(project(":core:capture"))
 
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)

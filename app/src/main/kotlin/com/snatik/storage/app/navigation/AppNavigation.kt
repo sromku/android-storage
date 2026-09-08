@@ -10,6 +10,11 @@ import androidx.navigation3.ui.NavDisplay
 import com.snatik.storage.app.feature.apps.AppDetailScreen
 import com.snatik.storage.app.feature.apps.AppsScreen
 import com.snatik.storage.app.feature.browser.BrowserScreen
+import com.snatik.storage.app.feature.capture.CaptureScreen
+import com.snatik.storage.app.feature.capture.FileDiffScreen
+import com.snatik.storage.app.feature.capture.RecordingScreen
+import com.snatik.storage.app.feature.capture.SnapshotDiffScreen
+import com.snatik.storage.app.feature.capture.SnapshotScreen
 import com.snatik.storage.app.feature.data.DataScreen
 import com.snatik.storage.app.feature.data.DatabaseScreen
 import com.snatik.storage.app.feature.data.DbTableScreen
@@ -42,8 +47,9 @@ fun AppNavigation() {
             TopLevel.APPS -> Route.Apps
             TopLevel.DATA -> Route.Data
             TopLevel.INTENTS -> Route.Intents
+            TopLevel.CAPTURE -> Route.Capture()
         }
-        if (backStack.size == 1 && backStack.first() == root) return
+        if (backStack.size == 1 && backStack.first()::class == root::class) return
         backStack.add(root)
         while (backStack.size > 1) backStack.removeAt(0)
     }
@@ -109,6 +115,7 @@ fun AppNavigation() {
                     onOpenAsDatabase = { entry -> push(Route.Database(entry.path)) },
                     onOpenAsPrefs = { entry -> push(Route.Prefs(entry.path)) },
                     onDiskUsage = { push(Route.DiskUsage(route.path.substringAfterLast('/').ifEmpty { route.rootLabel }, route.path)) },
+                    onSnapshot = { push(Route.Capture(newSnapshotPath = route.path)) },
                 )
             }
             entry<Route.Data> {
@@ -144,6 +151,22 @@ fun AppNavigation() {
             entry<Route.BroadcastMonitor> { BroadcastMonitorScreen(onBack = ::pop) }
             entry<Route.BroadcastHistory> { BroadcastHistoryScreen(onBack = ::pop) }
             entry<Route.DeepLink> { DeepLinkScreen(onBack = ::pop) }
+            entry<Route.Capture> { route ->
+                CaptureScreen(
+                    route = route,
+                    onSwitchTab = ::switchTab,
+                    onOpenSnapshot = { id -> push(Route.Snapshot(id)) },
+                    onOpenRecording = { id -> push(Route.Recording(id)) },
+                )
+            }
+            entry<Route.Snapshot> { route ->
+                SnapshotScreen(id = route.id, onBack = ::pop, onCompare = { a, b -> push(Route.SnapshotDiff(a, b)) })
+            }
+            entry<Route.SnapshotDiff> { route ->
+                SnapshotDiffScreen(route = route, onBack = ::pop, onOpenFile = { path -> push(Route.FileDiff(route.aId, route.bId, path)) })
+            }
+            entry<Route.FileDiff> { route -> FileDiffScreen(route = route, onBack = ::pop) }
+            entry<Route.Recording> { route -> RecordingScreen(id = route.id, onBack = ::pop) }
             entry<Route.TextViewer> { route ->
                 TextViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) })
             }

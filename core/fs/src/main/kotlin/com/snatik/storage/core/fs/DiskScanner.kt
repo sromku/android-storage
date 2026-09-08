@@ -37,8 +37,10 @@ class DiskScanner(private val fs: FileSystem) {
         var files = 0
         var bytes = 0L
         var lastEmit = 0L
-        fs.walk(path).collect { (filePath, size) ->
+        fs.walk(path).collect { entry ->
             currentCoroutineContext().ensureActive()
+            val filePath = entry.path
+            val size = entry.size
             files++
             bytes += size
             addFile(root, filePath, size)
@@ -75,10 +77,10 @@ class DiskScanner(private val fs: FileSystem) {
     }
 }
 
-/** Every regular file below [path] with its size, from `java.io.File`. */
-internal fun walkLocal(path: String): Flow<Pair<String, Long>> = flow {
+/** Every regular file below [path] with its size and mtime, from `java.io.File`. */
+internal fun walkLocal(path: String): Flow<WalkEntry> = flow {
     val root = File(path)
     root.walkTopDown().onFail { _, _ -> }.forEach { f ->
-        if (f.isFile) emit(f.absolutePath to f.length())
+        if (f.isFile) emit(WalkEntry(f.absolutePath, f.length(), f.lastModified()))
     }
 }.flowOn(Dispatchers.IO)

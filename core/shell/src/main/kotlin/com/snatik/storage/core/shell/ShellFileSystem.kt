@@ -4,6 +4,7 @@ import com.snatik.storage.StorageException
 import com.snatik.storage.core.fs.FileSystem
 import com.snatik.storage.core.fs.FsEntry
 import com.snatik.storage.core.fs.OperationProgress
+import com.snatik.storage.core.fs.WalkEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -100,13 +101,15 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
         return result.out.trim().substringBefore(' ')
     }
 
-    override fun walk(path: String): Flow<Pair<String, Long>> =
-        shell.lines("find ${path.shellQuote()} -type f -exec stat -c '%s %n' -- {} + 2>/dev/null")
+    override fun walk(path: String): Flow<WalkEntry> =
+        shell.lines("find ${path.shellQuote()} -type f -exec stat -c '%s %Y %n' -- {} + 2>/dev/null")
             .map { line ->
-                val space = line.indexOf(' ')
-                if (space <= 0) return@map null
-                val size = line.substring(0, space).toLongOrNull() ?: return@map null
-                line.substring(space + 1) to size
+                val first = line.indexOf(' ')
+                val second = if (first > 0) line.indexOf(' ', first + 1) else -1
+                if (first <= 0 || second <= 0) return@map null
+                val size = line.substring(0, first).toLongOrNull() ?: return@map null
+                val mtime = line.substring(first + 1, second).toLongOrNull() ?: return@map null
+                WalkEntry(line.substring(second + 1), size, mtime * 1000)
             }
             .filterNotNull()
 

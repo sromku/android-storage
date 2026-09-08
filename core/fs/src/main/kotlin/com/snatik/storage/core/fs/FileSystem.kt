@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
  *
  * Every function throws [StorageException] on failure.
  */
+/** One regular file met while walking a tree. */
+data class WalkEntry(val path: String, val size: Long, val lastModified: Long)
+
 interface FileSystem {
 
     /** Metadata for one path, or null when it does not exist. */
@@ -37,8 +40,8 @@ interface FileSystem {
 
     suspend fun sha256(path: String): String
 
-    /** Every regular file below [path] as (absolute path, size). Used by disk analysis. */
-    fun walk(path: String): Flow<Pair<String, Long>>
+    /** Every regular file below [path]. Used by disk analysis and snapshots. */
+    fun walk(path: String): Flow<WalkEntry>
 
     /** Copy files or directory trees into [destinationDir]. Name clashes get a numbered suffix. */
     fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress>
