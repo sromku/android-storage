@@ -26,6 +26,18 @@ sealed interface Route : NavKey {
     data class ImageViewer(val path: String) : Route
 
     @Serializable
+    data class JsonViewer(val path: String) : Route
+
+    @Serializable
+    data class XmlViewer(val path: String) : Route
+
+    @Serializable
+    data class ApkViewer(val path: String) : Route
+
+    @Serializable
+    data class ArchiveViewer(val path: String) : Route
+
+    @Serializable
     data class AppDetail(val packageName: String) : Route
 
     @Serializable

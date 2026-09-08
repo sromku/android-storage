@@ -34,6 +34,10 @@ import com.snatik.storage.app.feature.intents.IntentLogScreen
 import com.snatik.storage.app.feature.intents.IntentsScreen
 import com.snatik.storage.app.feature.viewer.HexViewerScreen
 import com.snatik.storage.app.feature.viewer.ImageViewerScreen
+import com.snatik.storage.app.feature.viewer.JsonViewerScreen
+import com.snatik.storage.app.feature.viewer.XmlViewerScreen
+import com.snatik.storage.app.feature.viewer.ApkViewerScreen
+import com.snatik.storage.app.feature.viewer.ArchiveViewerScreen
 import com.snatik.storage.app.feature.viewer.TextViewerScreen
 import com.snatik.storage.core.fs.FileKind
 import com.snatik.storage.core.fs.FsEntry
@@ -72,9 +76,12 @@ fun AppNavigation() {
     fun openFile(entry: FsEntry, forceKind: FileKind? = null) {
         when (forceKind ?: entry.kind) {
             FileKind.DATABASE -> push(Route.Database(entry.path))
-            FileKind.XML -> if (entry.parentPath?.endsWith("/shared_prefs") == true) push(Route.Prefs(entry.path)) else push(Route.TextViewer(entry.path))
+            FileKind.APK -> push(Route.ApkViewer(entry.path))
+            FileKind.ARCHIVE -> push(Route.ArchiveViewer(entry.path))
+            FileKind.JSON -> push(Route.JsonViewer(entry.path))
+            FileKind.XML -> if (entry.parentPath?.endsWith("/shared_prefs") == true) push(Route.Prefs(entry.path)) else push(Route.XmlViewer(entry.path))
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
-            FileKind.TEXT, FileKind.CODE, FileKind.JSON, FileKind.XML -> push(Route.TextViewer(entry.path))
+            FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
             else -> push(Route.HexViewer(entry.path))
         }
     }
@@ -192,6 +199,14 @@ fun AppNavigation() {
             entry<Route.ImageViewer> { route ->
                 ImageViewerScreen(path = route.path, onBack = ::pop)
             }
+            entry<Route.JsonViewer> { route ->
+                JsonViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
+            }
+            entry<Route.XmlViewer> { route ->
+                XmlViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
+            }
+            entry<Route.ApkViewer> { route -> ApkViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.ArchiveViewer> { route -> ArchiveViewerScreen(path = route.path, onBack = ::pop) }
         },
     )
 }

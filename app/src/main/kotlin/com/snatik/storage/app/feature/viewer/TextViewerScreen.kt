@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.CodeView
+import com.snatik.storage.app.ui.highlight.Highlighter
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.util.Intents
 import com.snatik.storage.app.util.readableSize
@@ -108,6 +109,7 @@ fun TextViewerScreen(
                     CodeView(
                         lines = state.lines,
                         wrap = state.wrap,
+                        language = Highlighter.languageForFile(state.name),
                         truncated = state.truncated,
                         onLoadMore = viewModel::loadMore,
                         modifier = Modifier.weight(1f),

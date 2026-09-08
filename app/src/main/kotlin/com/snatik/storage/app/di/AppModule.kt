@@ -52,6 +52,10 @@ import com.snatik.storage.app.feature.api.AuditLog
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
+import com.snatik.storage.app.feature.viewer.JsonTreeViewModel
+import com.snatik.storage.app.feature.viewer.XmlTreeViewModel
+import com.snatik.storage.app.feature.viewer.ApkViewModel
+import com.snatik.storage.app.feature.viewer.ArchiveViewModel
 import com.snatik.storage.app.navigation.Route
 import com.snatik.storage.core.fs.FileSystem
 import com.snatik.storage.core.fs.LocalFileSystem
@@ -108,6 +112,10 @@ val appModule = module {
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }
+    viewModel { (path: String) -> JsonTreeViewModel(path, get()) }
+    viewModel { (path: String) -> XmlTreeViewModel(path, get()) }
+    viewModel { (path: String) -> ApkViewModel(path, androidContext()) }
+    viewModel { (path: String) -> ArchiveViewModel(path, androidContext()) }
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DiskUsageViewModel(path, get()) }

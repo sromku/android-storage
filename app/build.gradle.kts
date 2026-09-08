@@ -44,6 +44,7 @@ dependencies {
     implementation(project(":core:capture"))
     implementation(project(":core:net"))
     implementation(libs.zxing.core)
+    implementation(libs.androidx.exifinterface)
 
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
@@ -66,4 +67,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.test)
 }

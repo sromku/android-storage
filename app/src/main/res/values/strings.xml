@@ -408,6 +408,11 @@
     <string name="send_failed">Sending failed</string>
     <string name="send_wrong_code">Wrong code</string>
 
+    <string name="apk_invalid">Not a valid APK</string>
+    <string name="apk_components">Components</string>
+    <string name="archive_summary">%1$d files · %2$s</string>
+    <string name="archive_invalid">Cannot read this archive</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>

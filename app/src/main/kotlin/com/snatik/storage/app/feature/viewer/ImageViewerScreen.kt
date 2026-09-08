@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ fun ImageViewerScreen(path: String, onBack: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var chromeVisible by remember { mutableStateOf(true) }
+    var showInfo by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Box(
@@ -79,6 +81,7 @@ fun ImageViewerScreen(path: String, onBack: () -> Unit) {
                     },
             )
         }
+        if (showInfo) ImageInfoSheet(path) { showInfo = false }
         AnimatedVisibility(visible = chromeVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
                 TopAppBar(
                     title = { Text(File(path).name, maxLines = 1, color = Color.White) },
@@ -86,6 +89,7 @@ fun ImageViewerScreen(path: String, onBack: () -> Unit) {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) }
                     },
                     actions = {
+                        IconButton(onClick = { showInfo = true }) { Icon(Icons.Default.Info, contentDescription = stringResource(R.string.details), tint = Color.White) }
                         IconButton(onClick = { Intents.share(context, listOf(path)) }) { Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share), tint = Color.White) }
                         IconButton(onClick = { Intents.openWith(context, path) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.open_with), tint = Color.White) }
                     },

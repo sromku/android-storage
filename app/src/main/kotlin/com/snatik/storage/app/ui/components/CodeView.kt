@@ -41,6 +41,7 @@ fun CodeView(
     wrap: Boolean,
     modifier: Modifier = Modifier,
     lineNumbers: List<Int>? = null,
+    language: com.snatik.storage.app.ui.highlight.HlLanguage? = null,
     highlight: String? = null,
     truncated: Boolean = false,
     onLoadMore: (() -> Unit)? = null,
@@ -52,6 +53,10 @@ fun CodeView(
     val lineStyle = MonoStyle.copy(fontSize = 13.sp, lineHeight = 19.sp)
     val gutterColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     val mark = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    val colors = com.snatik.storage.app.ui.highlight.rememberTokenColors()
+    val syntaxLines: List<androidx.compose.ui.text.AnnotatedString>? = if (language != null && language != com.snatik.storage.app.ui.highlight.HlLanguage.PLAIN && lines.sumOf { it.length + 1 } < 400_000) {
+        androidx.compose.runtime.remember(lines, language, colors) { com.snatik.storage.app.ui.highlight.highlightLines(lines, language, colors) }
+    } else null
     SelectionContainer(modifier = modifier) {
         LazyColumn(
             state = listState,
@@ -67,8 +72,9 @@ fun CodeView(
                         textAlign = TextAlign.End,
                         modifier = Modifier.width(gutterWidth).background(gutterColor).padding(end = 8.dp),
                     )
+                    val base = syntaxLines?.getOrNull(index) ?: AnnotatedString(line)
                     Text(
-                        text = if (highlight.isNullOrEmpty()) AnnotatedString(line) else highlighted(line, highlight, mark),
+                        text = if (highlight.isNullOrEmpty()) base else highlighted(base, highlight, mark),
                         style = lineStyle,
                         softWrap = wrap,
                         modifier = Modifier.padding(start = 12.dp, end = 16.dp).then(if (wrap) Modifier.weight(1f) else Modifier),
@@ -86,18 +92,14 @@ fun CodeView(
     }
 }
 
-private fun highlighted(line: String, query: String, mark: SpanStyle): AnnotatedString = buildAnnotatedString {
+private fun highlighted(base: AnnotatedString, query: String, mark: SpanStyle): AnnotatedString = buildAnnotatedString {
+    append(base)
+    val line = base.text
     var from = 0
     while (true) {
         val at = line.indexOf(query, from, ignoreCase = true)
-        if (at < 0) {
-            append(line.substring(from))
-            break
-        }
-        append(line.substring(from, at))
-        pushStyle(mark)
-        append(line.substring(at, at + query.length))
-        pop()
+        if (at < 0) break
+        addStyle(mark, at, at + query.length)
         from = at + query.length
     }
 }

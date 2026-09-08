@@ -326,7 +326,7 @@ private fun ManifestTab(state: AppDetailUiState, onQuery: (String) -> Unit) {
                     if (query.isEmpty()) allLines to null
                     else allLines.withIndex().filter { it.value.contains(query, ignoreCase = true) }.let { hits -> hits.map { it.value } to hits.map { it.index + 1 } }
                 }
-                CodeView(lines = lines, wrap = false, lineNumbers = numbers, highlight = query.ifEmpty { null }, modifier = Modifier.fillMaxSize())
+                CodeView(lines = lines, wrap = false, lineNumbers = numbers, language = com.snatik.storage.app.ui.highlight.HlLanguage.XML, highlight = query.ifEmpty { null }, modifier = Modifier.fillMaxSize())
             }
         }
     }

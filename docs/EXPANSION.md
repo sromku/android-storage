@@ -49,7 +49,7 @@ Global Search (find/grep), Content Provider Watcher, Scheduled Reports.
 
 ## Phasing
 - **A (done):** navigation rework + collapsed toolbars begin.
-- **B:** highlighting engine + dedicated viewers.
+- **B (done):** highlighting engine (Kotlin/Java/XML/JSON/SQL/shell/properties) wired into the code and manifest views; JSON and XML tree viewers; APK inspector (no install); image EXIF sheet; zip archive peek.
 - **C:** App Watch dossier + suspicion score.
 - **D:** Network Monitor (local VPN) + network map.
 - **E:** device dashboard, permission matrix, app-ops timeline, battery.

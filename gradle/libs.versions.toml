@@ -19,6 +19,7 @@ shizuku = "13.1.5"
 room = "2.8.4"
 ktor = "3.5.2"
 zxing = "3.5.4"
+exifinterface = "1.4.1"
 ksp = "2.3.11"
 
 [libraries]
@@ -56,6 +57,7 @@ ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlin
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
