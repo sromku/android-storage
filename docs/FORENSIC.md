@@ -1,0 +1,54 @@
+# Forensic Suite Roadmap
+
+The broad forensic vision folded into the existing rounds, with a feasibility
+read on each idea. Visual version shared as an artifact.
+
+## Already built (that the vision also asks for)
+Shizuku shell; manifest/component/permission explorer; APK export + APK
+inspector without install; SQLite browsing; per-app sizes + squarified disk
+treemap; app-ops behavior + suspicion score; live per-app network connections;
+snapshots + diffs; Ktor REST + MCP + self-documenting /api/v1/tools over
+adb forward; modular Gradle; MANAGE_EXTERNAL_STORAGE, PACKAGE_USAGE_STATS,
+QUERY_ALL_PACKAGES.
+
+## Will NOT work as described (honest)
+- ptrace "clone" sandbox of another app — NOT FEASIBLE (SELinux blocks cross-uid
+  ptrace; apps can't be cloned into our process). Root-only and still not a clone.
+- Global inotify/fanotify catching other apps' hidden writes — ROOT ONLY; FUSE
+  shared storage never emits other apps' events.
+- /proc/[pid]/smaps, /proc/net/unix, other uids' fds — ROOT ONLY (hidepid).
+- Unlinked-but-open file recovery via raw block reads — ROOT ONLY.
+- Proving cross-app collusion — heuristic only (shared world-readable dirs,
+  shared ad SDKs from static APK scan); a signal, never a verdict.
+These go in an experimental root-gated track (L), clearly labeled.
+
+## Rounds
+- **E (next):** device dashboard, permission heat matrix, app-ops timeline,
+  battery/wakelocks. [shell]
+- **F:** clipboard log + notification monitor, global search (find/grep),
+  content provider watcher, scheduled reports (WorkManager).
+- **G:** storage deep-dive — sunburst + radial breadcrumb, app storage
+  decomposition (base/split/oat/lib/data), empty & zero-byte hunter, ghost
+  footprints, duplicate finder (sha256), symlink-aware sizing.
+- **H:** :core:native C++/NDK — getdents64 fast scan, SELinux context + raw
+  mode/uid/gid, ELF inspector (sections, entropy, packer signatures), shared
+  .so dedup, /proc/mounts+partitions+swaps+zram + own smaps.
+- **I:** Time Machine — WorkManager telemetry snapshots, growth delta graphs,
+  predictive exhaustion (regression), zombie bloat, cache velocity,
+  version-to-version footprint diff.
+- **J:** power tools — SQLite VACUUM + ER view, benchmark engine (seq/random
+  R/W), ART recompile dashboard (cmd package compile), bulk ops, optional
+  FFmpeg transcode.
+- **K:** introspection graphs — app permeability node graph, component
+  profiler, asset ripper, permission-vs-footprint matrix, global command
+  palette; expose all tools through MCP.
+- **L (root, experimental):** ptrace tracer, fanotify staging watcher,
+  iotop-style I/O monitor. Visual toys (sonification, haptics, particles, 3D,
+  live wallpaper) parked as optional flourish.
+
+## Architecture
+Already modular (storage, core/fs, core/shell, core/apps, core/data,
+core/intents, core/capture, core/net, app), MVVM + unidirectional state, one
+operations layer feeding UI and MCP. Additions: :core:native (H) and a heavier
+WorkManager telemetry pipeline (I). gRPC unnecessary; Ktor REST + MCP already
+serve CLI and agents over adb forward.
