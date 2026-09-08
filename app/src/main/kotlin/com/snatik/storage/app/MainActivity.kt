@@ -4,8 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.snatik.storage.app.explorer.ExplorerScreen
-import com.snatik.storage.app.ui.StorageTheme
+import com.snatik.storage.app.navigation.AppNavigation
+import com.snatik.storage.app.ui.theme.StorageTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             StorageTheme {
-                ExplorerScreen()
+                AppNavigation()
             }
         }
     }

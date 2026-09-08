@@ -1,9 +1,30 @@
 package com.snatik.storage.app
 
 import android.app.Application
-import com.snatik.storage.Storage
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.request.crossfade
+import coil3.video.VideoFrameDecoder
+import com.snatik.storage.app.di.appModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
 
-class StorageApp : Application() {
+class StorageApp : Application(), SingletonImageLoader.Factory {
 
-    val storage: Storage by lazy { Storage(this) }
+    override fun onCreate() {
+        super.onCreate()
+        startKoin {
+            androidLogger()
+            androidContext(this@StorageApp)
+            modules(appModule)
+        }
+    }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .components { add(VideoFrameDecoder.Factory()) }
+            .crossfade(true)
+            .build()
 }

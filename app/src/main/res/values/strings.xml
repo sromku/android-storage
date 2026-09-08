@@ -1,18 +1,134 @@
 <resources>
     <string name="app_name">Storage</string>
-    <string name="volumes">Volumes</string>
+
+    <!-- Home -->
+    <string name="section_volumes">Volumes</string>
+    <string name="section_app_storage">This app</string>
     <string name="volume_shared">Shared storage</string>
+    <string name="volume_sd_card">SD card</string>
+    <string name="volume_usb">USB drive</string>
+    <string name="volume_root">System root</string>
     <string name="volume_app_files">App files</string>
     <string name="volume_app_cache">App cache</string>
     <string name="volume_app_external">App external files</string>
+    <string name="volume_unavailable">Not mounted</string>
+    <string name="used_of">%1$s used of %2$s</string>
     <string name="permission_all_files_title">All files access is off</string>
-    <string name="permission_all_files_body">Shared storage is only partially visible. Grant all files access to browse everything.</string>
-    <string name="permission_grant">Grant</string>
-    <string name="permission_legacy_rationale">Storage permission is needed to browse shared storage.</string>
-    <string name="empty_directory">Empty directory</string>
-    <string name="cannot_read_directory">Cannot read this directory</string>
-    <string name="items_count">%1$d items</string>
-    <string name="navigate_up">Up</string>
+    <string name="permission_all_files_body">Without it, most of shared storage stays out of reach. Grant it once and every volume becomes browsable.</string>
+    <string name="permission_grant">Grant access</string>
+
+    <!-- Browser -->
+    <string name="navigate_up">Back</string>
+    <string name="search">Search</string>
+    <string name="search_in">Search in %1$s</string>
+    <string name="clear">Clear</string>
+    <string name="sort">Sort</string>
+    <string name="sort_by">Sort by</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_modified">Date modified</string>
+    <string name="sort_size">Size</string>
+    <string name="sort_type">Type</string>
+    <string name="sort_descending">Descending</string>
+    <string name="show_hidden">Show hidden files</string>
+    <string name="empty_directory">Nothing here yet</string>
+    <string name="no_matches">No matches</string>
+    <string name="cannot_read_directory">Can\'t read this directory</string>
+    <string name="cannot_read_hint">This location needs more access than the app currently has.</string>
+    <string name="directory_missing">This directory no longer exists</string>
+    <string name="no_access">no access</string>
+    <string name="symlink">link</string>
+    <string name="more">More</string>
     <string name="open_with">Open with</string>
+    <string name="share">Share</string>
+    <string name="share_files_only">Only files can be shared</string>
     <string name="no_app_for_file">No app can open this file</string>
+    <string name="view_as_text">View as text</string>
+    <string name="view_as_hex">View as hex</string>
+    <string name="copy">Copy</string>
+    <string name="cut">Move</string>
+    <string name="paste_here">Paste here</string>
+    <string name="rename">Rename</string>
+    <string name="details">Details</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="create">Create</string>
+    <string name="new_item">New</string>
+    <string name="new_folder">New folder</string>
+    <string name="new_file">New file</string>
+    <string name="name_invalid">That name can\'t be used</string>
+    <string name="name_exists">Something with that name already exists</string>
+    <string name="delete_items_body">This can\'t be undone.</string>
+    <string name="select_all">Select all</string>
+    <string name="clear_selection">Clear selection</string>
+    <string name="operation_failed">Something went wrong</string>
+    <string name="operation_cancelled">Cancelled</string>
+    <string name="op_preparing">Preparing…</string>
+
+    <!-- Details -->
+    <string name="detail_path">Path</string>
+    <string name="detail_size">Size</string>
+    <string name="detail_items">Items</string>
+    <string name="detail_modified">Modified</string>
+    <string name="detail_permissions">Access</string>
+    <string name="hidden">hidden</string>
+    <string name="computing">Computing…</string>
+    <string name="compute">Compute</string>
+    <string name="unknown">Unknown</string>
+
+    <!-- Viewers -->
+    <string name="cannot_read_file">Can\'t read this file</string>
+    <string name="showing_first">Showing first %1$s of %2$s</string>
+    <string name="load_more">Load more</string>
+    <string name="wrap_lines">Wrap lines</string>
+    <string name="pretty_print">Pretty print</string>
+    <string name="looks_binary">This looks like a binary file.</string>
+
+    <plurals name="only_hidden_items">
+        <item quantity="one">%1$d hidden item</item>
+        <item quantity="other">%1$d hidden items</item>
+    </plurals>
+    <plurals name="op_copying">
+        <item quantity="one">Copying %1$d item</item>
+        <item quantity="other">Copying %1$d items</item>
+    </plurals>
+    <plurals name="op_moving">
+        <item quantity="one">Moving %1$d item</item>
+        <item quantity="other">Moving %1$d items</item>
+    </plurals>
+    <plurals name="op_deleting">
+        <item quantity="one">Deleting %1$d item</item>
+        <item quantity="other">Deleting %1$d items</item>
+    </plurals>
+    <plurals name="items_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <plurals name="items_to_copy">
+        <item quantity="one">%1$d item ready to copy</item>
+        <item quantity="other">%1$d items ready to copy</item>
+    </plurals>
+    <plurals name="items_to_move">
+        <item quantity="one">%1$d item ready to move</item>
+        <item quantity="other">%1$d items ready to move</item>
+    </plurals>
+    <plurals name="delete_items_title">
+        <item quantity="one">Delete %1$d item?</item>
+        <item quantity="other">Delete %1$d items?</item>
+    </plurals>
+    <plurals name="copied_items">
+        <item quantity="one">Copied %1$d item</item>
+        <item quantity="other">Copied %1$d items</item>
+    </plurals>
+    <plurals name="moved_items">
+        <item quantity="one">Moved %1$d item</item>
+        <item quantity="other">Moved %1$d items</item>
+    </plurals>
+    <plurals name="deleted_items">
+        <item quantity="one">Deleted %1$d item</item>
+        <item quantity="other">Deleted %1$d items</item>
+    </plurals>
 </resources>

@@ -99,6 +99,7 @@ Rule: `app` holds no logic an API caller could need; everything lives in `core`.
 
 ## Status
 
+- 2026-09-08 (later): Phase 2 largely done. `core/fs` module (FileSystem interface, LocalFileSystem with progress-reporting copy/move/delete, VolumeRepository, OperationRunner, 9 tests). App rebuilt on Navigation 3 + Koin + Coil: home with volumes, browser with breadcrumbs/search/sort/hidden/selection/clipboard/paste/rename/new/delete/details, text/hex/image viewers. Still open from phase 2: SAF path for OEM USB drives, video/audio/PDF/APK viewers, a code syntax colouring pass.
 - 2026-09-08: Phases 0 and 1 done in one pass. Build on Gradle 9.7 / AGP 9.4 / Kotlin 2.4, library rewritten in Kotlin with 34 Robolectric and JVM tests, Java sample replaced by a Compose explorer (phase 2 seed). Maven Central publishing and the Compose explorer features are still open.
 
 ## Phases
@@ -125,7 +126,7 @@ Goal: build on a 2026 machine without changing a line of Java.
 
 **Done when** no Java remains in `storage`, public API is tested, 3.0.0 resolves from Central.
 
-### Phase 2 — App to Kotlin and Compose
+### Phase 2 — App to Kotlin and Compose (mostly done)
 - Delete old activities/dialogs/layouts; keep only the file provider.
 - Onboarding for All-files access, usage access, Shizuku; shows active tier.
 - Volume list; breadcrumbs, sort, filter, multi-select, long-press actions, drag to move.

@@ -11,6 +11,10 @@ junit = "4.13.2"
 robolectric = "4.16.1"
 androidxTestCore = "1.7.0"
 mavenPublish = "0.37.0"
+navigation3 = "1.1.7"
+koin = "4.2.2"
+coil = "3.6.2"
+serialization = "1.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -29,6 +33,15 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", vers
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
+androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-ui", version.ref = "navigation3" }
+androidx-lifecycle-viewmodel-navigation3 = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-navigation3", version.ref = "lifecycle" }
+koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
+koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "coil" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -36,3 +49,4 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

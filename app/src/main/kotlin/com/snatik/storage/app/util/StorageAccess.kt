@@ -1,6 +1,7 @@
-package com.snatik.storage.app.explorer
+package com.snatik.storage.app.util
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -21,18 +22,22 @@ object StorageAccess {
                 PackageManager.PERMISSION_GRANTED
         }
 
-    /** Settings screen for "All files access" on Android 11+. Null on older versions, which use a runtime permission. */
-    fun allFilesSettingsIntent(context: Context): Intent? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+    /**
+     * Open the "All files access" settings screen on Android 11+. Returns false on older versions,
+     * which use a runtime permission instead.
+     */
+    fun openAllFilesSettings(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         val specific = Intent(
             Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
             Uri.fromParts("package", context.packageName, null),
         )
-        return if (specific.resolveActivity(context.packageManager) != null) {
-            specific
-        } else {
-            Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+        try {
+            context.startActivity(specific)
+        } catch (_: ActivityNotFoundException) {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
         }
+        return true
     }
 
     val legacyPermissions: Array<String> =

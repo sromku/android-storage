@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.snatik.storage.app"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -34,6 +35,16 @@ android {
 
 dependencies {
     implementation(project(":storage"))
+    implementation(project(":core:fs"))
+
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
