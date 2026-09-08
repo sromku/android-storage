@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
@@ -47,6 +48,7 @@ fun ToolsScreen(
     onOpenCapture: () -> Unit,
     onOpenReceive: () -> Unit,
     onOpenApi: () -> Unit,
+    onOpenNetwork: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val tools = listOf(
@@ -54,6 +56,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.capture_title), stringResource(R.string.tools_capture_sub), Icons.Default.FiberManualRecord, onOpenCapture),
         Tool(stringResource(R.string.receive_title), stringResource(R.string.tools_transfer_sub), Icons.Default.Wifi, onOpenReceive),
         Tool(stringResource(R.string.api_title), stringResource(R.string.tools_api_sub), Icons.Default.Api, onOpenApi),
+        Tool(stringResource(R.string.net_title), stringResource(R.string.tools_net_sub), Icons.Default.Lan, onOpenNetwork),
     )
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

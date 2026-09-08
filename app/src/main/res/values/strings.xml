@@ -146,6 +146,13 @@
     <string name="tools_capture_sub">Snapshots, diffs and recording sessions.</string>
     <string name="tools_transfer_sub">Receive files from a browser or another phone.</string>
     <string name="tools_api_sub">Drive the device over HTTP and MCP.</string>
+    <string name="tools_net_sub">See which apps are talking to the network.</string>
+    <string name="net_title">Network</string>
+    <string name="net_search">Search app or host</string>
+    <string name="net_needs_shell">Shell access needed</string>
+    <string name="net_needs_shell_body">Connect Shizuku or root to read live connections.</string>
+    <string name="net_none">No active connections</string>
+    <string name="net_none_body">Nothing is talking to the network right now. Pull to refresh.</string>
 
     <!-- Data tab -->
     <string name="data_title">Data</string>

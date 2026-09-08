@@ -23,6 +23,7 @@ import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
 import com.snatik.storage.app.feature.tools.ToolsScreen
+import com.snatik.storage.app.feature.network.NetworkScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -109,6 +110,7 @@ fun AppNavigation() {
                     onBack = ::pop,
                     onBrowse = ::openBrowser,
                     onDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
+                    onNetwork = { pkg -> push(Route.Network(pkg)) },
                 )
             }
             entry<Route.DiskUsage> { route ->
@@ -151,8 +153,10 @@ fun AppNavigation() {
                     onOpenCapture = { push(Route.Capture()) },
                     onOpenReceive = { push(Route.Receive) },
                     onOpenApi = { push(Route.Api) },
+                    onOpenNetwork = { push(Route.Network()) },
                 )
             }
+            entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,
