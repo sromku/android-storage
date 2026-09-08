@@ -26,8 +26,11 @@ These go in an experimental root-gated track (L), clearly labeled.
 - **E (done):** device dashboard (model/OS/patch/kernel/SELinux/uptime, RAM,
   battery, ZRAM), permission heat matrix (every app vs the dangerous
   permissions), device-wide app-ops timeline, battery wakelocks. [shell]
-- **F (next):** clipboard log + notification monitor, global search (find/grep),
-  content provider watcher, scheduled reports (WorkManager).
+- **F (done):** global search (shell find/grep with an unprivileged walk
+  fallback), device-wide notification monitor (NotificationListenerService),
+  content-provider watcher (ContentObserver on well-known URIs), clipboard
+  inspector (foreground-only, per Android 10+). Scheduled reports moved to
+  Round I, where the WorkManager telemetry pipeline already lives. [shell]
 - **G:** storage deep-dive — sunburst + radial breadcrumb, app storage
   decomposition (base/split/oat/lib/data), empty & zero-byte hunter, ghost
   footprints, duplicate finder (sha256), symlink-aware sizing.

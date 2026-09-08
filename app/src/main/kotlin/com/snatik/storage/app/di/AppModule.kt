@@ -15,6 +15,13 @@ import com.snatik.storage.app.feature.network.NetworkViewModel
 import com.snatik.storage.core.apps.DeviceStatsRepository
 import com.snatik.storage.core.apps.AppOpsTimeline
 import com.snatik.storage.core.apps.PermissionMatrixRepository
+import com.snatik.storage.core.apps.FileSearch
+import com.snatik.storage.app.feature.search.SearchViewModel
+import com.snatik.storage.app.feature.monitor.ProviderWatcher
+import com.snatik.storage.app.feature.monitor.ClipboardInspector
+import com.snatik.storage.app.feature.monitor.NotificationMonitorViewModel
+import com.snatik.storage.app.feature.monitor.ProviderWatchViewModel
+import com.snatik.storage.app.feature.monitor.ClipboardViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -102,6 +109,9 @@ val appModule = module {
     single { DeviceStatsRepository(androidContext(), get()) }
     single { AppOpsTimeline(androidContext(), get()) }
     single { PermissionMatrixRepository(androidContext()) }
+    single { FileSearch(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
+    single { ProviderWatcher(androidContext()) }
+    single { ClipboardInspector(androidContext()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -156,4 +166,8 @@ val appModule = module {
     viewModelOf(::DashboardViewModel)
     viewModelOf(::PermissionMatrixViewModel)
     viewModelOf(::AppOpsTimelineViewModel)
+    viewModelOf(::SearchViewModel)
+    viewModelOf(::NotificationMonitorViewModel)
+    viewModelOf(::ProviderWatchViewModel)
+    viewModelOf(::ClipboardViewModel)
 }

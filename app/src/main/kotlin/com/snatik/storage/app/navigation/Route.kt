@@ -114,6 +114,18 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object AppOpsTimeline : Route
+
+    @Serializable
+    data object Search : Route
+
+    @Serializable
+    data object Notifications : Route
+
+    @Serializable
+    data object ProviderWatch : Route
+
+    @Serializable
+    data object Clipboard : Route
 }
 
 /** The destinations reachable from the bottom bar. */

@@ -27,6 +27,10 @@ import com.snatik.storage.app.feature.network.NetworkScreen
 import com.snatik.storage.app.feature.dashboard.DashboardScreen
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixScreen
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineScreen
+import com.snatik.storage.app.feature.search.SearchScreen
+import com.snatik.storage.app.feature.monitor.NotificationMonitorScreen
+import com.snatik.storage.app.feature.monitor.ProviderWatchScreen
+import com.snatik.storage.app.feature.monitor.ClipboardScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -88,6 +92,16 @@ fun AppNavigation() {
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
             else -> push(Route.HexViewer(entry.path))
         }
+    }
+
+    // Open a bare path (from search results) by classifying its name.
+    fun openPath(path: String) {
+        val name = path.substringAfterLast('/')
+        val entry = FsEntry(
+            path = path, name = name, isDirectory = false, size = -1, lastModified = 0,
+            isHidden = name.startsWith('.'), isSymlink = false, canRead = true, canWrite = false, childCount = null,
+        )
+        openFile(entry)
     }
 
     NavDisplay(
@@ -160,12 +174,20 @@ fun AppNavigation() {
                     onOpenDashboard = { push(Route.Dashboard) },
                     onOpenMatrix = { push(Route.PermissionMatrix) },
                     onOpenTimeline = { push(Route.AppOpsTimeline) },
+                    onOpenSearch = { push(Route.Search) },
+                    onOpenNotifications = { push(Route.Notifications) },
+                    onOpenProviderWatch = { push(Route.ProviderWatch) },
+                    onOpenClipboard = { push(Route.Clipboard) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
             entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
+            entry<Route.Search> { SearchScreen(onBack = ::pop, onOpenPath = ::openPath) }
+            entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop) }
+            entry<Route.ProviderWatch> { ProviderWatchScreen(onBack = ::pop) }
+            entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

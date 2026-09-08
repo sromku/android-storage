@@ -567,4 +567,34 @@
         <item quantity="one">Deleted %1$d item</item>
         <item quantity="other">Deleted %1$d items</item>
     </plurals>
+    <!-- Round F: search + monitors -->
+    <string name="refresh">Refresh</string>
+    <string name="search_title">Search</string>
+    <string name="search_hint">Find files</string>
+    <string name="search_prompt">Search the device</string>
+    <string name="search_prompt_body">Find files by name, or grep their text content. Uses the shell to reach privileged paths when available.</string>
+    <string name="search_none">No matches</string>
+    <string name="search_count">%1$d results</string>
+    <string name="search_by_name">Name</string>
+    <string name="search_by_content">Content</string>
+    <string name="search_root_shared">Shared storage</string>
+    <string name="search_root_system">System</string>
+    <string name="search_root_data">App data</string>
+    <string name="tools_search_sub">Find files by name or content, anywhere.</string>
+    <string name="notif_title">Notification monitor</string>
+    <string name="notif_needs_access">Notification access needed</string>
+    <string name="notif_needs_access_body">Grant this app notification access to log every notification posted on the device.</string>
+    <string name="notif_grant">Open settings</string>
+    <string name="notif_empty">Listening for notifications</string>
+    <string name="notif_empty_body">Notifications posted from now on will appear here, newest first.</string>
+    <string name="tools_notif_sub">Log every notification posted on the device.</string>
+    <string name="watch_title">Provider watch</string>
+    <string name="watch_empty">Pick providers to watch</string>
+    <string name="watch_empty_body">Choose content providers above to log every change they broadcast.</string>
+    <string name="tools_watch_sub">See which content providers change and when.</string>
+    <string name="clip_title">Clipboard</string>
+    <string name="clip_empty">Clipboard is empty</string>
+    <string name="clip_empty_body">Copy something and it appears here. Android only exposes the clipboard while this app is in front.</string>
+    <string name="clip_note">Android 10+ only lets the foreground app read the clipboard, so this captures clips while this screen is open.</string>
+    <string name="tools_clip_sub">Read the clipboard and keep a session history.</string>
 </resources>
