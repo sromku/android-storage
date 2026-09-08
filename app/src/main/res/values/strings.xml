@@ -348,6 +348,31 @@
     <string name="notification_title">Recording %1$s</string>
     <string name="notification_text">Capturing %1$s</string>
 
+    <!-- API -->
+    <string name="api_title">Agent API</string>
+    <string name="api_home_body">Let Claude Code and other tools drive this device over HTTP and MCP.</string>
+    <string name="api_enable">Enable API</string>
+    <string name="api_on">API is on</string>
+    <string name="api_off">API is off</string>
+    <string name="api_start_server">Start the server on the Receive screen to reach it.</string>
+    <string name="api_server_running">Server running on %1$s</string>
+    <string name="api_server_stopped">Server is not running</string>
+    <string name="api_token">Bearer token</string>
+    <string name="api_new_token">New token</string>
+    <string name="api_gate_privileged">Allow shell tools</string>
+    <string name="api_gate_privileged_body">logcat and shell commands, through Shizuku or root.</string>
+    <string name="api_gate_destructive">Allow changes</string>
+    <string name="api_gate_destructive_body">write files, send intents, run SQL that modifies data.</string>
+    <string name="api_mcp">MCP endpoint</string>
+    <string name="api_setup">Connect from a laptop</string>
+    <string name="api_setup_body">Forward the port, then add the MCP server to Claude Code.</string>
+    <string name="api_copy">Copy</string>
+    <string name="api_copied">Copied</string>
+    <string name="api_audit">Recent calls</string>
+    <string name="api_audit_none">No calls yet</string>
+    <string name="api_audit_clear">Clear</string>
+    <string name="api_tools_count">%1$d tools</string>
+
     <!-- Transfer -->
     <string name="receive_title">Receive files</string>
     <string name="receive_body">From a laptop browser or another phone on the same network.</string>

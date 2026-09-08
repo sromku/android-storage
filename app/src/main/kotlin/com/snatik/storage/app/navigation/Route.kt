@@ -84,6 +84,9 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class SendTo(val paths: List<String>) : Route
+
+    @Serializable
+    data object Api : Route
 }
 
 /** The destinations reachable from the bottom bar. */

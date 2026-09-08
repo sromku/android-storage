@@ -44,6 +44,11 @@ import com.snatik.storage.app.feature.capture.SnapshotViewModel
 import com.snatik.storage.app.feature.transfer.ReceiveViewModel
 import com.snatik.storage.app.feature.transfer.SendToViewModel
 import com.snatik.storage.app.feature.transfer.TransferHub
+import com.snatik.storage.app.feature.api.ApiConfig
+import com.snatik.storage.app.feature.api.ApiOperations
+import com.snatik.storage.app.feature.api.ApiService
+import com.snatik.storage.app.feature.api.ApiViewModel
+import com.snatik.storage.app.feature.api.AuditLog
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
@@ -93,7 +98,11 @@ val appModule = module {
     single { SnapshotRepository(androidContext(), get(), get()) }
     single { RecordingEngine(androidContext(), get(), get(), get(), get()) }
     single { ScreenRecorder(androidContext()) }
-    single { TransferHub(androidContext(), get(), get()) }
+    single { ApiConfig(androidContext()) }
+    single { AuditLog() }
+    single { ApiOperations(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { ApiService(get(), get(), get()) }
+    single { TransferHub(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get<ApiService>().routes, get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
@@ -120,4 +129,5 @@ val appModule = module {
     viewModel { (id: Long) -> RecordingViewModel(id, get()) }
     viewModelOf(::ReceiveViewModel)
     viewModel { (route: Route.SendTo) -> SendToViewModel(route, get()) }
+    viewModelOf(::ApiViewModel)
 }

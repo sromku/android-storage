@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderSpecial
@@ -91,6 +92,7 @@ import org.koin.androidx.compose.koinViewModel
 fun HomeScreen(
     onOpenVolume: (label: String, path: String) -> Unit,
     onOpenReceive: () -> Unit,
+    onOpenApi: () -> Unit,
     onOpenDiskUsage: (label: String, path: String) -> Unit,
     onSwitchTab: (TopLevel) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
@@ -156,6 +158,17 @@ fun HomeScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.receive_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(stringResource(R.string.receive_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+                item(key = "api") {
+                    Card(onClick = onOpenApi, modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Default.Api, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.api_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.api_home_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }

@@ -22,6 +22,7 @@ import com.snatik.storage.app.feature.data.PrefsScreen
 import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
+import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
 import com.snatik.storage.app.feature.intents.BroadcastHistoryScreen
@@ -89,6 +90,7 @@ fun AppNavigation() {
                 HomeScreen(
                     onOpenVolume = ::openBrowser,
                     onOpenReceive = { push(Route.Receive) },
+                    onOpenApi = { push(Route.Api) },
                     onOpenDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onSwitchTab = ::switchTab,
                 )
@@ -171,6 +173,7 @@ fun AppNavigation() {
             }
             entry<Route.FileDiff> { route -> FileDiffScreen(route = route, onBack = ::pop) }
             entry<Route.Recording> { route -> RecordingScreen(id = route.id, onBack = ::pop) }
+            entry<Route.Api> { ApiScreen(onBack = ::pop) }
             entry<Route.Receive> { ReceiveScreen(onBack = ::pop, onOpenInbox = { path -> openBrowser("Storage Received", path) }) }
             entry<Route.SendTo> { route -> SendToScreen(route = route, onBack = ::pop) }
             entry<Route.TextViewer> { route ->
