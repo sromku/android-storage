@@ -50,7 +50,7 @@ Global Search (find/grep), Content Provider Watcher, Scheduled Reports.
 ## Phasing
 - **A (done):** navigation rework + collapsed toolbars begin.
 - **B (done):** highlighting engine (Kotlin/Java/XML/JSON/SQL/shell/properties) wired into the code and manifest views; JSON and XML tree viewers; APK inspector (no install); image EXIF sheet; zip archive peek.
-- **C:** App Watch dossier + suspicion score.
+- **C (done):** App Watch behavior tab per app — sensitive access with timestamps from cmd appops (location, bluetooth/wifi scan, camera, mic, contacts), running services and processes, recent file changes, and a suspicion score with signals.
 - **D:** Network Monitor (local VPN) + network map.
 - **E:** device dashboard, permission matrix, app-ops timeline, battery.
 - **F:** clipboard/notification monitor, global search, provider watcher, scheduled reports.

@@ -67,6 +67,20 @@
 
     <!-- App detail -->
     <string name="tab_overview">Overview</string>
+    <string name="tab_behavior">Behavior</string>
+    <string name="watch_needs_shell">Shell access needed</string>
+    <string name="watch_needs_shell_body">Connect Shizuku or root to inspect what this app does.</string>
+    <string name="watch_signals">Signals</string>
+    <string name="watch_access">Sensitive access</string>
+    <string name="watch_no_access">No sensitive access recorded</string>
+    <string name="watch_services">Running services</string>
+    <string name="watch_no_services">No running services</string>
+    <string name="watch_processes">Processes</string>
+    <string name="watch_recent_files">Recently changed files</string>
+    <string name="watch_level_alert">Worth a look</string>
+    <string name="watch_level_warn">Some sensitive access</string>
+    <string name="watch_level_ok">Nothing unusual</string>
+    <string name="watch_score_body">Rolled up from sensitive access, services and behavior.</string>
     <string name="tab_manifest">Manifest</string>
     <string name="tab_components">Components</string>
     <string name="tab_permissions">Permissions</string>

@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
-enum class DetailTab { OVERVIEW, MANIFEST, COMPONENTS, PERMISSIONS }
+enum class DetailTab { OVERVIEW, BEHAVIOR, MANIFEST, COMPONENTS, PERMISSIONS }
 
 sealed interface DetailDialog {
     data object ConfirmClearData : DetailDialog
@@ -35,6 +35,8 @@ data class AppDetailUiState(
     val shellAvailable: Boolean = false,
     val busy: Boolean = false,
     val dialog: DetailDialog? = null,
+    val watch: com.snatik.storage.core.apps.AppWatch? = null,
+    val watchLoading: Boolean = false,
 )
 
 class AppDetailViewModel(
@@ -44,6 +46,7 @@ class AppDetailViewModel(
     private val actions: AppActions,
     private val fs: FileSystem,
     private val runner: OperationRunner,
+    private val watchRepo: com.snatik.storage.core.apps.AppWatchRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppDetailUiState(shellAvailable = actions.available))
@@ -66,6 +69,15 @@ class AppDetailViewModel(
     fun selectTab(tab: DetailTab) {
         _state.update { it.copy(tab = tab) }
         if (tab == DetailTab.MANIFEST && _state.value.manifest == null && _state.value.manifestError == null) loadManifest()
+        if (tab == DetailTab.BEHAVIOR && _state.value.watch == null) loadWatch()
+    }
+
+    fun loadWatch() {
+        _state.update { it.copy(watchLoading = true) }
+        viewModelScope.launch {
+            val watch = watchRepo.watch(packageName)
+            _state.update { it.copy(watch = watch, watchLoading = false) }
+        }
     }
 
     private fun loadManifest() {

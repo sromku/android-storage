@@ -9,6 +9,7 @@ import com.snatik.storage.app.feature.apps.AppsViewModel
 import com.snatik.storage.app.feature.apps.AppDetailViewModel
 import com.snatik.storage.app.feature.disk.DiskUsageViewModel
 import com.snatik.storage.core.apps.AppActions
+import com.snatik.storage.core.apps.AppWatchRepository
 import com.snatik.storage.core.apps.AppRepository
 import com.snatik.storage.core.apps.ManifestDecoder
 import com.snatik.storage.core.fs.DiskScanner
@@ -88,6 +89,7 @@ val appModule = module {
     single { AppRepository(androidContext()) }
     single { ManifestDecoder(androidContext()) }
     single { AppActions(get()) }
+    single { AppWatchRepository(androidContext(), get(), get()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -117,7 +119,7 @@ val appModule = module {
     viewModel { (path: String) -> ApkViewModel(path, androidContext()) }
     viewModel { (path: String) -> ArchiveViewModel(path, androidContext()) }
     viewModelOf(::AppsViewModel)
-    viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get()) }
+    viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DiskUsageViewModel(path, get()) }
     viewModelOf(::DataViewModel)
     viewModel { (route: Route.ProviderQuery) -> ProviderQueryViewModel(route, get(), get()) }

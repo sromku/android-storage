@@ -143,6 +143,7 @@ What it does today:
 - Details sheet with path, size, permissions and on-demand SHA-256.
 - Viewers per file type: syntax-highlighted code and text, a JSON and an XML tree, hex with an ASCII column, images with pinch zoom and an EXIF sheet, an APK inspector that reads any package file without installing it, and a zip archive browser.
 - Shell access through [Shizuku](https://shizuku.rikka.app/): browse the system root, other apps' `Android/data`, and the private data of your own debuggable apps via `run-as`. Root is used instead when the device has it and you turn it on.
+- App behavior: for any app, a Behavior tab shows what it actually did — location, Bluetooth and Wi-Fi scans, camera, mic, clipboard and contacts access with timestamps from app-ops, its running services and processes, recently changed files, and a suspicion score that rolls the signals up. Needs shell access.
 - Apps tab: every package with app, data and cache sizes (usage access), filters for user, system and debuggable, sort by name, size or last update.
 - App detail: storage breakdown, install facts, signing certificate, the decoded `AndroidManifest.xml` with search, components with exported flags, requested permissions with grant state. With a shell: force stop, clear cache or data, uninstall, and grant or revoke runtime permissions.
 - Disk usage: scan any folder into a treemap you can drill into, plus the largest files. Works through the shell for privileged paths.

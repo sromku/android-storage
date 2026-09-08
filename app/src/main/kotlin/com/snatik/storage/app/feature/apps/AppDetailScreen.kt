@@ -115,6 +115,7 @@ fun AppDetailScreen(
                         DetailTab.entries.forEach { tab ->
                             val label = when (tab) {
                                 DetailTab.OVERVIEW -> R.string.tab_overview
+                                DetailTab.BEHAVIOR -> R.string.tab_behavior
                                 DetailTab.MANIFEST -> R.string.tab_manifest
                                 DetailTab.COMPONENTS -> R.string.tab_components
                                 DetailTab.PERMISSIONS -> R.string.tab_permissions
@@ -137,6 +138,7 @@ fun AppDetailScreen(
                             onBrowse = onBrowse,
                             onDiskUsage = onDiskUsage,
                         )
+                        DetailTab.BEHAVIOR -> BehaviorTab(state.watch, state.watchLoading)
                         DetailTab.MANIFEST -> ManifestTab(state, onQuery = viewModel::setManifestQuery)
                         DetailTab.COMPONENTS -> ComponentsTab(details)
                         DetailTab.PERMISSIONS -> PermissionsTab(details, state.shellAvailable, onToggle = viewModel::setPermission)

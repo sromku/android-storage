@@ -121,7 +121,7 @@ fun AppsScreen(onOpenApp: (String) -> Unit, onSwitchTab: (TopLevel) -> Unit, vie
                                 DropdownMenuItem(
                                     text = { Text(stringResource(flabel)) },
                                     leadingIcon = { RadioButton(selected = state.filter == filter, onClick = null) },
-                                    onClick = { viewModel.setFilter(filter) },
+                                    onClick = { viewModel.setFilter(filter); sortMenu = false },
                                 )
                             }
                             HorizontalDivider()
