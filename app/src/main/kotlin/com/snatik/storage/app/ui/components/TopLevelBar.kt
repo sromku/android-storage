@@ -2,6 +2,7 @@ package com.snatik.storage.app.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Dataset
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
@@ -33,6 +34,12 @@ fun TopLevelBar(current: TopLevel, onSelect: (TopLevel) -> Unit) {
             onClick = { onSelect(TopLevel.DATA) },
             icon = { Icon(Icons.Default.Dataset, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_data)) },
+        )
+        NavigationBarItem(
+            selected = current == TopLevel.INTENTS,
+            onClick = { onSelect(TopLevel.INTENTS) },
+            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_intents)) },
         )
     }
 }

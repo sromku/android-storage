@@ -195,6 +195,99 @@
     <string name="prefs_parse_failed">Could not parse this file as preferences</string>
     <string name="save">Save</string>
 
+    <string name="tab_intents">Intents</string>
+    <string name="sink_label">Storage · inspect intent</string>
+
+    <!-- Intents tab -->
+    <string name="intents_title">Intents</string>
+    <string name="intents_send_title">Send an intent</string>
+    <string name="intents_send_body">Build any activity, broadcast or service intent with typed extras, see who would receive it, then send.</string>
+    <string name="intents_presets">Saved intents</string>
+    <string name="intents_new">New intent</string>
+    <string name="intents_sink_title">Intent sink</string>
+    <string name="intents_sink_body">Appear in share sheets and link choosers. Every intent picked up is logged with all its extras and can be forwarded on.</string>
+    <string name="intents_sink_count">%1$d captured</string>
+    <string name="intents_open_log">Open log</string>
+    <string name="intents_monitor_title">Broadcast monitor</string>
+    <string name="intents_monitor_body">Listen to system broadcasts live while the app runs.</string>
+    <string name="intents_monitor_status">%1$d actions on · %2$d events</string>
+    <string name="intents_history_title">Recent broadcasts</string>
+    <string name="intents_history_body">What the system dispatched lately, from dumpsys. Needs shell access.</string>
+    <string name="intents_deeplink_title">Deep link tester</string>
+    <string name="intents_deeplink_body">Paste a URL, see which apps claim it and launch one directly.</string>
+    <string name="open">Open</string>
+
+    <!-- Builder -->
+    <string name="builder_title">Intent</string>
+    <string name="builder_send_as">Send as</string>
+    <string name="builder_activity">Activity</string>
+    <string name="builder_broadcast">Broadcast</string>
+    <string name="builder_service">Service</string>
+    <string name="builder_action">Action</string>
+    <string name="builder_data">Data URI</string>
+    <string name="builder_type">MIME type</string>
+    <string name="builder_categories">Categories (comma separated)</string>
+    <string name="builder_package">Package</string>
+    <string name="builder_class">Class (optional, .Relative or full)</string>
+    <string name="builder_flags">Flags</string>
+    <string name="builder_extras">Extras</string>
+    <string name="builder_add_extra">Add extra</string>
+    <string name="builder_extra_key">Key</string>
+    <string name="builder_extra_value">Value</string>
+    <string name="builder_resolve">Who receives it</string>
+    <string name="builder_no_targets">Nothing on this device matches</string>
+    <string name="builder_send">Send</string>
+    <string name="builder_chooser">Send via chooser</string>
+    <string name="builder_save">Save as preset</string>
+    <string name="builder_preset_name">Preset name</string>
+    <string name="builder_sent_activity">Activity started</string>
+    <string name="builder_sent_broadcast">Broadcast sent</string>
+    <string name="builder_sent_service">Service started</string>
+    <string name="builder_saved">Preset saved</string>
+    <string name="builder_default">default</string>
+    <string name="builder_priority">priority %1$d</string>
+
+    <!-- Sink -->
+    <string name="sink_title">Intent received</string>
+    <string name="sink_forward">Forward to…</string>
+    <string name="sink_copy">Copy JSON</string>
+    <string name="sink_close">Close</string>
+    <string name="sink_from">from %1$s</string>
+    <string name="sink_copied">Copied</string>
+    <string name="log_title">Captured intents</string>
+    <string name="log_empty">Nothing captured yet</string>
+    <string name="log_empty_hint">Turn the sink on, then share something or open a link and pick Storage.</string>
+    <string name="log_clear">Clear</string>
+    <string name="log_resend">Open in builder</string>
+    <string name="intent_no_action">(no action)</string>
+    <string name="intent_extras_count">%1$d extras</string>
+
+    <!-- Monitor -->
+    <string name="monitor_title">Broadcast monitor</string>
+    <string name="monitor_actions">Actions</string>
+    <string name="monitor_custom">Custom action</string>
+    <string name="monitor_add">Listen</string>
+    <string name="monitor_events">Events</string>
+    <string name="monitor_empty">No broadcasts yet</string>
+    <string name="monitor_empty_hint">Turn on some actions above. Plugging the charger or toggling the screen triggers a few immediately.</string>
+    <string name="monitor_stop_all">Stop all</string>
+
+    <!-- History -->
+    <string name="history_title">Recent broadcasts</string>
+    <string name="history_needs_shell">Shell access is needed to read dumpsys.</string>
+    <string name="history_parsed">Parsed</string>
+    <string name="history_raw">Raw</string>
+    <string name="history_count">%1$d broadcasts</string>
+    <string name="history_search">Search</string>
+
+    <!-- Deep link -->
+    <string name="deeplink_title">Deep link tester</string>
+    <string name="deeplink_url">URL or URI</string>
+    <string name="deeplink_resolve">Resolve</string>
+    <string name="deeplink_open_chooser">Open with chooser</string>
+    <string name="deeplink_none">No app handles this link</string>
+    <string name="deeplink_launch">Launch</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>

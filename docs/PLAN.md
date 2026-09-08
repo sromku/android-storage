@@ -99,6 +99,8 @@ Rule: `app` holds no logic an API caller could need; everything lives in `core`.
 
 ## Status
 
+- 2026-09-08 (phase 6): Intents done. `core/intents`: IntentSpec (JSON model with typed extras, to/from android Intent), IntentSender (send as activity/broadcast/service, resolve targets with default and priority, chooser), IntentLog (JSON lines), IntentPresets, BroadcastMonitor (dynamic receivers over a catalogue plus custom actions), BroadcastHistory (`dumpsys activity broadcasts history` through the shell, tolerant parser). App: Intents tab, builder with action suggestions, flag chips, typed extras, resolve list and presets; IntentSinkActivity (disabled by default, toggled from the tab) that overlays whatever is on screen, logs the intent and forwards it via a chooser excluding itself; captured-intent log; live monitor with collapsible action picker; history with parsed and raw views; deep-link tester. Verified on the Pixel. Lesson: Android's ICU regex rejects unescaped `]` and `}` that the JVM accepts, so unit tests on the JVM do not catch it. LSPosed hooking stays deferred.
+
 - 2026-09-08 (phase 5): Content providers and databases done. `core/data`: ProviderRepository (every provider on the device plus system shortcuts), ProviderQuery (ContentResolver with limit/offset bundles, falls back to `content query` through the shell on SecurityException, parses its output), SqliteInspector (opens directly when possible, otherwise copies db + wal + shm through the routed file system into cache, with save-back), SharedPrefsFile (DOM parse/serialize). App: Data tab, provider query screen with editable form, paging, CSV/JSON export and row sheet; database screen with tables and a SQL console; table screen with schema, sort by column and paging; preferences editor with typed values. Verified on the Pixel including prefs through run-as. Not done: insert/update/delete UI for providers (the core supports it).
 
 - 2026-09-08 (phase 4): Apps and storage stats done. `core/apps`: AppRepository (PackageManager + StorageStatsManager, needs usage access), AppActions over the shell (force stop, clear cache/data, uninstall, grant/revoke), a Kotlin binary-XML decoder (`BinaryXml`) with resource names resolved through the package's Resources, and `DiskScanner` in core/fs building size trees over local or shell walks. App: Apps tab (filters, sort, search, sizes, icons via a Coil fetcher), app detail with Overview/Manifest/Components/Permissions tabs, APK export, disk usage screen with a squarified treemap and largest files. Not done from the phase 4 list: duplicate finder, empty-directory finder, app-ops toggles.
@@ -170,7 +172,7 @@ Goal: build on a 2026 machine without changing a line of Java.
 
 **Done when** you can query MediaStore and open your own app's Room DB on device.
 
-### Phase 6 — Intents
+### Phase 6 — Intents (done)
 - Builder: action, data, type, categories, component, flags, typed extras/bundles. Send as activity/broadcast/service. Presets.
 - Sink: activity registered for VIEW/SEND/SEND_MULTIPLE and wide mime/scheme filters; logs full intent, offers to forward to another handler.
 - Broadcast monitor: dynamic receivers for the catalogue of non-protected actions, live timeline, record to session.

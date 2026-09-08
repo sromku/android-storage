@@ -21,6 +21,17 @@ import com.snatik.storage.app.feature.data.ProviderQueryViewModel
 import com.snatik.storage.app.feature.data.DatabaseViewModel
 import com.snatik.storage.app.feature.data.DbTableViewModel
 import com.snatik.storage.app.feature.data.PrefsViewModel
+import com.snatik.storage.app.feature.intents.BroadcastHistoryViewModel
+import com.snatik.storage.app.feature.intents.BroadcastMonitorViewModel
+import com.snatik.storage.app.feature.intents.DeepLinkViewModel
+import com.snatik.storage.app.feature.intents.IntentBuilderViewModel
+import com.snatik.storage.app.feature.intents.IntentLogViewModel
+import com.snatik.storage.app.feature.intents.IntentsViewModel
+import com.snatik.storage.core.intents.BroadcastHistory
+import com.snatik.storage.core.intents.BroadcastMonitor
+import com.snatik.storage.core.intents.IntentLog
+import com.snatik.storage.core.intents.IntentPresets
+import com.snatik.storage.core.intents.IntentSender
 import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
@@ -61,6 +72,11 @@ val appModule = module {
     single { ProviderQuery(androidContext(), get()) }
     single { SqliteInspector(androidContext(), get()) }
     single { DatabaseSessions(get()) }
+    single { IntentSender(androidContext()) }
+    single { IntentLog(androidContext()) }
+    single { IntentPresets(androidContext()) }
+    single { BroadcastMonitor(androidContext()) }
+    single { BroadcastHistory() }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
@@ -74,4 +90,10 @@ val appModule = module {
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
+    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
+    viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get()) }
+    viewModelOf(::IntentLogViewModel)
+    viewModelOf(::BroadcastMonitorViewModel)
+    viewModel { BroadcastHistoryViewModel(get(), get()) }
+    viewModelOf(::DeepLinkViewModel)
 }

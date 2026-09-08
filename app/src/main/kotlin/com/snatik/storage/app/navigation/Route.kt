@@ -45,7 +45,25 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class Prefs(val path: String) : Route
+
+    @Serializable
+    data object Intents : Route
+
+    @Serializable
+    data class IntentBuilder(val presetId: Long? = null, val specJson: String? = null) : Route
+
+    @Serializable
+    data object IntentLog : Route
+
+    @Serializable
+    data object BroadcastMonitor : Route
+
+    @Serializable
+    data object BroadcastHistory : Route
+
+    @Serializable
+    data object DeepLink : Route
 }
 
 /** The destinations reachable from the bottom bar. */
-enum class TopLevel { STORAGE, APPS, DATA }
+enum class TopLevel { STORAGE, APPS, DATA, INTENTS }

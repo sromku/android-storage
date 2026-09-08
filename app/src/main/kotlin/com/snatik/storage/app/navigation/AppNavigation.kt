@@ -17,6 +17,12 @@ import com.snatik.storage.app.feature.data.PrefsScreen
 import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
+import com.snatik.storage.app.feature.intents.BroadcastHistoryScreen
+import com.snatik.storage.app.feature.intents.BroadcastMonitorScreen
+import com.snatik.storage.app.feature.intents.DeepLinkScreen
+import com.snatik.storage.app.feature.intents.IntentBuilderScreen
+import com.snatik.storage.app.feature.intents.IntentLogScreen
+import com.snatik.storage.app.feature.intents.IntentsScreen
 import com.snatik.storage.app.feature.viewer.HexViewerScreen
 import com.snatik.storage.app.feature.viewer.ImageViewerScreen
 import com.snatik.storage.app.feature.viewer.TextViewerScreen
@@ -35,6 +41,7 @@ fun AppNavigation() {
             TopLevel.STORAGE -> Route.Home
             TopLevel.APPS -> Route.Apps
             TopLevel.DATA -> Route.Data
+            TopLevel.INTENTS -> Route.Intents
         }
         if (backStack.size == 1 && backStack.first() == root) return
         backStack.add(root)
@@ -119,6 +126,24 @@ fun AppNavigation() {
             entry<Route.Prefs> { route ->
                 PrefsScreen(path = route.path, onBack = ::pop)
             }
+            entry<Route.Intents> {
+                IntentsScreen(
+                    onSwitchTab = ::switchTab,
+                    onOpenBuilder = { push(Route.IntentBuilder()) },
+                    onOpenPreset = { id -> push(Route.IntentBuilder(presetId = id)) },
+                    onOpenLog = { push(Route.IntentLog) },
+                    onOpenMonitor = { push(Route.BroadcastMonitor) },
+                    onOpenHistory = { push(Route.BroadcastHistory) },
+                    onOpenDeepLink = { push(Route.DeepLink) },
+                )
+            }
+            entry<Route.IntentBuilder> { route -> IntentBuilderScreen(route = route, onBack = ::pop) }
+            entry<Route.IntentLog> {
+                IntentLogScreen(onBack = ::pop, onResend = { json -> push(Route.IntentBuilder(specJson = json)) })
+            }
+            entry<Route.BroadcastMonitor> { BroadcastMonitorScreen(onBack = ::pop) }
+            entry<Route.BroadcastHistory> { BroadcastHistoryScreen(onBack = ::pop) }
+            entry<Route.DeepLink> { DeepLinkScreen(onBack = ::pop) }
             entry<Route.TextViewer> { route ->
                 TextViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) })
             }
