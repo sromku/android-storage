@@ -126,6 +126,15 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object Clipboard : Route
+
+    @Serializable
+    data class Sunburst(val label: String, val path: String) : Route
+
+    @Serializable
+    data object Insights : Route
+
+    @Serializable
+    data class AppStorage(val packageName: String) : Route
 }
 
 /** The destinations reachable from the bottom bar. */

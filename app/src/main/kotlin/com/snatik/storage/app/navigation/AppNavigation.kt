@@ -31,6 +31,9 @@ import com.snatik.storage.app.feature.search.SearchScreen
 import com.snatik.storage.app.feature.monitor.NotificationMonitorScreen
 import com.snatik.storage.app.feature.monitor.ProviderWatchScreen
 import com.snatik.storage.app.feature.monitor.ClipboardScreen
+import com.snatik.storage.app.feature.insights.InsightsScreen
+import com.snatik.storage.app.feature.disk.SunburstScreen
+import com.snatik.storage.app.feature.apps.AppStorageScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -128,10 +131,11 @@ fun AppNavigation() {
                     onBrowse = ::openBrowser,
                     onDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onNetwork = { pkg -> push(Route.Network(pkg)) },
+                    onStorage = { pkg -> push(Route.AppStorage(pkg)) },
                 )
             }
             entry<Route.DiskUsage> { route ->
-                DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) })
+                DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) }, onSunburst = { push(Route.Sunburst(route.label, route.path)) })
             }
             entry<Route.Browser> { route ->
                 BrowserScreen(
@@ -178,6 +182,7 @@ fun AppNavigation() {
                     onOpenNotifications = { push(Route.Notifications) },
                     onOpenProviderWatch = { push(Route.ProviderWatch) },
                     onOpenClipboard = { push(Route.Clipboard) },
+                    onOpenInsights = { push(Route.Insights) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
@@ -188,6 +193,9 @@ fun AppNavigation() {
             entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop) }
             entry<Route.ProviderWatch> { ProviderWatchScreen(onBack = ::pop) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
+            entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
+            entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
+            entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

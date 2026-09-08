@@ -22,6 +22,11 @@ import com.snatik.storage.app.feature.monitor.ClipboardInspector
 import com.snatik.storage.app.feature.monitor.NotificationMonitorViewModel
 import com.snatik.storage.app.feature.monitor.ProviderWatchViewModel
 import com.snatik.storage.app.feature.monitor.ClipboardViewModel
+import com.snatik.storage.core.apps.StorageInsights
+import com.snatik.storage.core.apps.AppStorageAnalyzer
+import com.snatik.storage.app.feature.insights.InsightsViewModel
+import com.snatik.storage.app.feature.disk.SunburstViewModel
+import com.snatik.storage.app.feature.apps.AppStorageViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -112,6 +117,8 @@ val appModule = module {
     single { FileSearch(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
     single { ProviderWatcher(androidContext()) }
     single { ClipboardInspector(androidContext()) }
+    single { StorageInsights(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
+    single { AppStorageAnalyzer(get(), get()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -170,4 +177,7 @@ val appModule = module {
     viewModelOf(::NotificationMonitorViewModel)
     viewModelOf(::ProviderWatchViewModel)
     viewModelOf(::ClipboardViewModel)
+    viewModelOf(::InsightsViewModel)
+    viewModel { (path: String) -> SunburstViewModel(path, get()) }
+    viewModel { (packageName: String) -> AppStorageViewModel(packageName, get()) }
 }

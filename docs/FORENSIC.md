@@ -31,9 +31,12 @@ These go in an experimental root-gated track (L), clearly labeled.
   content-provider watcher (ContentObserver on well-known URIs), clipboard
   inspector (foreground-only, per Android 10+). Scheduled reports moved to
   Round I, where the WorkManager telemetry pipeline already lives. [shell]
-- **G:** storage deep-dive — sunburst + radial breadcrumb, app storage
-  decomposition (base/split/oat/lib/data), empty & zero-byte hunter, ghost
-  footprints, duplicate finder (sha256), symlink-aware sizing.
+- **G (done):** storage deep-dive — drillable sunburst with a radial
+  breadcrumb, app storage decomposition (base APK / splits / OAT / native libs
+  / data / cache / external), duplicate finder (size-grouped then SHA-256),
+  empty-directory and zero-byte hunters, ghost footprints (leftover
+  Android/data & obb for uninstalled apps). Symlink-aware sizing folded into
+  the native round (H)'s raw stat walk. [shell]
 - **H:** :core:native C++/NDK — getdents64 fast scan, SELinux context + raw
   mode/uid/gid, ELF inspector (sections, entropy, packer signatures), shared
   .so dedup, /proc/mounts+partitions+swaps+zram + own smaps.

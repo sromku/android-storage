@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
@@ -63,6 +64,7 @@ fun ToolsScreen(
     onOpenNotifications: () -> Unit,
     onOpenProviderWatch: () -> Unit,
     onOpenClipboard: () -> Unit,
+    onOpenInsights: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val tools = listOf(
@@ -78,6 +80,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications),
         Tool(stringResource(R.string.watch_title), stringResource(R.string.tools_watch_sub), Icons.Default.Sensors, onOpenProviderWatch),
         Tool(stringResource(R.string.clip_title), stringResource(R.string.tools_clip_sub), Icons.Default.ContentPaste, onOpenClipboard),
+        Tool(stringResource(R.string.insights_title), stringResource(R.string.tools_insights_sub), Icons.Default.Insights, onOpenInsights),
     )
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

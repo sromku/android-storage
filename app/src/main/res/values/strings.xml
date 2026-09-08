@@ -597,4 +597,23 @@
     <string name="clip_empty_body">Copy something and it appears here. Android only exposes the clipboard while this app is in front.</string>
     <string name="clip_note">Android 10+ only lets the foreground app read the clipboard, so this captures clips while this screen is open.</string>
     <string name="tools_clip_sub">Read the clipboard and keep a session history.</string>
+    <!-- Round G: storage deep-dive -->
+    <string name="sunburst_title">Sunburst</string>
+    <string name="sunburst_hint">Tap a ring to zoom in, tap the centre to go back up.</string>
+    <string name="insights_title">Storage insights</string>
+    <string name="tools_insights_sub">Duplicates, empties and leftover app data.</string>
+    <string name="insights_scan">Scan for reclaimable space</string>
+    <string name="insights_prompt">Find reclaimable space</string>
+    <string name="insights_prompt_body">Scan a location for duplicate files, empty directories, zero-byte files and leftover data from uninstalled apps.</string>
+    <string name="insights_summary">Summary</string>
+    <string name="insights_scanned">%1$d files, %2$s scanned</string>
+    <string name="insights_reclaimable">%1$s reclaimable from duplicates</string>
+    <string name="insights_dupes">%1$d duplicate sets · %2$s wasted</string>
+    <string name="insights_dupe_copies">%1$d copies · %2$s each</string>
+    <string name="insights_zero">%1$d zero-byte files</string>
+    <string name="insights_empty_dirs">%1$d empty directories</string>
+    <string name="insights_ghosts">%1$d ghost footprints</string>
+    <string name="insights_ghosts_body">Leftover data under Android/data and Android/obb for apps that are no longer installed.</string>
+    <string name="app_storage_title">Storage breakdown</string>
+    <string name="app_storage_total">total on device</string>
 </resources>

@@ -76,6 +76,7 @@ fun AppDetailScreen(
     onBrowse: (label: String, path: String) -> Unit,
     onDiskUsage: (label: String, path: String) -> Unit,
     onNetwork: (String) -> Unit,
+    onStorage: (String) -> Unit,
     viewModel: AppDetailViewModel = koinViewModel(parameters = { parametersOf(packageName) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -130,6 +131,7 @@ fun AppDetailScreen(
                             details = details,
                             shellAvailable = state.shellAvailable,
                             onNetwork = { onNetwork(details.summary.packageName) },
+                            onStorage = { onStorage(details.summary.packageName) },
                             onOpen = { viewModel.launchIntent()?.let(context::startActivity) },
                             onSettings = { context.startActivity(viewModel.settingsIntent()) },
                             onExport = viewModel::exportApk,
@@ -198,6 +200,7 @@ private fun OverviewTab(
     details: AppDetails,
     shellAvailable: Boolean,
     onNetwork: () -> Unit,
+    onStorage: () -> Unit,
     onOpen: () -> Unit,
     onSettings: () -> Unit,
     onExport: () -> Unit,
@@ -228,6 +231,7 @@ private fun OverviewTab(
                 AssistChip(onClick = onSettings, label = { Text(stringResource(R.string.action_settings)) })
                 AssistChip(onClick = onExport, label = { Text(stringResource(R.string.action_export_apk)) })
                 AssistChip(onClick = onNetwork, label = { Text(stringResource(R.string.net_title)) })
+                AssistChip(onClick = onStorage, label = { Text(stringResource(R.string.app_storage_title)) })
             }
         }
         item {

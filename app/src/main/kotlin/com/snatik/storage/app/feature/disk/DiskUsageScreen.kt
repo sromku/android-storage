@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,6 +79,7 @@ fun DiskUsageScreen(
     route: Route.DiskUsage,
     onBack: () -> Unit,
     onBrowse: (String) -> Unit,
+    onSunburst: () -> Unit,
     viewModel: DiskUsageViewModel = koinViewModel(parameters = { parametersOf(route.path) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +98,7 @@ fun DiskUsageScreen(
                     IconButton(onClick = { if (!viewModel.up()) onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
                 },
                 actions = {
+                    IconButton(onClick = onSunburst) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.sunburst_title)) }
                     IconButton(onClick = viewModel::scan, enabled = !state.scanning) { Icon(Icons.Default.Refresh, contentDescription = null) }
                 },
             )
