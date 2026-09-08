@@ -99,6 +99,8 @@ Rule: `app` holds no logic an API caller could need; everything lives in `core`.
 
 ## Status
 
+- 2026-09-08 (phase 3): Privilege layer done. `core/shell`: `ShellExecutor` with plain, root (`su -c`) and Shizuku backends; the Shizuku backend is a hand-written Kotlin `Binder` service (no AIDL) that runs in the shell-uid process and passes pipes for stdin/stdout/stderr. `ShellFileSystem` parses toybox `stat`, `RoutedFileSystem` picks local vs shell vs `run-as` per path, `PrivilegeManager` tracks Shizuku/root state. Verified on a Pixel 10 Pro (Android 17) with Shizuku 13.6: system root and `Android/data` list via shell, a debuggable app's `shared_prefs` open via run-as. Root path untested (no rooted device). Audit log deferred to phase 9 when the API arrives.
+
 - 2026-09-08 (later): Phase 2 largely done. `core/fs` module (FileSystem interface, LocalFileSystem with progress-reporting copy/move/delete, VolumeRepository, OperationRunner, 9 tests). App rebuilt on Navigation 3 + Koin + Coil: home with volumes, browser with breadcrumbs/search/sort/hidden/selection/clipboard/paste/rename/new/delete/details, text/hex/image viewers. Still open from phase 2: SAF path for OEM USB drives, video/audio/PDF/APK viewers, a code syntax colouring pass.
 - 2026-09-08: Phases 0 and 1 done in one pass. Build on Gradle 9.7 / AGP 9.4 / Kotlin 2.4, library rewritten in Kotlin with 34 Robolectric and JVM tests, Java sample replaced by a Compose explorer (phase 2 seed). Maven Central publishing and the Compose explorer features are still open.
 
@@ -136,7 +138,7 @@ Goal: build on a 2026 machine without changing a line of Java.
 
 **Done when** you would use it instead of the OEM file manager daily.
 
-### Phase 3 — Privilege layer
+### Phase 3 — Privilege layer (done)
 - `ShellExecutor`: `Plain`, `Shizuku`, `Root`; streaming stdout/stderr as `Flow`, timeouts, cancel, exit codes.
 - Shizuku binding, permission request, wireless-debugging auto-start hint. libsu behind same interface.
 - `ShellFs` backed by `ls -la`/`stat`/`cat`/`cp`/`mv`/`rm` (toybox parsing) so the explorer reaches `Android/data`, `/data/app`, and with root all of `/data`.

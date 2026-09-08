@@ -17,6 +17,25 @@
     <string name="permission_all_files_body">Without it, most of shared storage stays out of reach. Grant it once and every volume becomes browsable.</string>
     <string name="permission_grant">Grant access</string>
 
+    <!-- Access -->
+    <string name="section_debuggable">Debuggable apps (run-as)</string>
+    <string name="access_tier_none">Standard access</string>
+    <string name="access_tier_shizuku">Shell access</string>
+    <string name="access_tier_root">Root access</string>
+    <string name="shizuku_not_installed">Shizuku is not installed</string>
+    <string name="shizuku_get">Get it</string>
+    <string name="shizuku_not_running">Shizuku is not running</string>
+    <string name="shizuku_not_running_hint">Start it from the Shizuku app with wireless debugging or a computer, then come back.</string>
+    <string name="shizuku_open">Open</string>
+    <string name="shizuku_permission">Shizuku is running, allow this app to use it</string>
+    <string name="shizuku_allow">Allow</string>
+    <string name="shizuku_connecting">Connecting to Shizuku…</string>
+    <string name="shizuku_connected">Shizuku connected, uid %1$d</string>
+    <string name="root_off">Root not used</string>
+    <string name="root_available">Root granted</string>
+    <string name="root_unavailable">Root not available on this device</string>
+    <string name="root_checking">Asking for root…</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>
@@ -33,7 +52,7 @@
     <string name="empty_directory">Nothing here yet</string>
     <string name="no_matches">No matches</string>
     <string name="cannot_read_directory">Can\'t read this directory</string>
-    <string name="cannot_read_hint">This location needs more access than the app currently has.</string>
+    <string name="cannot_read_hint">It needs more access than the app has right now. Shell access via Shizuku covers most of the device; a few paths need root.</string>
     <string name="directory_missing">This directory no longer exists</string>
     <string name="no_access">no access</string>
     <string name="symlink">link</string>

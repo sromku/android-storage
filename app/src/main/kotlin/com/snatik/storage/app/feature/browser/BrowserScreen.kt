@@ -417,7 +417,8 @@ private fun PasteBar(clip: FileClipboard.Content, onPaste: () -> Unit, onCancel:
 private fun ErrorState(error: StorageException) {
     val (title, body) = when (error) {
         is StorageException.NotFound -> stringResource(R.string.directory_missing) to error.path
-        is StorageException.Io -> stringResource(R.string.cannot_read_directory) to stringResource(R.string.cannot_read_hint)
+        is StorageException.Io -> stringResource(R.string.cannot_read_directory) to
+            listOfNotNull(stringResource(R.string.cannot_read_hint), error.cause?.message).joinToString("\n\n")
         else -> stringResource(R.string.cannot_read_directory) to (error.message ?: "")
     }
     EmptyState(Icons.Default.Block, title, body)
@@ -510,11 +511,12 @@ private fun EntryRow(
             val childCount = entry.childCount
             val primary = when {
                 !entry.isDirectory -> entry.size.readableSize()
-                childCount == null -> stringResource(R.string.no_access)
-                else -> pluralStringResource(R.plurals.items_count, childCount, childCount)
+                childCount != null -> pluralStringResource(R.plurals.items_count, childCount, childCount)
+                !entry.canRead -> stringResource(R.string.no_access)
+                else -> null
             }
             val symlink = if (entry.isSymlink) "  ·  " + stringResource(R.string.symlink) else ""
-            val detail = primary + "  ·  " + entry.lastModified.relativeTime(context) + symlink
+            val detail = listOfNotNull(primary, entry.lastModified.relativeTime(context)).joinToString("  ·  ") + symlink
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
         if (!selectionMode) {

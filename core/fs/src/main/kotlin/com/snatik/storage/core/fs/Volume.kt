@@ -26,9 +26,9 @@ data class Volume(
 }
 
 /** Discovers the storage volumes and app directories worth browsing. */
-class VolumeRepository(private val context: Context, private val includeSystemRoot: Boolean = false) {
+class VolumeRepository(private val context: Context) {
 
-    suspend fun volumes(): List<Volume> = withContext(Dispatchers.IO) {
+    suspend fun volumes(includeSystemRoot: Boolean = false): List<Volume> = withContext(Dispatchers.IO) {
         buildList {
             addAll(mediaVolumes())
             // The system root only becomes browsable with shell or root access; add it back with the privilege layer.

@@ -62,6 +62,23 @@ import com.snatik.storage.app.util.StorageAccess
 import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.core.fs.Volume
 import com.snatik.storage.core.fs.VolumeKind
+import com.snatik.storage.core.shell.DebuggableApp
+import com.snatik.storage.core.shell.PrivilegeState
+import com.snatik.storage.core.shell.PrivilegeTier
+import com.snatik.storage.core.shell.RootStatus
+import com.snatik.storage.core.shell.ShizukuManager
+import com.snatik.storage.core.shell.ShizukuStatus
+import androidx.compose.material.icons.filled.Adb
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import android.content.Intent
+import android.net.Uri
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +125,19 @@ fun HomeScreen(onOpenVolume: (label: String, path: String) -> Unit, viewModel: H
                         )
                     }
                 }
-                item(key = "volumes-header") { SectionHeader(stringResource(R.string.section_volumes)) }
+                item(key = "access") {
+                    AccessCard(
+                        privilege = state.privilege,
+                        onRequestPermission = viewModel::requestShizukuPermission,
+                        onConnect = viewModel::connectShizuku,
+                        onOpenShizuku = {
+                            val launch = context.packageManager.getLaunchIntentForPackage(ShizukuManager.SHIZUKU_PACKAGE)
+                            context.startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/")))
+                        },
+                        onPreferRoot = viewModel::setPreferRoot,
+                    )
+                }
+                item(key = "volumes-header") { SectionHeader(stringResource(R.string.section_volumes), topPadding = 12.dp) }
                 items(state.volumes, key = { it.path }) { volume ->
                     val label = volume.label()
                     VolumeCard(volume, onClick = { onOpenVolume(label, volume.path) })
@@ -117,6 +146,12 @@ fun HomeScreen(onOpenVolume: (label: String, path: String) -> Unit, viewModel: H
                 items(state.appVolumes, key = { it.path }) { volume ->
                     val label = volume.label()
                     AppVolumeRow(volume, onClick = { onOpenVolume(label, volume.path) })
+                }
+                if (state.debuggableApps.isNotEmpty()) {
+                    item(key = "debuggable-header") { SectionHeader(stringResource(R.string.section_debuggable), topPadding = 12.dp) }
+                    items(state.debuggableApps, key = { "dbg:" + it.packageName }) { app ->
+                        DebuggableAppRow(app, onClick = { onOpenVolume(app.label, app.dataDir) })
+                    }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
@@ -213,6 +248,86 @@ private fun AppVolumeRow(volume: Volume, onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text(volume.label(), style = MaterialTheme.typography.bodyLarge)
             Text(volume.path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+        }
+    }
+}
+
+@Composable
+private fun AccessCard(
+    privilege: PrivilegeState,
+    onRequestPermission: () -> Unit,
+    onConnect: () -> Unit,
+    onOpenShizuku: () -> Unit,
+    onPreferRoot: (Boolean) -> Unit,
+) {
+    val tierLabel = when (privilege.tier) {
+        PrivilegeTier.NONE -> stringResource(R.string.access_tier_none)
+        PrivilegeTier.SHIZUKU -> stringResource(R.string.access_tier_shizuku)
+        PrivilegeTier.ROOT -> stringResource(R.string.access_tier_root)
+    }
+    val (statusText, action) = when (val s = privilege.shizuku) {
+        ShizukuStatus.NotInstalled -> stringResource(R.string.shizuku_not_installed) to (stringResource(R.string.shizuku_get) to onOpenShizuku)
+        ShizukuStatus.NotRunning -> stringResource(R.string.shizuku_not_running) to (stringResource(R.string.shizuku_open) to onOpenShizuku)
+        is ShizukuStatus.PermissionRequired -> stringResource(R.string.shizuku_permission) to (stringResource(R.string.shizuku_allow) to onRequestPermission)
+        ShizukuStatus.Connecting -> stringResource(R.string.shizuku_connecting) to null
+        is ShizukuStatus.Connected -> stringResource(R.string.shizuku_connected, s.uid) to null
+    }
+    val privileged = privilege.isPrivileged
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (privileged) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(if (privileged) Icons.Default.Terminal else Icons.Default.Security, contentDescription = null)
+                Text(tierLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Adb, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(statusText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (privilege.shizuku is ShizukuStatus.Connecting) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else if (action != null) {
+                    TextButton(onClick = action.second) { Text(action.first) }
+                }
+            }
+            if (privilege.shizuku is ShizukuStatus.NotRunning) {
+                Text(stringResource(R.string.shizuku_not_running_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Terminal, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                val rootText = when {
+                    !privilege.preferRoot -> stringResource(R.string.root_off)
+                    privilege.root == RootStatus.AVAILABLE -> stringResource(R.string.root_available)
+                    privilege.root == RootStatus.UNAVAILABLE -> stringResource(R.string.root_unavailable)
+                    else -> stringResource(R.string.root_checking)
+                }
+                Text(rootText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = privilege.preferRoot, onCheckedChange = onPreferRoot)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebuggableAppRow(app: DebuggableApp, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(Icons.Default.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(app.label, style = MaterialTheme.typography.bodyLarge)
+            Text(app.dataDir, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         }
     }
 }

@@ -12,24 +12,32 @@ import com.snatik.storage.core.fs.FileSystem
 import com.snatik.storage.core.fs.LocalFileSystem
 import com.snatik.storage.core.fs.OperationRunner
 import com.snatik.storage.core.fs.VolumeRepository
+import com.snatik.storage.core.shell.DebuggablePackages
+import com.snatik.storage.core.shell.PrivilegeManager
+import com.snatik.storage.core.shell.RoutedFileSystem
+import com.snatik.storage.core.shell.ShizukuManager
+import com.snatik.storage.app.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val appModule = module {
     single { Storage(androidContext()) }
-    single<FileSystem> { LocalFileSystem(get()) }
+    single { LocalFileSystem(get()) }
+    single { ShizukuManager(androidContext(), BuildConfig.DEBUG) }
+    single { PrivilegeManager(androidContext(), get(), get()) }
+    single { DebuggablePackages(androidContext()) }
+    single<FileSystem> { RoutedFileSystem(get<LocalFileSystem>(), get(), get()) }
     single { VolumeRepository(androidContext()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { OperationRunner(get()) }
     single { FileClipboard() }
     single { BrowserPreferences(androidContext()) }
 
-    viewModelOf(::HomeViewModel)
+    viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }

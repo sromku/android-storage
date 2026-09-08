@@ -25,6 +25,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -36,6 +37,7 @@ android {
 dependencies {
     implementation(project(":storage"))
     implementation(project(":core:fs"))
+    implementation(project(":core:shell"))
 
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
