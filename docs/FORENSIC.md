@@ -37,9 +37,15 @@ These go in an experimental root-gated track (L), clearly labeled.
   empty-directory and zero-byte hunters, ghost footprints (leftover
   Android/data & obb for uninstalled apps). Symlink-aware sizing folded into
   the native round (H)'s raw stat walk. [shell]
-- **H:** :core:native C++/NDK — getdents64 fast scan, SELinux context + raw
-  mode/uid/gid, ELF inspector (sections, entropy, packer signatures), shared
-  .so dedup, /proc/mounts+partitions+swaps+zram + own smaps.
+- **H (done, Kotlin path):** System screen (/proc/mounts, /proc/partitions,
+  /proc/swaps, /sys/block/zram0, /proc/self/smaps rollup — the root-only ones
+  degrade gracefully), ELF inspector (header, sections + per-section Shannon
+  entropy, DT_NEEDED, SONAME, GNU build-id, packer signatures) as a viewer for
+  .so files, and raw mode/owner/SELinux context shown via the shell (the same
+  data a native lstat/lgetxattr would return). The C++/NDK module
+  (getdents64 fast scan, in-process raw stat without a shell, shared .so dedup)
+  is deferred: no NDK/CMake toolchain is installed on this machine and there is
+  no sdkmanager to fetch one. Tracked in docs/ROOT.md.
 - **I:** Time Machine — WorkManager telemetry snapshots, growth delta graphs,
   predictive exhaustion (regression), zombie bloat, cache velocity,
   version-to-version footprint diff.

@@ -34,6 +34,8 @@ import com.snatik.storage.app.feature.monitor.ClipboardScreen
 import com.snatik.storage.app.feature.insights.InsightsScreen
 import com.snatik.storage.app.feature.disk.SunburstScreen
 import com.snatik.storage.app.feature.apps.AppStorageScreen
+import com.snatik.storage.app.feature.system.SystemScreen
+import com.snatik.storage.app.feature.viewer.ElfViewerScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -93,7 +95,7 @@ fun AppNavigation() {
             FileKind.XML -> if (entry.parentPath?.endsWith("/shared_prefs") == true) push(Route.Prefs(entry.path)) else push(Route.XmlViewer(entry.path))
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
-            else -> push(Route.HexViewer(entry.path))
+            else -> if (entry.name.endsWith(".so") || entry.name.contains(".so.")) push(Route.ElfViewer(entry.path)) else push(Route.HexViewer(entry.path))
         }
     }
 
@@ -183,6 +185,7 @@ fun AppNavigation() {
                     onOpenProviderWatch = { push(Route.ProviderWatch) },
                     onOpenClipboard = { push(Route.Clipboard) },
                     onOpenInsights = { push(Route.Insights) },
+                    onOpenSystem = { push(Route.System) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
@@ -196,6 +199,8 @@ fun AppNavigation() {
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
+            entry<Route.System> { SystemScreen(onBack = ::pop) }
+            entry<Route.ElfViewer> { route -> ElfViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) }) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

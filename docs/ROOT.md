@@ -30,3 +30,23 @@ never as a verdict.
 ## When we root a device
 Add a `:core:native` ptrace/fanotify backend behind the Root privilege tier, gate
 every feature on `PrivilegeTier.ROOT`, and label the whole area experimental in the UI.
+
+## Native (:core:native) — deferred pending NDK toolchain
+
+Round H's forensic value (System screen, ELF inspector, raw mode/owner/SELinux)
+ships in Kotlin, reading /proc and /sys and getting raw stat + SELinux labels
+through the shell. A C++/NDK module was planned for three things Kotlin cannot
+do in-process:
+
+- `getdents64` fast directory scanning (a speedup over the shell `find` walk).
+- In-process raw `lstat` (mode/uid/gid) and `lgetxattr("security.selinux")`
+  without spawning a shell — useful when no shell tier is connected.
+- Native shared `.so` de-duplication across apps.
+
+It is not built because this machine has no Android NDK or CMake installed and
+no `cmdline-tools`/`sdkmanager` to fetch them. To add it later: install an NDK
+and CMake, add a `:core:native` library module with `externalNativeBuild`
+(CMakeLists exposing JNI `lstatRaw`, `selinuxContext`, `listDirFast`), and route
+the file-info sheet and DiskScanner through it when present. The shell path
+already covers the data on privileged devices, so this is a performance and
+no-shell-fallback improvement, not a capability gap.

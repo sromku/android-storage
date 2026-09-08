@@ -27,6 +27,10 @@ import com.snatik.storage.core.apps.AppStorageAnalyzer
 import com.snatik.storage.app.feature.insights.InsightsViewModel
 import com.snatik.storage.app.feature.disk.SunburstViewModel
 import com.snatik.storage.app.feature.apps.AppStorageViewModel
+import com.snatik.storage.core.apps.SystemInspector
+import com.snatik.storage.core.apps.ElfInspector
+import com.snatik.storage.app.feature.system.SystemViewModel
+import com.snatik.storage.app.feature.viewer.ElfViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -119,6 +123,8 @@ val appModule = module {
     single { ClipboardInspector(androidContext()) }
     single { StorageInsights(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
     single { AppStorageAnalyzer(get(), get()) }
+    single { SystemInspector(get()) }
+    single { ElfInspector(get<com.snatik.storage.core.fs.FileSystem>()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -180,4 +186,6 @@ val appModule = module {
     viewModelOf(::InsightsViewModel)
     viewModel { (path: String) -> SunburstViewModel(path, get()) }
     viewModel { (packageName: String) -> AppStorageViewModel(packageName, get()) }
+    viewModelOf(::SystemViewModel)
+    viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
 }

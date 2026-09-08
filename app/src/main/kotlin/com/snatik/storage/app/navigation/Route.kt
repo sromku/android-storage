@@ -135,6 +135,12 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class AppStorage(val packageName: String) : Route
+
+    @Serializable
+    data object System : Route
+
+    @Serializable
+    data class ElfViewer(val path: String) : Route
 }
 
 /** The destinations reachable from the bottom bar. */

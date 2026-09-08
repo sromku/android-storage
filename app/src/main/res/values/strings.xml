@@ -616,4 +616,32 @@
     <string name="insights_ghosts_body">Leftover data under Android/data and Android/obb for apps that are no longer installed.</string>
     <string name="app_storage_title">Storage breakdown</string>
     <string name="app_storage_total">total on device</string>
+    <!-- Round H: system + ELF -->
+    <string name="system_title">System</string>
+    <string name="tools_system_sub">Mounts, partitions, swap, ZRAM and memory.</string>
+    <string name="system_zram">ZRAM</string>
+    <string name="system_zram_disksize">Disk size</string>
+    <string name="system_zram_original">Original</string>
+    <string name="system_zram_compressed">Compressed</string>
+    <string name="system_zram_mem">Memory used</string>
+    <string name="system_zram_ratio">Ratio</string>
+    <string name="system_smaps">This app memory (smaps)</string>
+    <string name="system_private_dirty">Private dirty</string>
+    <string name="system_regions">Mapped regions</string>
+    <string name="system_swaps">Swap</string>
+    <string name="system_partitions">Partitions</string>
+    <string name="system_mounts">Mounts (%1$d)</string>
+    <string name="elf_not_elf">Not an ELF binary</string>
+    <string name="elf_type">Type</string>
+    <string name="elf_endian">Endianness</string>
+    <string name="elf_entry">Entry point</string>
+    <string name="elf_build_id">Build ID</string>
+    <string name="elf_entropy">Entropy</string>
+    <string name="elf_high_entropy">High entropy</string>
+    <string name="elf_packed_body">Unusually high entropy or a known packer signature. The code may be packed or encrypted.</string>
+    <string name="elf_raw">Raw file info</string>
+    <string name="elf_mode">Mode</string>
+    <string name="elf_owner">Owner</string>
+    <string name="elf_needed">Needed libraries (%1$d)</string>
+    <string name="elf_sections">Sections (%1$d)</string>
 </resources>
