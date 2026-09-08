@@ -7,6 +7,8 @@ import coil3.SingletonImageLoader
 import coil3.request.crossfade
 import coil3.video.VideoFrameDecoder
 import com.snatik.storage.app.di.appModule
+import com.snatik.storage.app.ui.components.AppIconFetcher
+import com.snatik.storage.app.ui.components.AppIconKeyer
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -27,7 +29,11 @@ class StorageApp : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(VideoFrameDecoder.Factory()) }
+            .components {
+                add(VideoFrameDecoder.Factory())
+                add(AppIconFetcher.Factory(this@StorageApp))
+                add(AppIconKeyer())
+            }
             .crossfade(true)
             .build()
 }

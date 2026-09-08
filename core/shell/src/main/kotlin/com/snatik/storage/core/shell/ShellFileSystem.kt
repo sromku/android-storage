@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 /**
@@ -97,6 +99,16 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
         if (!result.ok) throw failure(path, result)
         return result.out.trim().substringBefore(' ')
     }
+
+    override fun walk(path: String): Flow<Pair<String, Long>> =
+        shell.lines("find ${path.shellQuote()} -type f -exec stat -c '%s %n' -- {} + 2>/dev/null")
+            .map { line ->
+                val space = line.indexOf(' ')
+                if (space <= 0) return@map null
+                val size = line.substring(0, space).toLongOrNull() ?: return@map null
+                line.substring(space + 1) to size
+            }
+            .filterNotNull()
 
     override fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress> = flow {
         emit(OperationProgress(sources.size, 0, 0, 0, ""))

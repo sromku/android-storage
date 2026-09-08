@@ -36,6 +36,95 @@
     <string name="root_unavailable">Root not available on this device</string>
     <string name="root_checking">Asking for root…</string>
 
+    <!-- Tabs -->
+    <string name="tab_storage">Storage</string>
+    <string name="tab_apps">Apps</string>
+
+    <!-- Apps -->
+    <string name="apps_title">Apps</string>
+    <string name="apps_search">Search apps</string>
+    <string name="apps_filter_all">All</string>
+    <string name="apps_filter_user">User</string>
+    <string name="apps_filter_system">System</string>
+    <string name="apps_filter_debuggable">Debuggable</string>
+    <string name="apps_sort_name">Name</string>
+    <string name="apps_sort_size">Size</string>
+    <string name="apps_sort_updated">Last updated</string>
+    <string name="apps_summary">%1$d apps · %2$s</string>
+    <string name="apps_no_match">No apps match</string>
+    <string name="usage_access_title">Usage access is off</string>
+    <string name="usage_access_body">Android only reports how much space apps take when usage access is granted.</string>
+    <string name="usage_access_grant">Grant</string>
+    <string name="size_unknown">—</string>
+    <string name="chip_system">system</string>
+    <string name="chip_debuggable">debuggable</string>
+    <string name="chip_disabled">disabled</string>
+    <string name="chip_exported">exported</string>
+    <string name="chip_runtime">runtime</string>
+    <string name="chip_granted">granted</string>
+    <string name="chip_denied">denied</string>
+
+    <!-- App detail -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_manifest">Manifest</string>
+    <string name="tab_components">Components</string>
+    <string name="tab_permissions">Permissions</string>
+    <string name="app_not_found">This app is not installed</string>
+    <string name="storage_app">App</string>
+    <string name="storage_data">Data</string>
+    <string name="storage_cache">Cache</string>
+    <string name="storage_total">Total %1$s</string>
+    <string name="action_open">Open</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_export_apk">Export APK</string>
+    <string name="action_force_stop">Force stop</string>
+    <string name="action_clear_cache">Clear cache</string>
+    <string name="action_clear_data">Clear data</string>
+    <string name="action_uninstall">Uninstall</string>
+    <string name="confirm_clear_data">Clear all data of %1$s?</string>
+    <string name="confirm_uninstall">Uninstall %1$s?</string>
+    <string name="apk_exported">APK exported to %1$s</string>
+    <string name="action_done">Done</string>
+    <string name="shell_actions_hint">Force stop, clear and uninstall need shell access.</string>
+    <string name="info_package">Package</string>
+    <string name="info_version">Version</string>
+    <string name="info_uid">UID</string>
+    <string name="info_sdk">SDK</string>
+    <string name="info_sdk_value">target %1$d · min %2$d</string>
+    <string name="info_installed">Installed</string>
+    <string name="info_updated">Updated</string>
+    <string name="info_installer">Installer</string>
+    <string name="info_apk">APK</string>
+    <string name="info_splits">Splits</string>
+    <string name="info_data_dir">Data dir</string>
+    <string name="info_external_dir">External dir</string>
+    <string name="info_native_libs">Native libs</string>
+    <string name="info_signing">Signing SHA-256</string>
+    <string name="browse">Browse</string>
+    <string name="analyze">Analyze</string>
+    <string name="manifest_search">Search manifest</string>
+    <string name="manifest_loading">Decoding manifest…</string>
+    <string name="section_activities">Activities</string>
+    <string name="section_services">Services</string>
+    <string name="section_receivers">Receivers</string>
+    <string name="section_providers">Content providers</string>
+    <string name="section_defined_permissions">Defined permissions</string>
+    <string name="nothing_declared">Nothing declared</string>
+    <string name="provider_read">read: %1$s</string>
+    <string name="provider_write">write: %1$s</string>
+    <string name="permission_requires">requires %1$s</string>
+    <string name="grant_hint">Tap a runtime permission to grant or revoke it through the shell.</string>
+
+    <!-- Disk usage -->
+    <string name="disk_usage_title">Disk usage</string>
+    <string name="scanning">Scanning…</string>
+    <string name="scan_progress">%1$d files · %2$s</string>
+    <string name="scan_failed">Scan failed</string>
+    <string name="largest_files">Largest files</string>
+    <string name="tree">Tree</string>
+    <string name="files_in_dir">%1$d files here</string>
+    <string name="other_files">Files in this folder</string>
+
     <!-- Browser -->
     <string name="navigate_up">Back</string>
     <string name="search">Search</string>

@@ -65,6 +65,7 @@ class RoutedFileSystem(
     override suspend fun rename(path: String, newName: String): FsEntry = pick(path, write = true).rename(path, newName)
     override suspend fun directorySize(path: String): Long = pick(path).directorySize(path)
     override suspend fun sha256(path: String): String = pick(path).sha256(path)
+    override fun walk(path: String): Flow<Pair<String, Long>> = pick(path).walk(path)
 
     override fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress> =
         routedOperation(sources, destinationDir) { fs, list -> fs.copy(list, destinationDir) }

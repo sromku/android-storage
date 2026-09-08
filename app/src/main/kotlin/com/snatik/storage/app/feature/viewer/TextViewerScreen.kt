@@ -1,19 +1,11 @@
 package com.snatik.storage.app.feature.viewer
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DataObject
@@ -41,13 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
+import com.snatik.storage.app.ui.components.CodeView
 import com.snatik.storage.app.ui.components.EmptyState
-import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.Intents
 import com.snatik.storage.app.util.readableSize
 import org.koin.androidx.compose.koinViewModel
@@ -115,52 +105,13 @@ fun TextViewerScreen(
                             }
                         }
                     }
-                    CodeLines(
+                    CodeView(
                         lines = state.lines,
                         wrap = state.wrap,
                         truncated = state.truncated,
                         onLoadMore = viewModel::loadMore,
                         modifier = Modifier.weight(1f),
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CodeLines(lines: List<String>, wrap: Boolean, truncated: Boolean, onLoadMore: () -> Unit, modifier: Modifier = Modifier) {
-    val gutterWidth = (lines.size.toString().length * 9 + 16).dp
-    val horizontal = rememberScrollState()
-    val lineStyle = MonoStyle.copy(fontSize = 13.sp, lineHeight = 19.sp)
-    val gutterColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    SelectionContainer(modifier = modifier) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal)),
-            contentPadding = PaddingValues(bottom = 32.dp),
-        ) {
-            itemsIndexed(lines) { index, line ->
-                Row(modifier = Modifier.then(if (wrap) Modifier.fillMaxWidth() else Modifier)) {
-                    Text(
-                        (index + 1).toString(),
-                        style = lineStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.width(gutterWidth).background(gutterColor).padding(end = 8.dp),
-                    )
-                    Text(
-                        line,
-                        style = lineStyle,
-                        softWrap = wrap,
-                        modifier = Modifier.padding(start = 12.dp, end = 16.dp).then(if (wrap) Modifier.weight(1f) else Modifier),
-                    )
-                }
-            }
-            if (truncated) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = onLoadMore) { Text(stringResource(R.string.load_more)) }
-                    }
                 }
             }
         }

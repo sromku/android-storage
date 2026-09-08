@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.Info
@@ -122,6 +123,7 @@ fun BrowserScreen(
     onOpenFile: (FsEntry) -> Unit,
     onViewAsText: (FsEntry) -> Unit,
     onViewAsHex: (FsEntry) -> Unit,
+    onDiskUsage: () -> Unit,
     viewModel: BrowserViewModel = koinViewModel(parameters = { parametersOf(route) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -162,7 +164,7 @@ fun BrowserScreen(
                 if (selecting) {
                     SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) })
                 } else {
-                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack)
+                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage)
                 }
             }
         },
@@ -235,7 +237,7 @@ fun BrowserScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit) {
+private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     TopAppBar(
@@ -271,6 +273,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                 IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
             } else {
                 IconButton(onClick = { viewModel.setSearchActive(true) }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
+                IconButton(onClick = onDiskUsage) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze)) }
                 IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort)) }
                 SortMenu(
                     expanded = sortMenu,

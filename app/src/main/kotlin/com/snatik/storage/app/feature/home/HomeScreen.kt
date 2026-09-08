@@ -73,6 +73,10 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Switch
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.DonutLarge
+import com.snatik.storage.app.navigation.TopLevel
+import com.snatik.storage.app.ui.components.TopLevelBar
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.Spacer
@@ -83,7 +87,12 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpenVolume: (label: String, path: String) -> Unit, viewModel: HomeViewModel = koinViewModel()) {
+fun HomeScreen(
+    onOpenVolume: (label: String, path: String) -> Unit,
+    onOpenDiskUsage: (label: String, path: String) -> Unit,
+    onSwitchTab: (TopLevel) -> Unit,
+    viewModel: HomeViewModel = koinViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -105,6 +114,7 @@ fun HomeScreen(onOpenVolume: (label: String, path: String) -> Unit, viewModel: H
                 scrollBehavior = scrollBehavior,
             )
         },
+        bottomBar = { TopLevelBar(current = TopLevel.STORAGE, onSelect = onSwitchTab) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.refreshing,
@@ -140,7 +150,7 @@ fun HomeScreen(onOpenVolume: (label: String, path: String) -> Unit, viewModel: H
                 item(key = "volumes-header") { SectionHeader(stringResource(R.string.section_volumes), topPadding = 12.dp) }
                 items(state.volumes, key = { it.path }) { volume ->
                     val label = volume.label()
-                    VolumeCard(volume, onClick = { onOpenVolume(label, volume.path) })
+                    VolumeCard(volume, onClick = { onOpenVolume(label, volume.path) }, onAnalyze = { onOpenDiskUsage(label, volume.path) })
                 }
                 item(key = "app-header") { SectionHeader(stringResource(R.string.section_app_storage), topPadding = 12.dp) }
                 items(state.appVolumes, key = { it.path }) { volume ->
@@ -189,7 +199,7 @@ private fun PermissionCard(onGrant: () -> Unit) {
 }
 
 @Composable
-private fun VolumeCard(volume: Volume, onClick: () -> Unit) {
+private fun VolumeCard(volume: Volume, onClick: () -> Unit, onAnalyze: () -> Unit) {
     Card(
         onClick = onClick,
         enabled = volume.isAvailable,
@@ -227,6 +237,11 @@ private fun VolumeCard(volume: Volume, onClick: () -> Unit) {
                     )
                 } else if (!volume.isAvailable) {
                     Text(stringResource(R.string.volume_unavailable), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (volume.isAvailable) {
+                IconButton(onClick = onAnalyze) {
+                    Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }

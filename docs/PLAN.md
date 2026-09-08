@@ -99,6 +99,8 @@ Rule: `app` holds no logic an API caller could need; everything lives in `core`.
 
 ## Status
 
+- 2026-09-08 (phase 4): Apps and storage stats done. `core/apps`: AppRepository (PackageManager + StorageStatsManager, needs usage access), AppActions over the shell (force stop, clear cache/data, uninstall, grant/revoke), a Kotlin binary-XML decoder (`BinaryXml`) with resource names resolved through the package's Resources, and `DiskScanner` in core/fs building size trees over local or shell walks. App: Apps tab (filters, sort, search, sizes, icons via a Coil fetcher), app detail with Overview/Manifest/Components/Permissions tabs, APK export, disk usage screen with a squarified treemap and largest files. Not done from the phase 4 list: duplicate finder, empty-directory finder, app-ops toggles.
+
 - 2026-09-08 (phase 3): Privilege layer done. `core/shell`: `ShellExecutor` with plain, root (`su -c`) and Shizuku backends; the Shizuku backend is a hand-written Kotlin `Binder` service (no AIDL) that runs in the shell-uid process and passes pipes for stdin/stdout/stderr. `ShellFileSystem` parses toybox `stat`, `RoutedFileSystem` picks local vs shell vs `run-as` per path, `PrivilegeManager` tracks Shizuku/root state. Verified on a Pixel 10 Pro (Android 17) with Shizuku 13.6: system root and `Android/data` list via shell, a debuggable app's `shared_prefs` open via run-as. Root path untested (no rooted device). Audit log deferred to phase 9 when the API arrives.
 
 - 2026-09-08 (later): Phase 2 largely done. `core/fs` module (FileSystem interface, LocalFileSystem with progress-reporting copy/move/delete, VolumeRepository, OperationRunner, 9 tests). App rebuilt on Navigation 3 + Koin + Coil: home with volumes, browser with breadcrumbs/search/sort/hidden/selection/clipboard/paste/rename/new/delete/details, text/hex/image viewers. Still open from phase 2: SAF path for OEM USB drives, video/audio/PDF/APK viewers, a code syntax colouring pass.
@@ -147,7 +149,7 @@ Goal: build on a 2026 machine without changing a line of Java.
 
 **Done when** the explorer opens `/sdcard/Android/data` via Shizuku and a debuggable app's `shared_prefs` via run-as.
 
-### Phase 4 — Apps and storage stats
+### Phase 4 — Apps and storage stats (done)
 - App list with app/data/cache sizes, filters, category totals.
 - Disk analysis: size tree, treemap, largest/oldest files, empty dirs, duplicates by hash.
 - App detail: version, uid, install source, signing certs, target SDK, data dirs, native libs, splits, APK export.

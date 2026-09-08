@@ -5,6 +5,14 @@ import com.snatik.storage.app.feature.browser.BrowserPreferences
 import com.snatik.storage.app.feature.browser.BrowserViewModel
 import com.snatik.storage.app.feature.browser.FileClipboard
 import com.snatik.storage.app.feature.home.HomeViewModel
+import com.snatik.storage.app.feature.apps.AppsViewModel
+import com.snatik.storage.app.feature.apps.AppDetailViewModel
+import com.snatik.storage.app.feature.disk.DiskUsageViewModel
+import com.snatik.storage.core.apps.AppActions
+import com.snatik.storage.core.apps.AppRepository
+import com.snatik.storage.core.apps.ManifestDecoder
+import com.snatik.storage.core.fs.DiskScanner
+import org.koin.core.module.dsl.viewModelOf
 import com.snatik.storage.app.feature.viewer.HexViewerViewModel
 import com.snatik.storage.app.feature.viewer.TextViewerViewModel
 import com.snatik.storage.app.navigation.Route
@@ -36,9 +44,16 @@ val appModule = module {
     single { OperationRunner(get()) }
     single { FileClipboard() }
     single { BrowserPreferences(androidContext()) }
+    single { AppRepository(androidContext()) }
+    single { ManifestDecoder(androidContext()) }
+    single { AppActions(get()) }
+    single { DiskScanner(get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }
+    viewModelOf(::AppsViewModel)
+    viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get()) }
+    viewModel { (path: String) -> DiskUsageViewModel(path, get()) }
 }

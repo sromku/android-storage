@@ -19,4 +19,5 @@ rootProject.name = "android-storage"
 include(":storage")
 include(":core:fs")
 include(":core:shell")
+include(":core:apps")
 include(":app")

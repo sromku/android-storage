@@ -143,6 +143,9 @@ What it does today:
 - Details sheet with path, size, permissions and on-demand SHA-256.
 - Viewers for text and code with line numbers and JSON pretty-print, hex with ASCII column, and images with pinch zoom.
 - Shell access through [Shizuku](https://shizuku.rikka.app/): browse the system root, other apps' `Android/data`, and the private data of your own debuggable apps via `run-as`. Root is used instead when the device has it and you turn it on.
+- Apps tab: every package with app, data and cache sizes (usage access), filters for user, system and debuggable, sort by name, size or last update.
+- App detail: storage breakdown, install facts, signing certificate, the decoded `AndroidManifest.xml` with search, components with exported flags, requested permissions with grant state. With a shell: force stop, clear cache or data, uninstall, and grant or revoke runtime permissions.
+- Disk usage: scan any folder into a treemap you can drill into, plus the largest files. Works through the shell for privileged paths.
 
 <p>
 <img src="assets/home.png" width="230"/>
@@ -150,7 +153,7 @@ What it does today:
 <img src="assets/hex.png" width="230"/>
 </p>
 
-Architecture: `core/fs` holds the file system abstraction, volumes and operations; `core/shell` holds the privilege layer, a `ShellExecutor` with plain, Shizuku and root backends and a shell-backed file system, all without UI dependencies. The Shizuku side is a hand-written Kotlin `Binder`, so there is no AIDL and no generated Java. `app` is Compose only with Navigation 3, Koin and Coil. Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API will call later.
+Architecture: `core/fs` holds the file system abstraction, volumes, operations and the disk scanner; `core/apps` holds package inspection and the binary XML decoder; `core/shell` holds the privilege layer, a `ShellExecutor` with plain, Shizuku and root backends and a shell-backed file system, all without UI dependencies. The Shizuku side is a hand-written Kotlin `Binder`, so there is no AIDL and no generated Java. `app` is Compose only with Navigation 3, Koin and Coil. Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API will call later.
 
 ## Building
 

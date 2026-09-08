@@ -35,6 +35,9 @@ interface FileSystem {
 
     suspend fun sha256(path: String): String
 
+    /** Every regular file below [path] as (absolute path, size). Used by disk analysis. */
+    fun walk(path: String): Flow<Pair<String, Long>>
+
     /** Copy files or directory trees into [destinationDir]. Name clashes get a numbered suffix. */
     fun copy(sources: List<String>, destinationDir: String): Flow<OperationProgress>
 
