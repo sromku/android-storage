@@ -31,6 +31,9 @@ import com.snatik.storage.core.apps.SystemInspector
 import com.snatik.storage.core.apps.ElfInspector
 import com.snatik.storage.app.feature.system.SystemViewModel
 import com.snatik.storage.app.feature.viewer.ElfViewModel
+import com.snatik.storage.core.apps.TelemetryDatabase
+import com.snatik.storage.core.apps.TelemetryRepository
+import com.snatik.storage.app.feature.timemachine.TimeMachineViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -125,6 +128,8 @@ val appModule = module {
     single { AppStorageAnalyzer(get(), get()) }
     single { SystemInspector(get()) }
     single { ElfInspector(get<com.snatik.storage.core.fs.FileSystem>()) }
+    single { TelemetryDatabase.create(androidContext()) }
+    single { TelemetryRepository(androidContext(), get(), get()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -188,4 +193,5 @@ val appModule = module {
     viewModel { (packageName: String) -> AppStorageViewModel(packageName, get()) }
     viewModelOf(::SystemViewModel)
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
+    viewModelOf(::TimeMachineViewModel)
 }

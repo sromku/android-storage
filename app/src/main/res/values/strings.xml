@@ -644,4 +644,22 @@
     <string name="elf_owner">Owner</string>
     <string name="elf_needed">Needed libraries (%1$d)</string>
     <string name="elf_sections">Sections (%1$d)</string>
+    <!-- Round I: Time Machine -->
+    <string name="tm_title">Time Machine</string>
+    <string name="tools_tm_sub">Track how storage grows and forecast when it fills.</string>
+    <string name="tm_schedule">Scheduled snapshots</string>
+    <string name="tm_schedule_body">Record device and per-app storage every 6 hours in the background.</string>
+    <string name="tm_capture_now">Capture snapshot now</string>
+    <string name="tm_capturing">Capturing…</string>
+    <string name="tm_need_more">Not enough history yet</string>
+    <string name="tm_need_more_body">Capture at least two snapshots to see growth trends and a forecast.</string>
+    <string name="tm_free_over_time">Free space over %1$d snapshots</string>
+    <string name="tm_free_now">Free: %1$s</string>
+    <string name="tm_forecast">Forecast</string>
+    <string name="tm_losing">Losing %1$s of free space per day</string>
+    <string name="tm_gaining">Gaining %1$s of free space per day</string>
+    <string name="tm_full_in">Storage full in about %1$d days</string>
+    <string name="tm_low_confidence">Low confidence — more snapshots will sharpen this.</string>
+    <string name="tm_cache_velocity">Cache growing %1$s per day</string>
+    <string name="tm_growers">Fastest growing apps</string>
 </resources>

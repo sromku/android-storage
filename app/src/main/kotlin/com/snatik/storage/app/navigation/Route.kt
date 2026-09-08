@@ -141,6 +141,9 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class ElfViewer(val path: String) : Route
+
+    @Serializable
+    data object TimeMachine : Route
 }
 
 /** The destinations reachable from the bottom bar. */

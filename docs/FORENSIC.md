@@ -46,9 +46,10 @@ These go in an experimental root-gated track (L), clearly labeled.
   (getdents64 fast scan, in-process raw stat without a shell, shared .so dedup)
   is deferred: no NDK/CMake toolchain is installed on this machine and there is
   no sdkmanager to fetch one. Tracked in docs/ROOT.md.
-- **I:** Time Machine — WorkManager telemetry snapshots, growth delta graphs,
-  predictive exhaustion (regression), zombie bloat, cache velocity,
-  version-to-version footprint diff.
+- **I (done):** Time Machine — WorkManager periodic telemetry snapshots (Room),
+  a free-space line graph, predictive exhaustion by least-squares regression,
+  per-app growth deltas with version-change flags, and cache velocity. On-demand
+  capture too. TelemetryForecastTest covers the regression.
 - **J:** power tools — SQLite VACUUM + ER view, benchmark engine (seq/random
   R/W), ART recompile dashboard (cmd package compile), bulk ops, optional
   FFmpeg transcode.

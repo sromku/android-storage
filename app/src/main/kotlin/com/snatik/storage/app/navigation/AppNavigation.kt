@@ -36,6 +36,7 @@ import com.snatik.storage.app.feature.disk.SunburstScreen
 import com.snatik.storage.app.feature.apps.AppStorageScreen
 import com.snatik.storage.app.feature.system.SystemScreen
 import com.snatik.storage.app.feature.viewer.ElfViewerScreen
+import com.snatik.storage.app.feature.timemachine.TimeMachineScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -186,6 +187,7 @@ fun AppNavigation() {
                     onOpenClipboard = { push(Route.Clipboard) },
                     onOpenInsights = { push(Route.Insights) },
                     onOpenSystem = { push(Route.System) },
+                    onOpenTimeMachine = { push(Route.TimeMachine) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
@@ -200,6 +202,7 @@ fun AppNavigation() {
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.System> { SystemScreen(onBack = ::pop) }
+            entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.ElfViewer> { route -> ElfViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) }) }
             entry<Route.Intents> {
                 IntentsScreen(

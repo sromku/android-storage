@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -20,10 +21,18 @@ android {
     }
 }
 
+ksp {
+    arg("room.generateKotlin", "true")
+}
+
 dependencies {
     api(project(":core:fs"))
     api(project(":core:shell"))
     api(libs.kotlinx.coroutines.core)
+    api(libs.room.runtime)
+    api(libs.room.ktx)
+    api(libs.androidx.work.runtime)
+    ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

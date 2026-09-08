@@ -17,6 +17,7 @@ coil = "3.6.2"
 serialization = "1.11.0"
 shizuku = "13.1.5"
 room = "2.8.4"
+work = "2.10.1"
 ktor = "3.5.2"
 zxing = "3.5.4"
 exifinterface = "1.4.1"
@@ -62,6 +63,7 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
