@@ -24,6 +24,9 @@ import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
 import com.snatik.storage.app.feature.tools.ToolsScreen
 import com.snatik.storage.app.feature.network.NetworkScreen
+import com.snatik.storage.app.feature.dashboard.DashboardScreen
+import com.snatik.storage.app.feature.dashboard.PermissionMatrixScreen
+import com.snatik.storage.app.feature.dashboard.AppOpsTimelineScreen
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
@@ -154,9 +157,15 @@ fun AppNavigation() {
                     onOpenReceive = { push(Route.Receive) },
                     onOpenApi = { push(Route.Api) },
                     onOpenNetwork = { push(Route.Network()) },
+                    onOpenDashboard = { push(Route.Dashboard) },
+                    onOpenMatrix = { push(Route.PermissionMatrix) },
+                    onOpenTimeline = { push(Route.AppOpsTimeline) },
                 )
             }
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
+            entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
+            entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
+            entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

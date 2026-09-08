@@ -105,6 +105,15 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class Network(val query: String = "") : Route
+
+    @Serializable
+    data object Dashboard : Route
+
+    @Serializable
+    data object PermissionMatrix : Route
+
+    @Serializable
+    data object AppOpsTimeline : Route
 }
 
 /** The destinations reachable from the bottom bar. */

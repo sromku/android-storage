@@ -23,9 +23,10 @@ QUERY_ALL_PACKAGES.
 These go in an experimental root-gated track (L), clearly labeled.
 
 ## Rounds
-- **E (next):** device dashboard, permission heat matrix, app-ops timeline,
-  battery/wakelocks. [shell]
-- **F:** clipboard log + notification monitor, global search (find/grep),
+- **E (done):** device dashboard (model/OS/patch/kernel/SELinux/uptime, RAM,
+  battery, ZRAM), permission heat matrix (every app vs the dangerous
+  permissions), device-wide app-ops timeline, battery wakelocks. [shell]
+- **F (next):** clipboard log + notification monitor, global search (find/grep),
   content provider watcher, scheduled reports (WorkManager).
 - **G:** storage deep-dive — sunburst + radial breadcrumb, app storage
   decomposition (base/split/oat/lib/data), empty & zero-byte hunter, ghost

@@ -153,6 +153,25 @@
     <string name="net_needs_shell_body">Connect Shizuku or root to read live connections.</string>
     <string name="net_none">No active connections</string>
     <string name="net_none_body">Nothing is talking to the network right now. Pull to refresh.</string>
+    <string name="tools_dash_sub">Device health, storage, memory, battery.</string>
+    <string name="tools_matrix_sub">Every app against the dangerous permissions.</string>
+    <string name="tools_timeline_sub">Recent sensitive access across all apps.</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dash_ram">Memory</string>
+    <string name="dash_battery">Battery</string>
+    <string name="dash_zram">ZRAM</string>
+    <string name="dash_selinux">SELinux</string>
+    <string name="dash_patch">Security patch</string>
+    <string name="dash_uptime">Uptime</string>
+    <string name="dash_kernel">Kernel</string>
+    <string name="dash_wakelocks">Top wakelocks</string>
+    <string name="matrix_title">Permission matrix</string>
+    <string name="matrix_granted">granted</string>
+    <string name="matrix_requested">requested</string>
+    <string name="timeline_title">App-ops timeline</string>
+    <string name="timeline_sensitive_only">Sensitive only</string>
+    <string name="timeline_needs_shell">Shell access needed to read app-ops</string>
+    <string name="timeline_empty">Nothing recorded</string>
 
     <!-- Data tab -->
     <string name="data_title">Data</string>

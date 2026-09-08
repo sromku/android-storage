@@ -12,6 +12,12 @@ import com.snatik.storage.core.apps.AppActions
 import com.snatik.storage.core.apps.AppWatchRepository
 import com.snatik.storage.core.apps.NetworkInspector
 import com.snatik.storage.app.feature.network.NetworkViewModel
+import com.snatik.storage.core.apps.DeviceStatsRepository
+import com.snatik.storage.core.apps.AppOpsTimeline
+import com.snatik.storage.core.apps.PermissionMatrixRepository
+import com.snatik.storage.app.feature.dashboard.DashboardViewModel
+import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
+import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
 import com.snatik.storage.core.apps.AppRepository
 import com.snatik.storage.core.apps.ManifestDecoder
 import com.snatik.storage.core.fs.DiskScanner
@@ -93,6 +99,9 @@ val appModule = module {
     single { AppActions(get()) }
     single { AppWatchRepository(androidContext(), get(), get()) }
     single { NetworkInspector(androidContext(), get()) }
+    single { DeviceStatsRepository(androidContext(), get()) }
+    single { AppOpsTimeline(androidContext(), get()) }
+    single { PermissionMatrixRepository(androidContext()) }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -144,4 +153,7 @@ val appModule = module {
     viewModel { (route: Route.SendTo) -> SendToViewModel(route, get()) }
     viewModelOf(::ApiViewModel)
     viewModelOf(::NetworkViewModel)
+    viewModelOf(::DashboardViewModel)
+    viewModelOf(::PermissionMatrixViewModel)
+    viewModelOf(::AppOpsTimelineViewModel)
 }
