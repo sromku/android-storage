@@ -308,7 +308,7 @@ fun AppNavigation() {
             entry<Route.XmlViewer> { route ->
                 XmlViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
             }
-            entry<Route.ApkViewer> { route -> ApkViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.ApkViewer> { route -> ApkViewerScreen(path = route.path, onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.ArchiveViewer> { route -> ArchiveViewerScreen(path = route.path, onBack = ::pop) }
         },
     )

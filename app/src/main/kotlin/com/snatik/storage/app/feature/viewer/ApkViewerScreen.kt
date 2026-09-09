@@ -3,7 +3,7 @@ package com.snatik.storage.app.feature.viewer
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,7 +86,7 @@ data class ApkDetails(
     val resCount: Int, val assetCount: Int, val manifestXml: String?,
 )
 
-enum class ApkTab { OVERVIEW, MANIFEST, CONTENTS, SIGNING }
+enum class ApkTab { OVERVIEW, MANIFEST, RESOURCES, CONTENTS, SIGNING }
 
 class ApkViewModel(private val path: String, private val context: Context, private val manifests: ManifestDecoder) : ViewModel() {
     val name = path.substringAfterLast('/')
@@ -175,6 +176,20 @@ class ApkViewModel(private val path: String, private val context: Context, priva
         )
     }
 
+    /** Extract one zip entry to the cache and return its file path, so it can open in another viewer. */
+    suspend fun extract(entryName: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val outDir = File(context.cacheDir, "apk-extract").apply { mkdirs() }
+            val safe = entryName.replace('/', '_').takeLast(120)
+            val out = File(outDir, safe)
+            ZipFile(path).use { zip ->
+                val e = zip.getEntry(entryName) ?: return@use null
+                zip.getInputStream(e).use { input -> out.outputStream().use { input.copyTo(it) } }
+                out.absolutePath
+            }
+        }.getOrNull()
+    }
+
     /** Detect APK Signing Block schemes (v2/v3/v3.1) by locating the block before the central directory. */
     private fun detectBlockSchemes(path: String): List<String> = runCatching {
         RandomAccessFile(path, "r").use { raf ->
@@ -227,10 +242,12 @@ class ApkViewModel(private val path: String, private val context: Context, priva
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApkViewerScreen(path: String, onBack: () -> Unit, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val apk by viewModel.state.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(ApkTab.OVERVIEW) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val open: (String) -> Unit = { name -> scope.launch { viewModel.extract(name)?.let(onOpenPath) } }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -246,11 +263,12 @@ fun ApkViewerScreen(path: String, onBack: () -> Unit, viewModel: ApkViewModel = 
                 else -> {
                     val a = apk!!
                     Column(modifier = Modifier.fillMaxSize()) {
-                        PrimaryTabRow(selectedTabIndex = tab.ordinal) {
+                        PrimaryScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 8.dp) {
                             ApkTab.entries.forEach { t ->
                                 val label = when (t) {
                                     ApkTab.OVERVIEW -> R.string.tab_overview
                                     ApkTab.MANIFEST -> R.string.tab_manifest
+                                    ApkTab.RESOURCES -> R.string.apk_resources_tab
                                     ApkTab.CONTENTS -> R.string.apk_contents
                                     ApkTab.SIGNING -> R.string.apk_signing
                                 }
@@ -260,7 +278,8 @@ fun ApkViewerScreen(path: String, onBack: () -> Unit, viewModel: ApkViewModel = 
                         when (tab) {
                             ApkTab.OVERVIEW -> OverviewTab(a)
                             ApkTab.MANIFEST -> ManifestTab(a)
-                            ApkTab.CONTENTS -> ContentsTab(a)
+                            ApkTab.RESOURCES -> ResourcesTab(a, open)
+                            ApkTab.CONTENTS -> ContentsTab(a, open)
                             ApkTab.SIGNING -> SigningTab(a)
                         }
                     }
@@ -332,22 +351,86 @@ private fun ManifestTab(a: ApkDetails) {
 }
 
 @Composable
-private fun ContentsTab(a: ApkDetails) {
+private fun ContentsTab(a: ApkDetails, onOpen: (String) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         item { Text(stringResource(R.string.apk_entries_sorted, a.entries.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp, 4.dp)) }
-        items(a.entries.size) { i ->
-            val e = a.entries[i]
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(e.name, style = MonoStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        if (e.stored) stringResource(R.string.apk_stored) else stringResource(R.string.apk_deflated, e.ratio),
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        items(a.entries.size) { i -> EntryRow(a.entries[i], onOpen) }
+    }
+}
+
+/** Whether tapping an entry can open it in another viewer. Compiled AXML/arsc are not openable as text. */
+private fun openable(name: String): Boolean {
+    val n = name.lowercase()
+    if (n.endsWith(".so") || n.matches(Regex(".*\\.(png|jpg|jpeg|webp|gif|bmp)$"))) return true
+    if (n.endsWith(".xml") || n == "resources.arsc" || n.endsWith(".dex") || n.endsWith(".arsc")) return false
+    return n.matches(Regex(".*\\.(txt|json|properties|version|kotlin_module|pro|md|csv|js|html|css|svg|ttf|otf)$")) || !n.contains('.')
+}
+
+@Composable
+private fun EntryRow(e: ApkEntry, onOpen: (String) -> Unit) {
+    val canOpen = openable(e.name)
+    val base = Modifier.fillMaxWidth()
+    Row(
+        modifier = (if (canOpen) base.then(Modifier.clickable { onOpen(e.name) }) else base).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(e.name, style = MonoStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (canOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            Text(
+                if (e.stored) stringResource(R.string.apk_stored) else stringResource(R.string.apk_deflated, e.ratio),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(e.size.readableSize(), style = MonoStyle, fontWeight = FontWeight.SemiBold)
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun ResourcesTab(a: ApkDetails, onOpen: (String) -> Unit) {
+    // Group res/ and assets/ entries by their type folder (density/qualifier stripped).
+    val groups = remember(a.entries) {
+        val res = a.entries.filter { it.name.startsWith("res/") }
+            .groupBy { it.name.removePrefix("res/").substringBefore('/').substringBefore('-').ifEmpty { "root" } }
+        val assets = a.entries.filter { it.name.startsWith("assets/") }
+        val merged = LinkedHashMap<String, List<ApkEntry>>()
+        (res.entries.sortedByDescending { it.value.size }).forEach { merged[it.key] = it.value }
+        if (assets.isNotEmpty()) merged["assets"] = assets
+        merged
+    }
+    if (groups.isEmpty()) { EmptyState(Icons.Default.Block, stringResource(R.string.apk_no_resources), stringResource(R.string.apk_res_note)); return }
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item { Text(stringResource(R.string.apk_res_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp, 8.dp)) }
+        groups.forEach { (type, entries) ->
+            item(key = "h-$type") {
+                val isOpen = expanded[type] == true
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { expanded[type] = !isOpen }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(if (isOpen) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(type, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("${entries.size} · ${entries.sumOf { it.size }.readableSize()}", style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HorizontalDivider()
                 }
-                Text(e.size.readableSize(), style = MonoStyle, fontWeight = FontWeight.SemiBold)
             }
-            HorizontalDivider()
+            if (expanded[type] == true) {
+                items(entries.size, key = { "e-$type-$it" }) { i ->
+                    val e = entries[i]
+                    val short = e.name.substringAfterLast('/')
+                    val canOpen = openable(e.name)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().let { if (canOpen) it.clickable { onOpen(e.name) } else it }.padding(start = 34.dp, end = 16.dp, top = 5.dp, bottom = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(short, style = MonoStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (canOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        Text(e.size.readableSize(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
     }
 }
@@ -378,8 +461,8 @@ private fun SigningTab(a: ApkDetails) {
 
 @Composable
 private fun InfoLine(label: String, value: String) {
-    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
+    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(100.dp))
         SelectionContainer(modifier = Modifier.weight(1f)) { Text(value, style = MonoStyle) }
     }
 }
@@ -387,7 +470,7 @@ private fun InfoLine(label: String, value: String) {
 @Composable
 private fun StatRow(label: String, value: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(100.dp))
         Text(value, style = MonoStyle, modifier = Modifier.weight(1f))
     }
 }

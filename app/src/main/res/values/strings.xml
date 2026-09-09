@@ -710,4 +710,7 @@
     <string name="apk_unsigned">No signature found</string>
     <string name="apk_signed_by">Signed · %1$d certificate(s)</string>
     <string name="apk_cert_n">Certificate %1$d — SHA-256</string>
+    <string name="apk_resources_tab">Resources</string>
+    <string name="apk_no_resources">No file resources</string>
+    <string name="apk_res_note">res/ and assets/ files grouped by type. Tap an image to open it. Strings, colours and dimensions are compiled into resources.arsc and are not separate files.</string>
 </resources>
