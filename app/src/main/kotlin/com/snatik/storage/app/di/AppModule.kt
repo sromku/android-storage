@@ -160,7 +160,7 @@ val appModule = module {
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }
     viewModel { (path: String) -> JsonTreeViewModel(path, get()) }
     viewModel { (path: String) -> XmlTreeViewModel(path, get()) }
-    viewModel { (path: String) -> ApkViewModel(path, androidContext()) }
+    viewModel { (path: String) -> ApkViewModel(path, androidContext(), get()) }
     viewModel { (path: String) -> ArchiveViewModel(path, androidContext()) }
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }

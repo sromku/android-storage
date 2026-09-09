@@ -694,4 +694,20 @@
     <string name="permfoot_title">Permission vs footprint</string>
     <string name="tools_permfoot_sub">Rank apps by dangerous permissions and size.</string>
     <string name="permfoot_body">Apps ranked by how many dangerous permissions they hold, with their on-device size.</string>
+    <!-- APK deep viewer -->
+    <string name="apk_contents">Contents</string>
+    <string name="apk_signing">Signing</string>
+    <string name="apk_uncompressed">Unpacked</string>
+    <string name="apk_content_summary">Content summary</string>
+    <string name="apk_dex">DEX</string>
+    <string name="apk_abis">Native ABIs</string>
+    <string name="apk_no_native">none</string>
+    <string name="apk_resources">Resources</string>
+    <string name="apk_features">Required features (%1$d)</string>
+    <string name="apk_entries_sorted">%1$d entries, largest first</string>
+    <string name="apk_stored">stored (no compression)</string>
+    <string name="apk_deflated">deflated · %1$d%% smaller</string>
+    <string name="apk_unsigned">No signature found</string>
+    <string name="apk_signed_by">Signed · %1$d certificate(s)</string>
+    <string name="apk_cert_n">Certificate %1$d — SHA-256</string>
 </resources>
