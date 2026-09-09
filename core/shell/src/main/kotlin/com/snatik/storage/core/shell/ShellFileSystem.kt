@@ -90,7 +90,7 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
     }
 
     override suspend fun directorySize(path: String): Long {
-        val result = shell.run("find ${path.shellQuote()} -type f -exec stat -c %s -- {} +", timeoutMs = 10 * 60_000)
+        val result = shell.run("find ${path.shellQuote()} $PRUNE_PSEUDO -type f -exec stat -c %s -- {} +", timeoutMs = 10 * 60_000)
         if (!result.ok && result.stdout.isEmpty()) throw failure(path, result)
         return result.out.lineSequence().mapNotNull { it.trim().toLongOrNull() }.sum()
     }
@@ -102,7 +102,7 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
     }
 
     override fun walk(path: String): Flow<WalkEntry> =
-        shell.lines("find ${path.shellQuote()} -type f -exec stat -c '%s %Y %n' -- {} + 2>/dev/null")
+        shell.lines("find ${path.shellQuote()} $PRUNE_PSEUDO -type f -exec stat -c '%s %Y %n' -- {} + 2>/dev/null")
             .map { line ->
                 val first = line.indexOf(' ')
                 val second = if (first > 0) line.indexOf(' ', first + 1) else -1
@@ -186,6 +186,15 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
     companion object {
         /** type|size|mtime|mode|name. `%n` comes last because names may contain the separator. */
         internal const val STAT_FORMAT = "'%F|%s|%Y|%a|%n'"
+
+        /**
+         * A `find` prune expression that skips the kernel's pseudo-filesystems — /proc, /sys, /dev
+         * and friends. They are effectively endless and hold no real storage, so walking them (e.g.
+         * when analysing the system root) would never finish. Matches by absolute path, so it is a
+         * no-op when the walked tree is elsewhere.
+         */
+        internal const val PRUNE_PSEUDO =
+            "\\( -path /proc -o -path /sys -o -path /dev -o -path /acct -o -path /apex -o -path /config -o -path /debug_ramdisk -o -path /mnt/androidwritable \\) -prune -o"
 
         internal fun parentOf(path: String): String = path.trimEnd('/').substringBeforeLast('/', "").ifEmpty { "/" }
         internal fun nameOf(path: String): String = path.trimEnd('/').substringAfterLast('/')
