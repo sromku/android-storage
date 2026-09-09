@@ -176,18 +176,36 @@ class ApkViewModel(private val path: String, private val context: Context, priva
         )
     }
 
-    /** Extract one zip entry to the cache and return its file path, so it can open in another viewer. */
+    /**
+     * Make one zip entry openable in another viewer and return its file path. Compiled binary-XML
+     * (res/ layouts, drawables, the manifest) is decoded to text first so the XML viewer can read
+     * it; a raw-text .xml (res/raw, assets) falls back to a plain copy. Everything else is copied
+     * as-is.
+     */
+    suspend fun openEntry(entryName: String): String? = withContext(Dispatchers.IO) {
+        if (entryName.endsWith(".xml", ignoreCase = true)) {
+            val pkg = _state.value?.packageName ?: ""
+            val decoded = runCatching { manifests.decodeEntry(pkg, path, entryName) }.getOrNull()
+            if (!decoded.isNullOrBlank()) return@withContext writeCache(entryName, decoded.toByteArray())
+        }
+        extract(entryName)
+    }
+
+    /** Extract one zip entry to the cache and return its file path. */
     suspend fun extract(entryName: String): String? = withContext(Dispatchers.IO) {
         runCatching {
-            val outDir = File(context.cacheDir, "apk-extract").apply { mkdirs() }
-            val safe = entryName.replace('/', '_').takeLast(120)
-            val out = File(outDir, safe)
             ZipFile(path).use { zip ->
                 val e = zip.getEntry(entryName) ?: return@use null
-                zip.getInputStream(e).use { input -> out.outputStream().use { input.copyTo(it) } }
-                out.absolutePath
+                zip.getInputStream(e).use { writeCache(entryName, it.readBytes()) }
             }
         }.getOrNull()
+    }
+
+    private fun writeCache(entryName: String, bytes: ByteArray): String {
+        val outDir = File(context.cacheDir, "apk-extract").apply { mkdirs() }
+        val out = File(outDir, entryName.replace('/', '_').takeLast(120))
+        out.writeBytes(bytes)
+        return out.absolutePath
     }
 
     /** Detect APK Signing Block schemes (v2/v3/v3.1) by locating the block before the central directory. */
@@ -247,7 +265,7 @@ fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Un
     val error by viewModel.error.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(ApkTab.OVERVIEW) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val open: (String) -> Unit = { name -> scope.launch { viewModel.extract(name)?.let(onOpenPath) } }
+    val open: (String) -> Unit = { name -> scope.launch { viewModel.openEntry(name)?.let(onOpenPath) } }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -359,12 +377,9 @@ private fun ContentsTab(a: ApkDetails, onOpen: (String) -> Unit) {
 }
 
 /** Whether tapping an entry can open it in another viewer. Compiled AXML/arsc are not openable as text. */
-private fun openable(name: String): Boolean {
-    val n = name.lowercase()
-    if (n.endsWith(".so") || n.matches(Regex(".*\\.(png|jpg|jpeg|webp|gif|bmp)$"))) return true
-    if (n.endsWith(".xml") || n == "resources.arsc" || n.endsWith(".dex") || n.endsWith(".arsc")) return false
-    return n.matches(Regex(".*\\.(txt|json|properties|version|kotlin_module|pro|md|csv|js|html|css|svg|ttf|otf)$")) || !n.contains('.')
-}
+// Every entry can be opened: compiled XML is decoded to text, images/.so/text get their own
+// viewer, and anything else (arsc, dex, unknown) falls back to the hex viewer.
+private fun openable(name: String): Boolean = true
 
 @Composable
 private fun EntryRow(e: ApkEntry, onOpen: (String) -> Unit) {

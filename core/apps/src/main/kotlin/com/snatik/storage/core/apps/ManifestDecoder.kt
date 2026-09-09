@@ -10,9 +10,12 @@ import java.util.zip.ZipFile
 /** Reads the manifest out of an installed package's APK and decodes it to text. */
 class ManifestDecoder(private val context: Context) {
 
-    suspend fun decode(packageName: String, apkPath: String): String = withContext(Dispatchers.IO) {
+    suspend fun decode(packageName: String, apkPath: String): String = decodeEntry(packageName, apkPath, "AndroidManifest.xml")
+
+    /** Decode any compiled binary-XML entry (a manifest or any res/ layout, drawable, etc.) to text. */
+    suspend fun decodeEntry(packageName: String, apkPath: String, entryName: String): String = withContext(Dispatchers.IO) {
         val bytes = ZipFile(File(apkPath)).use { zip ->
-            val entry = zip.getEntry("AndroidManifest.xml") ?: error("No AndroidManifest.xml in $apkPath")
+            val entry = zip.getEntry(entryName) ?: error("No $entryName in $apkPath")
             zip.getInputStream(entry).use { it.readBytes() }
         }
         val resources = runCatching { context.packageManager.getResourcesForApplication(packageName) }.getOrNull()
