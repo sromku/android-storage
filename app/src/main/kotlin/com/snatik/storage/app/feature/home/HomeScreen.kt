@@ -224,7 +224,7 @@ private fun VolumeCard(volume: Volume, onClick: () -> Unit, onAnalyze: () -> Uni
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(volume.label(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(volume.path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                if (volume.totalBytes > 0 && volume.kind != VolumeKind.SYSTEM_ROOT) {
+                if (volume.totalBytes > 0) {
                     LinearProgressIndicator(
                         progress = { volume.usedFraction },
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
