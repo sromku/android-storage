@@ -713,4 +713,6 @@
     <string name="apk_resources_tab">Resources</string>
     <string name="apk_no_resources">No file resources</string>
     <string name="apk_res_note">res/ and assets/ files grouped by type. Tap an image to open it. Strings, colours and dimensions are compiled into resources.arsc and are not separate files.</string>
+    <string name="media_unreadable">Can\'t play this file</string>
+    <string name="media_unreadable_body">This file is not directly readable — playback needs a path the app can access (root would be required here).</string>
 </resources>

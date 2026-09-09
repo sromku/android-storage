@@ -69,6 +69,7 @@ import com.snatik.storage.app.feature.intents.IntentLogScreen
 import com.snatik.storage.app.feature.intents.IntentsScreen
 import com.snatik.storage.app.feature.viewer.HexViewerScreen
 import com.snatik.storage.app.feature.viewer.ImageViewerScreen
+import com.snatik.storage.app.feature.viewer.MediaViewerScreen
 import com.snatik.storage.app.feature.viewer.JsonViewerScreen
 import com.snatik.storage.app.feature.viewer.XmlViewerScreen
 import com.snatik.storage.app.feature.viewer.ApkViewerScreen
@@ -116,6 +117,7 @@ fun AppNavigation() {
             FileKind.JSON -> push(Route.JsonViewer(entry.path))
             FileKind.XML -> if (entry.parentPath?.endsWith("/shared_prefs") == true) push(Route.Prefs(entry.path)) else push(Route.XmlViewer(entry.path))
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
+            FileKind.VIDEO, FileKind.AUDIO -> push(Route.MediaViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
             else -> if (entry.name.endsWith(".so") || entry.name.contains(".so.")) push(Route.ElfViewer(entry.path)) else push(Route.HexViewer(entry.path))
         }
@@ -302,6 +304,7 @@ fun AppNavigation() {
             entry<Route.ImageViewer> { route ->
                 ImageViewerScreen(path = route.path, onBack = ::pop)
             }
+            entry<Route.MediaViewer> { route -> MediaViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.JsonViewer> { route ->
                 JsonViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
             }
