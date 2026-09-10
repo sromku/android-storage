@@ -477,6 +477,7 @@ private fun EntryList(
                 entry = entry,
                 selected = selected,
                 selectionMode = state.selectionMode,
+                encrypted = entry.path in state.encryptedDbs,
                 onClick = { if (state.selectionMode) onToggle(entry.path) else onOpen(entry) },
                 onLongClick = { onToggle(entry.path) },
                 menu = { dismiss ->
@@ -512,6 +513,7 @@ private fun EntryRow(
     entry: FsEntry,
     selected: Boolean,
     selectionMode: Boolean,
+    encrypted: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     menu: @Composable (dismiss: () -> Unit) -> Unit,
@@ -528,7 +530,7 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        FileKindIcon(entry = entry, selected = selected)
+        FileKindIcon(entry = entry, selected = selected, encrypted = encrypted)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 entry.name,

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Storage
@@ -64,26 +65,38 @@ fun FileKind.tint(): Color = when (this) {
  * Leading visual for a directory entry: a tinted glyph, a thumbnail for media, or a check mark when selected.
  */
 @Composable
-fun FileKindIcon(entry: FsEntry, selected: Boolean, modifier: Modifier = Modifier) {
+fun FileKindIcon(entry: FsEntry, selected: Boolean, modifier: Modifier = Modifier, encrypted: Boolean = false) {
     val shape = RoundedCornerShape(10.dp)
     val kind = entry.kind
     val container = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    Box(
-        modifier = modifier.size(44.dp).clip(shape).background(container),
-        contentAlignment = Alignment.Center,
-    ) {
-        when {
-            selected -> Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
-            kind == FileKind.IMAGE || kind == FileKind.VIDEO -> {
-                val context = LocalContext.current
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(File(entry.path)).size(THUMBNAIL_PX).build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(44.dp),
-                )
+    Box(modifier = modifier.size(44.dp)) {
+        Box(
+            modifier = Modifier.matchParentSize().clip(shape).background(container),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                selected -> Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                kind == FileKind.IMAGE || kind == FileKind.VIDEO -> {
+                    val context = LocalContext.current
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(File(entry.path)).size(THUMBNAIL_PX).build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
+                else -> Icon(kind.icon(), contentDescription = null, tint = kind.tint())
             }
-            else -> Icon(kind.icon(), contentDescription = null, tint = kind.tint())
+        }
+        // Lock badge for an encrypted database (header is not the SQLite magic).
+        if (encrypted && !selected) {
+            Box(
+                modifier = Modifier.align(Alignment.BottomEnd).size(18.dp)
+                    .clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = "encrypted", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.size(12.dp))
+            }
         }
     }
 }

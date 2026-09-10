@@ -42,6 +42,8 @@ sealed interface BrowserMessage {
     data class Cancelled(val kind: OperationRunner.Kind) : BrowserMessage
 }
 
+private val DB_EXTS = setOf("db", "sqlite", "sqlite3", "db3")
+
 data class BrowserUiState(
     val entries: List<FsEntry> = emptyList(),
     val totalCount: Int = 0,
@@ -56,6 +58,7 @@ data class BrowserUiState(
     val preferences: ListingPreferences,
     val clipboard: FileClipboard.Content?,
     val running: OperationRunner.Running?,
+    val encryptedDbs: Set<String> = emptySet(),
 ) {
     val selectionMode: Boolean get() = selected.isNotEmpty()
     val allSelected: Boolean get() = entries.isNotEmpty() && entries.all { it.path in selected }
@@ -78,6 +81,7 @@ class BrowserViewModel(
         val selected: Set<String> = emptySet(),
         val dialog: BrowserDialog? = null,
         val details: EntryDetails? = null,
+        val encryptedDbs: Set<String> = emptySet(),
     )
 
     private val local = MutableStateFlow(Local())
@@ -102,6 +106,7 @@ class BrowserViewModel(
             preferences = prefs,
             clipboard = clip,
             running = running,
+            encryptedDbs = l.encryptedDbs,
         )
     }.stateIn(
         viewModelScope,
@@ -133,10 +138,25 @@ class BrowserViewModel(
             local.update { it.copy(loading = true, error = null) }
             try {
                 val entries = fs.list(route.path)
-                local.update { it.copy(raw = entries, loading = false) }
+                local.update { it.copy(raw = entries, loading = false, encryptedDbs = emptySet()) }
+                probeEncryptedDbs(entries)
             } catch (e: StorageException) {
                 local.update { it.copy(raw = emptyList(), loading = false, error = e) }
             }
+        }
+    }
+
+    /** Flag SQLite-extension files whose header is not the SQLite magic (encrypted / SQLCipher). */
+    private fun probeEncryptedDbs(entries: List<FsEntry>) {
+        val dbLike = entries.filter { !it.isDirectory && it.name.substringAfterLast('.', "").lowercase() in DB_EXTS }
+        if (dbLike.isEmpty()) return
+        viewModelScope.launch {
+            val enc = HashSet<String>()
+            for (e in dbLike) {
+                val h = runCatching { fs.readBytes(e.path, 0, 16) }.getOrNull()
+                if (h != null && h.size >= 16 && !String(h, Charsets.US_ASCII).startsWith("SQLite format 3")) enc += e.path
+            }
+            if (enc.isNotEmpty()) local.update { if (it.raw === entries) it.copy(encryptedDbs = enc) else it }
         }
     }
 
