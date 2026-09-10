@@ -36,7 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -416,15 +416,15 @@ private fun ResourcesTab(a: ApkDetails, onOpen: (String) -> Unit) {
         merged
     }
     if (groups.isEmpty()) { EmptyState(Icons.Default.Block, stringResource(R.string.apk_no_resources), stringResource(R.string.apk_res_note)); return }
-    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    val expanded = rememberSaveable { mutableStateListOf<String>() }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Text(stringResource(R.string.apk_res_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp, 8.dp)) }
         groups.forEach { (type, entries) ->
             item(key = "h-$type") {
-                val isOpen = expanded[type] == true
+                val isOpen = type in expanded
                 Column {
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { expanded[type] = !isOpen }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { if (isOpen) expanded.remove(type) else expanded.add(type) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(if (isOpen) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -434,7 +434,7 @@ private fun ResourcesTab(a: ApkDetails, onOpen: (String) -> Unit) {
                     HorizontalDivider()
                 }
             }
-            if (expanded[type] == true) {
+            if (type in expanded) {
                 items(entries.size, key = { "e-$type-$it" }) { i ->
                     val e = entries[i]
                     val short = e.name.substringAfterLast('/')
