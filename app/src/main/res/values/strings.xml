@@ -733,4 +733,5 @@
     <string name="apk_decompile">Decompile (jadx)</string>
     <string name="vector_render">Render vector</string>
     <string name="vector_failed">Could not render</string>
+    <string name="decompile_pick_dex">%1$d dex files — pick one to decompile</string>
 </resources>

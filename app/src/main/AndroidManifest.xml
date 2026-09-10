@@ -27,6 +27,7 @@
         android:maxSdkVersion="29" />
 
     <application
+        android:largeHeap="true"
         android:name=".StorageApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

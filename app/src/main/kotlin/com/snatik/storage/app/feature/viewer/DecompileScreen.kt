@@ -1,9 +1,11 @@
 package com.snatik.storage.app.feature.viewer
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -42,6 +46,7 @@ import com.snatik.storage.app.ui.components.CodeView
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.highlight.HlLanguage
 import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.app.util.readableSize
 import jadx.api.JadxArgs
 import jadx.api.JadxDecompiler
 import jadx.api.JavaClass
@@ -55,10 +60,15 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import java.io.File
 
+/** One dex file inside the APK the user can choose to decompile. */
+data class DexInfo(val file: File, val name: String, val size: Long)
+
 data class DecompileState(
     val loading: Boolean = true,
     val phase: String = "",
     val error: String? = null,
+    val dexes: List<DexInfo>? = null,   // shown when the APK has more than one dex
+    val selectedDex: String? = null,
     val classNames: List<String> = emptyList(),
     val selected: String? = null,
     val code: String? = null,
@@ -77,35 +87,54 @@ class DecompileViewModel(private val path: String, private val context: android.
     init {
         viewModelScope.launch {
             try {
-                val list = withContext(Dispatchers.IO) {
+                val inputs = withContext(Dispatchers.IO) {
                     _state.value = _state.value.copy(phase = "Preparing dex")
-                    val inputs = prepareInputs()
-                    _state.value = _state.value.copy(phase = "Loading classes")
-                    val args = JadxArgs().apply {
-                        inputFiles.addAll(inputs)
-                        security = AndroidJadxSecurity()          // Android-safe XML parsing
-                        setSkipResources(true)                    // dex only — smaller footprint
-                        isShowInconsistentCode = true
-                        threadsCount = Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
-                    }
-                    val jadx = JadxDecompiler(args)
-                    jadx.load()
-                    decompiler = jadx
-                    jadx.classes.sortedBy { it.fullName }
+                    prepareInputs()
                 }
-                classes = list
-                _state.value = DecompileState(loading = false, classNames = list.map { it.fullName })
+                // One dex → load straight away; several → let the user pick one to bound memory.
+                if (inputs.size == 1) {
+                    loadDex(inputs[0])
+                } else {
+                    _state.value = DecompileState(loading = false, dexes = inputs.map { DexInfo(it, it.name, it.length()) }.sortedByDescending { it.size })
+                }
             } catch (e: Throwable) {
-                android.util.Log.e("Decompile", "jadx load failed", e)
-                val cause = generateSequence(e as Throwable?) { it.cause }.joinToString(" <- ") { it.javaClass.simpleName + ": " + (it.message ?: "") }
-                _state.value = DecompileState(loading = false, error = cause.take(400))
+                _state.value = DecompileState(loading = false, error = friendly(e))
             }
+        }
+    }
+
+    fun chooseDex(info: DexInfo) {
+        viewModelScope.launch { loadDex(info.file) }
+    }
+
+    private suspend fun loadDex(dex: File) {
+        _state.value = _state.value.copy(loading = true, phase = "Loading ${dex.name}", selectedDex = dex.name, classNames = emptyList(), selected = null, code = null, error = null)
+        try {
+            val list = withContext(Dispatchers.IO) {
+                runCatching { decompiler?.close() }
+                val args = JadxArgs().apply {
+                    inputFiles.add(dex)
+                    security = AndroidJadxSecurity()
+                    setSkipResources(true)
+                    isShowInconsistentCode = true
+                    threadsCount = 1               // one dex at a time; keep the footprint small
+                }
+                val jadx = JadxDecompiler(args)
+                jadx.load()
+                decompiler = jadx
+                jadx.classes.sortedBy { it.fullName }
+            }
+            classes = list
+            _state.value = _state.value.copy(loading = false, classNames = list.map { it.fullName })
+        } catch (e: Throwable) {
+            android.util.Log.e("Decompile", "jadx load failed", e)
+            _state.value = _state.value.copy(loading = false, error = friendly(e))
         }
     }
 
     /** Extract just the classes*.dex from the APK (or use the .dex directly), after checking space. */
     private fun prepareInputs(): List<File> {
-        sweepJadxCache()  // clear any leftovers from a previous, killed run
+        sweepJadxCache()
         val f = File(path)
         if (path.endsWith(".dex", ignoreCase = true)) return listOf(f)
         val dir = File(context.cacheDir, "jadx").apply { deleteRecursively(); mkdirs() }
@@ -137,15 +166,32 @@ class DecompileViewModel(private val path: String, private val context: android.
         }
     }
 
-    fun back() { _state.value = _state.value.copy(selected = null, code = null) }
+    /** Internal back: code → class list → dex picker. Returns false when nothing left to pop. */
+    fun back(): Boolean {
+        val s = _state.value
+        return when {
+            s.selected != null -> { _state.value = s.copy(selected = null, code = null); true }
+            s.selectedDex != null && (s.dexes?.size ?: 0) > 1 -> {
+                runCatching { decompiler?.close() }
+                classes = emptyList()
+                _state.value = s.copy(selectedDex = null, classNames = emptyList())
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun friendly(e: Throwable): String = when (e) {
+        is OutOfMemoryError -> "This dex is too large to decompile in the app's memory. Try a smaller dex, or use jadx on a computer for this one."
+        else -> generateSequence(e as Throwable?) { it.cause }.joinToString(" <- ") { it.javaClass.simpleName + ": " + (it.message ?: "") }.take(400)
+    }
 
     override fun onCleared() {
-        runCatching { decompiler?.close() }   // release jadx file handles first
+        runCatching { decompiler?.close() }
         runCatching { tempDir?.deleteRecursively() }
         sweepJadxCache()
     }
 
-    /** Remove our extracted dex plus jadx's own jadx-instance-* / jadx-temp-* working dirs. */
     private fun sweepJadxCache() {
         runCatching {
             context.cacheDir.listFiles { file -> file.name.startsWith("jadx") }?.forEach { it.deleteRecursively() }
@@ -159,12 +205,21 @@ fun DecompileScreen(path: String, onBack: () -> Unit, viewModel: DecompileViewMo
     val state by viewModel.state.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
 
+    // Let system back step class -> class list -> dex picker before leaving the screen.
+    val canGoBack = state.selected != null || (state.selectedDex != null && (state.dexes?.size ?: 0) > 1)
+    androidx.activity.compose.BackHandler(enabled = canGoBack) { viewModel.back() }
+
+    val title = when {
+        state.selected != null -> state.selected!!.substringAfterLast('.')
+        state.selectedDex != null && (state.dexes?.size ?: 0) > 1 -> state.selectedDex!!
+        else -> viewModel.name
+    }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.selected?.substringAfterLast('.') ?: viewModel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
-                    IconButton(onClick = { if (state.selected != null) viewModel.back() else onBack() }) {
+                    IconButton(onClick = { if (!viewModel.back()) onBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
                     }
                 },
@@ -179,15 +234,33 @@ fun DecompileScreen(path: String, onBack: () -> Unit, viewModel: DecompileViewMo
                 }
                 state.error != null -> EmptyState(Icons.Default.Block, stringResource(R.string.decompile_failed), state.error)
                 state.selected != null -> {
-                    if (state.decompiling || state.code == null) {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    } else {
+                    if (state.decompiling || state.code == null) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    else {
                         val lines = remember(state.code) { state.code!!.lines() }
                         CodeView(lines = lines, wrap = false, language = HlLanguage.JAVA, modifier = Modifier.fillMaxSize())
                     }
                 }
+                state.dexes != null && state.selectedDex == null -> DexPicker(state.dexes!!, viewModel::chooseDex)
                 else -> ClassList(state.classNames, query, onQuery = { query = it }, onOpen = viewModel::open)
             }
+        }
+    }
+}
+
+@Composable
+private fun DexPicker(dexes: List<DexInfo>, onChoose: (DexInfo) -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Text(stringResource(R.string.decompile_pick_dex, dexes.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+        }
+        items(dexes.size) { i ->
+            val d = dexes[i]
+            Row(modifier = Modifier.fillMaxWidth().clickable { onChoose(d) }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.DataObject, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(d.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text(d.size.readableSize(), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider()
         }
     }
 }
