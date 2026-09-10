@@ -731,4 +731,6 @@
     <string name="decompile_failed">Could not decompile</string>
     <string name="decompile_search">Search %1$d classes</string>
     <string name="apk_decompile">Decompile (jadx)</string>
+    <string name="vector_render">Render vector</string>
+    <string name="vector_failed">Could not render</string>
 </resources>

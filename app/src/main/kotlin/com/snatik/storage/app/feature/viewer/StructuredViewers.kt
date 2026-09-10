@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,7 +51,7 @@ import org.xml.sax.InputSource
 import java.io.StringReader
 import javax.xml.parsers.DocumentBuilderFactory
 
-data class TreeUiState(val root: TreeNode? = null, val loading: Boolean = true, val error: String? = null)
+data class TreeUiState(val root: TreeNode? = null, val loading: Boolean = true, val error: String? = null, val isVector: Boolean = false)
 
 class JsonTreeViewModel(private val path: String, private val fs: FileSystem) : ViewModel() {
     val name = path.substringAfterLast('/')
@@ -86,12 +87,14 @@ class XmlTreeViewModel(private val path: String, private val fs: FileSystem) : V
         viewModelScope.launch {
             try {
                 val text = String(fs.readBytes(path, 0, 4 * 1024 * 1024))
+                var vector = false
                 val root = withContext(Dispatchers.Default) {
                     val factory = DocumentBuilderFactory.newInstance().apply { runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", false) } }
                     val doc = factory.newDocumentBuilder().parse(InputSource(StringReader(text)))
+                    vector = doc.documentElement.tagName == "vector"
                     elementToNode("root", doc.documentElement)
                 }
-                _state.update { it.copy(root = TreeNode("wrap", "", children = listOf(root)), loading = false) }
+                _state.update { it.copy(root = TreeNode("wrap", "", children = listOf(root)), loading = false, isVector = vector) }
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = e.message ?: e.toString()) }
             }
@@ -121,18 +124,23 @@ fun JsonViewerScreen(path: String, onBack: () -> Unit, onViewAsText: () -> Unit,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun XmlViewerScreen(path: String, onBack: () -> Unit, onViewAsText: () -> Unit, viewModel: XmlTreeViewModel = koinViewModel(parameters = { parametersOf(path) })) =
-    TreeScreen(viewModel.name, viewModel.state.collectAsStateWithLifecycle().value, onBack, onViewAsText)
+fun XmlViewerScreen(path: String, onBack: () -> Unit, onViewAsText: () -> Unit, onRender: () -> Unit = {}, viewModel: XmlTreeViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+    val state = viewModel.state.collectAsStateWithLifecycle().value
+    TreeScreen(viewModel.name, state, onBack, onViewAsText, onRender = if (state.isVector) onRender else null)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TreeScreen(name: String, state: TreeUiState, onBack: () -> Unit, onViewAsText: () -> Unit) {
+private fun TreeScreen(name: String, state: TreeUiState, onBack: () -> Unit, onViewAsText: () -> Unit, onRender: (() -> Unit)? = null) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
-                actions = { IconButton(onClick = onViewAsText) { Icon(Icons.Default.Notes, contentDescription = stringResource(R.string.view_as_text)) } },
+                actions = {
+                    if (onRender != null) IconButton(onClick = onRender) { Icon(Icons.Default.Image, contentDescription = stringResource(R.string.vector_render)) }
+                    IconButton(onClick = onViewAsText) { Icon(Icons.Default.Notes, contentDescription = stringResource(R.string.view_as_text)) }
+                },
             )
         },
     ) { padding ->

@@ -32,6 +32,9 @@ sealed interface Route : NavKey {
     data class Decompile(val path: String) : Route
 
     @Serializable
+    data class VectorRender(val path: String) : Route
+
+    @Serializable
     data class JsonViewer(val path: String) : Route
 
     @Serializable

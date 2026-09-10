@@ -88,6 +88,7 @@ import com.snatik.storage.app.feature.viewer.XmlTreeViewModel
 import com.snatik.storage.app.feature.viewer.ApkViewModel
 import com.snatik.storage.app.feature.viewer.MediaViewModel
 import com.snatik.storage.app.feature.viewer.DecompileViewModel
+import com.snatik.storage.app.feature.viewer.VectorRenderViewModel
 import com.snatik.storage.app.feature.viewer.ArchiveViewModel
 import com.snatik.storage.app.navigation.Route
 import com.snatik.storage.core.fs.FileSystem
@@ -165,6 +166,7 @@ val appModule = module {
     viewModel { (path: String) -> ApkViewModel(path, androidContext(), get()) }
     viewModel { (path: String) -> MediaViewModel(path, androidContext(), get()) }
     viewModel { (path: String) -> DecompileViewModel(path, androidContext()) }
+    viewModel { (path: String) -> VectorRenderViewModel(path, androidContext()) }
     viewModel { (path: String) -> ArchiveViewModel(path, androidContext()) }
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }

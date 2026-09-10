@@ -71,6 +71,7 @@ import com.snatik.storage.app.feature.viewer.HexViewerScreen
 import com.snatik.storage.app.feature.viewer.ImageViewerScreen
 import com.snatik.storage.app.feature.viewer.MediaViewerScreen
 import com.snatik.storage.app.feature.viewer.DecompileScreen
+import com.snatik.storage.app.feature.viewer.VectorRenderScreen
 import com.snatik.storage.app.feature.viewer.JsonViewerScreen
 import com.snatik.storage.app.feature.viewer.XmlViewerScreen
 import com.snatik.storage.app.feature.viewer.ApkViewerScreen
@@ -311,11 +312,12 @@ fun AppNavigation() {
             }
             entry<Route.MediaViewer> { route -> MediaViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.Decompile> { route -> DecompileScreen(path = route.path, onBack = ::pop) }
+            entry<Route.VectorRender> { route -> VectorRenderScreen(path = route.path, onBack = ::pop) }
             entry<Route.JsonViewer> { route ->
                 JsonViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
             }
             entry<Route.XmlViewer> { route ->
-                XmlViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
+                XmlViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) }, onRender = { push(Route.VectorRender(route.path)) })
             }
             entry<Route.ApkViewer> { route -> ApkViewerScreen(path = route.path, onBack = ::pop, onOpenPath = ::openPath, onDecompile = { push(Route.Decompile(route.path)) }) }
             entry<Route.ArchiveViewer> { route -> ArchiveViewerScreen(path = route.path, onBack = ::pop) }
