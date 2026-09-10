@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -261,7 +262,7 @@ class ApkViewModel(private val path: String, private val context: Context, priva
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, onDecompile: () -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, onDecompile: () -> Unit = {}, onAnalyze: () -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val apk by viewModel.state.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(ApkTab.OVERVIEW) }
@@ -272,7 +273,10 @@ fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Un
             TopAppBar(
                 title = { Text(viewModel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
-                actions = { androidx.compose.material3.TextButton(onClick = onDecompile) { Text(stringResource(R.string.apk_decompile)) } },
+                actions = {
+                    androidx.compose.material3.IconButton(onClick = onAnalyze) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.apk_analyze_title)) }
+                    androidx.compose.material3.TextButton(onClick = onDecompile) { Text(stringResource(R.string.apk_decompile)) }
+                },
             )
         },
     ) { padding ->

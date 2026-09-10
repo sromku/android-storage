@@ -35,6 +35,9 @@ sealed interface Route : NavKey {
     data class VectorRender(val path: String) : Route
 
     @Serializable
+    data class ApkAnalyze(val path: String) : Route
+
+    @Serializable
     data class JsonViewer(val path: String) : Route
 
     @Serializable

@@ -734,4 +734,12 @@
     <string name="vector_render">Render vector</string>
     <string name="vector_failed">Could not render</string>
     <string name="decompile_pick_dex">%1$d dex files — pick one to decompile</string>
+    <string name="apk_analyze_title">Analyse</string>
+    <string name="apk_analyze_all">Whole APK</string>
+    <string name="apk_analyze_unpacked">unpacked</string>
+    <string name="apk_analyze_entries">entries</string>
+    <string name="apk_analyze_compressed">smaller zipped</string>
+    <string name="apk_analyze_composition">Composition</string>
+    <string name="apk_analyze_categories">Categories</string>
+    <string name="apk_analyze_cat_meta">%1$d items · %2$d%%</string>
 </resources>
