@@ -31,11 +31,11 @@ object StorageAccess {
         val specific = Intent(
             Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
             Uri.fromParts("package", context.packageName, null),
-        )
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             context.startActivity(specific)
         } catch (_: ActivityNotFoundException) {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
         return true
     }

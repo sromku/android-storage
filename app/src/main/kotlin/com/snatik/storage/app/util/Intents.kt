@@ -21,7 +21,8 @@ object Intents {
             .setDataAndType(uri(context, file), MimeTypes.of(file.name))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
-            context.startActivity(Intent.createChooser(intent, context.getString(R.string.open_with)))
+            val chooser = Intent.createChooser(intent, context.getString(R.string.open_with)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
         } catch (_: ActivityNotFoundException) {
             Toast.makeText(context, R.string.no_app_for_file, Toast.LENGTH_SHORT).show()
         }
@@ -40,6 +41,7 @@ object Intents {
             Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*").putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
         }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(intent, context.getString(R.string.share)))
+        val chooser = Intent.createChooser(intent, context.getString(R.string.share)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
     }
 }
