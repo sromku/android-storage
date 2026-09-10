@@ -125,22 +125,83 @@ class VectorRenderViewModel(private val path: String, private val context: Conte
         if (data.isBlank()) return
         val path = runCatching { androidx.core.graphics.PathParser.createPathFromPathData(data) }.getOrNull() ?: return
         path.fillType = if (el.getAttribute("android:fillType").equals("evenOdd", true)) android.graphics.Path.FillType.EVEN_ODD else android.graphics.Path.FillType.WINDING
-        parseColor(el.getAttribute("android:fillColor"))?.let { c ->
+
+        // Fill: a solid colour, or a <gradient> nested under <aapt:attr name="android:fillColor">.
+        val fillShader = gradientOf(el, "android:fillColor")
+        val fillColor = parseColor(el.getAttribute("android:fillColor"))
+        if (fillShader != null || fillColor != null) {
             val a = el.f("android:fillAlpha", 1f) * groupAlpha
             canvas.drawPath(path, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                style = android.graphics.Paint.Style.FILL; color = c; this.alpha = (android.graphics.Color.alpha(c) * a).toInt()
+                style = android.graphics.Paint.Style.FILL
+                if (fillShader != null) { shader = fillShader; alpha = (255 * a).toInt() }
+                else { color = fillColor!!; alpha = (android.graphics.Color.alpha(fillColor) * a).toInt() }
             })
             onPaint()
         }
-        parseColor(el.getAttribute("android:strokeColor"))?.let { c ->
-            val sw = el.f("android:strokeWidth"); if (sw <= 0) return@let
+
+        val strokeShader = gradientOf(el, "android:strokeColor")
+        val strokeColor = parseColor(el.getAttribute("android:strokeColor"))
+        val sw = el.f("android:strokeWidth")
+        if ((strokeShader != null || strokeColor != null) && sw > 0) {
             val a = el.f("android:strokeAlpha", 1f) * groupAlpha
             canvas.drawPath(path, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                style = android.graphics.Paint.Style.STROKE; strokeWidth = sw; color = c; this.alpha = (android.graphics.Color.alpha(c) * a).toInt()
+                style = android.graphics.Paint.Style.STROKE; strokeWidth = sw
+                strokeCap = capOf(el.getAttribute("android:strokeLineCap"))
+                strokeJoin = joinOf(el.getAttribute("android:strokeLineJoin"))
+                if (strokeShader != null) { shader = strokeShader; alpha = (255 * a).toInt() }
+                else { color = strokeColor!!; alpha = (android.graphics.Color.alpha(strokeColor) * a).toInt() }
             })
             onPaint()
         }
     }
+
+    /** Build a Shader from <aapt:attr name="attr"><gradient .../></aapt:attr>, if present. */
+    private fun gradientOf(pathEl: org.w3c.dom.Element, attrName: String): android.graphics.Shader? {
+        val kids = pathEl.childNodes
+        for (i in 0 until kids.length) {
+            val n = kids.item(i)
+            if (n.nodeType != org.w3c.dom.Node.ELEMENT_NODE) continue
+            val e = n as org.w3c.dom.Element
+            if (e.tagName == "aapt:attr" && e.getAttribute("name") == attrName) {
+                val g = e.childElements().firstOrNull { it.tagName == "gradient" } ?: return null
+                return buildGradient(g)
+            }
+        }
+        return null
+    }
+
+    private fun buildGradient(g: org.w3c.dom.Element): android.graphics.Shader? {
+        val stops = g.childElements().filter { it.tagName == "item" }
+            .mapNotNull { item -> parseColor(item.getAttribute("android:color"))?.let { c -> item.f("android:offset") to c } }
+        val (colors, positions) = if (stops.size >= 2) {
+            stops.sortedBy { it.first }.let { s -> s.map { it.second }.toIntArray() to s.map { it.first }.toFloatArray() }
+        } else {
+            // fall back to start/center/end color attributes
+            val list = listOfNotNull(
+                parseColor(g.getAttribute("android:startColor")),
+                parseColor(g.getAttribute("android:centerColor")),
+                parseColor(g.getAttribute("android:endColor")),
+            )
+            if (list.size < 2) return null
+            list.toIntArray() to null
+        }
+        val tile = when (g.getAttribute("android:tileMode")) {
+            "repeat" -> android.graphics.Shader.TileMode.REPEAT
+            "mirror" -> android.graphics.Shader.TileMode.MIRROR
+            else -> android.graphics.Shader.TileMode.CLAMP
+        }
+        return when (g.getAttribute("android:type")) {
+            "radial" -> android.graphics.RadialGradient(g.f("android:centerX"), g.f("android:centerY"), g.f("android:gradientRadius", 1f).coerceAtLeast(0.01f), colors, positions, tile)
+            "sweep" -> android.graphics.SweepGradient(g.f("android:centerX"), g.f("android:centerY"), colors, positions)
+            else -> android.graphics.LinearGradient(g.f("android:startX"), g.f("android:startY"), g.f("android:endX"), g.f("android:endY"), colors, positions, tile)
+        }
+    }
+
+    private fun org.w3c.dom.Element.childElements(): List<org.w3c.dom.Element> =
+        (0 until childNodes.length).mapNotNull { childNodes.item(it) as? org.w3c.dom.Element }
+
+    private fun capOf(v: String) = when (v) { "round" -> android.graphics.Paint.Cap.ROUND; "square" -> android.graphics.Paint.Cap.SQUARE; else -> android.graphics.Paint.Cap.BUTT }
+    private fun joinOf(v: String) = when (v) { "round" -> android.graphics.Paint.Join.ROUND; "bevel" -> android.graphics.Paint.Join.BEVEL; else -> android.graphics.Paint.Join.MITER }
 
     private fun org.w3c.dom.Element.f(attr: String, default: Float = 0f): Float =
         getAttribute(attr).removeSuffix("dp").removeSuffix("dip").toFloatOrNull() ?: default
