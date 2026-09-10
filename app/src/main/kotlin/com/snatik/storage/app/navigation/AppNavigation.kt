@@ -120,7 +120,11 @@ fun AppNavigation() {
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
             FileKind.VIDEO, FileKind.AUDIO -> push(Route.MediaViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
-            else -> if (entry.name.endsWith(".so") || entry.name.contains(".so.")) push(Route.ElfViewer(entry.path)) else push(Route.HexViewer(entry.path))
+            else -> when {
+                entry.name.endsWith(".so") || entry.name.contains(".so.") -> push(Route.ElfViewer(entry.path))
+                entry.name.endsWith(".dex", ignoreCase = true) -> push(Route.Decompile(entry.path))
+                else -> push(Route.HexViewer(entry.path))
+            }
         }
     }
 
