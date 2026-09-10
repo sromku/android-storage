@@ -716,4 +716,13 @@
     <string name="media_preparing">Preparing…</string>
     <string name="media_unreadable">Can\'t play this file</string>
     <string name="media_unreadable_body">This file is not directly readable — playback needs a path the app can access (root would be required here).</string>
+    <!-- Binary inspector tabs -->
+    <string name="hex_tab">Hex</string>
+    <string name="strings_tab">Strings</string>
+    <string name="inspect_tab">Inspect</string>
+    <string name="strings_none">No printable strings found</string>
+    <string name="strings_count">%1$d strings (w = wide/UTF-16)</string>
+    <string name="detected_type">Detected type</string>
+    <string name="detected_unknown">Unknown / raw binary</string>
+    <string name="proto_decoded">Protobuf — decoded %1$d lines</string>
 </resources>
