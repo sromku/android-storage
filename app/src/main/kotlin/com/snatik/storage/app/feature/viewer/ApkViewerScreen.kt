@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -263,7 +264,7 @@ class ApkViewModel(private val path: String, private val context: Context, priva
 fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, onDecompile: () -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val apk by viewModel.state.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    var tab by remember { mutableStateOf(ApkTab.OVERVIEW) }
+    var tab by rememberSaveable { mutableStateOf(ApkTab.OVERVIEW) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val open: (String) -> Unit = { name -> scope.launch { viewModel.openEntry(name)?.let(onOpenPath) } }
     Scaffold(
