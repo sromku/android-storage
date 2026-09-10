@@ -116,6 +116,13 @@ class VectorRenderViewModel(private val path: String, private val context: Conte
                     canvas.restore()
                 }
                 "path" -> drawPath(el, canvas, alpha, onPaint)
+                "clip-path" -> {
+                    // Clips every following sibling in this group (and nested groups), per AVD.
+                    val data = el.getAttribute("android:pathData")
+                    if (data.isNotBlank()) runCatching { androidx.core.graphics.PathParser.createPathFromPathData(data) }.getOrNull()?.let {
+                        canvas.clipPath(it)
+                    }
+                }
             }
         }
     }
@@ -144,7 +151,8 @@ class VectorRenderViewModel(private val path: String, private val context: Conte
         val sw = el.f("android:strokeWidth")
         if ((strokeShader != null || strokeColor != null) && sw > 0) {
             val a = el.f("android:strokeAlpha", 1f) * groupAlpha
-            canvas.drawPath(path, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            val strokePath = trimmed(path, el.f("android:trimPathStart"), el.f("android:trimPathEnd", 1f), el.f("android:trimPathOffset"))
+            canvas.drawPath(strokePath, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 style = android.graphics.Paint.Style.STROKE; strokeWidth = sw
                 strokeCap = capOf(el.getAttribute("android:strokeLineCap"))
                 strokeJoin = joinOf(el.getAttribute("android:strokeLineJoin"))
@@ -195,6 +203,20 @@ class VectorRenderViewModel(private val path: String, private val context: Conte
             "sweep" -> android.graphics.SweepGradient(g.f("android:centerX"), g.f("android:centerY"), colors, positions)
             else -> android.graphics.LinearGradient(g.f("android:startX"), g.f("android:startY"), g.f("android:endX"), g.f("android:endY"), colors, positions, tile)
         }
+    }
+
+    /** Trim a stroke path to [start,end] (+offset) fractions of its length, per android:trimPath*. */
+    private fun trimmed(path: android.graphics.Path, start: Float, end: Float, offset: Float): android.graphics.Path {
+        if (start <= 0f && end >= 1f && offset == 0f) return path
+        val pm = android.graphics.PathMeasure(path, false)
+        val len = pm.length
+        if (len <= 0f) return path
+        val s = ((start + offset) % 1f + 1f) % 1f * len
+        val e = ((end + offset) % 1f + 1f) % 1f * len
+        val out = android.graphics.Path()
+        if (s <= e) pm.getSegment(s, e, out, true)
+        else { pm.getSegment(s, len, out, true); pm.getSegment(0f, e, out, true) }
+        return out
     }
 
     private fun org.w3c.dom.Element.childElements(): List<org.w3c.dom.Element> =
