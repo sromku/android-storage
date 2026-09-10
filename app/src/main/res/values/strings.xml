@@ -725,4 +725,5 @@
     <string name="detected_type">Detected type</string>
     <string name="detected_unknown">Unknown / raw binary</string>
     <string name="proto_decoded">Protobuf — decoded %1$d lines</string>
+    <string name="cannot_open_entry">Could not open this item</string>
 </resources>

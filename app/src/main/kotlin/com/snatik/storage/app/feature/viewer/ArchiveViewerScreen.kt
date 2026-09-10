@@ -78,12 +78,21 @@ class ArchiveViewModel(private val path: String, private val context: Context) :
         if (entry.isDirectory) return
         viewModelScope.launch {
             val target = withContext(Dispatchers.IO) {
-                val out = File(context.cacheDir, "archive/${entry.name.substringAfterLast('/')}")
-                out.parentFile?.mkdirs()
-                ZipFile(path).use { zip -> zip.getInputStream(zip.getEntry(entry.name)).use { input -> out.outputStream().use { input.copyTo(it) } } }
-                out
+                runCatching {
+                    val out = File(context.cacheDir, "archive/${entry.name.substringAfterLast('/')}")
+                    out.parentFile?.mkdirs()
+                    ZipFile(path).use { zip ->
+                        val zipEntry = zip.getEntry(entry.name) ?: return@use null
+                        zip.getInputStream(zipEntry).use { input -> out.outputStream().use { input.copyTo(it) } }
+                        out
+                    }
+                }.getOrNull()
             }
-            Intents.openWith(context, target.absolutePath)
+            if (target != null) {
+                Intents.openWith(context, target.absolutePath)
+            } else {
+                android.widget.Toast.makeText(context, R.string.cannot_open_entry, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
