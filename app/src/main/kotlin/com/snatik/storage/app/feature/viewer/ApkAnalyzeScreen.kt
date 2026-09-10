@@ -78,9 +78,10 @@ import kotlin.math.roundToInt
 class AnalyzeNode(val name: String) {
     var size: Long = 0L
     var hue: Int = 0
+    var entryName: String? = null   // full zip path when this node is a single file (a leaf)
     val childMap = LinkedHashMap<String, AnalyzeNode>()
     val children: List<AnalyzeNode> get() = childMap.values.sortedByDescending { it.size }
-    fun child(name: String) = childMap.getOrPut(name) { AnalyzeNode(name) }
+    fun child(key: String, display: String = key) = childMap.getOrPut(key) { AnalyzeNode(display) }
     val leafCount: Int get() = if (childMap.isEmpty()) 1 else childMap.values.sumOf { it.leafCount }
 }
 
@@ -100,12 +101,34 @@ private val APK_PALETTE = listOf(
     Color(0xFFC96567), Color(0xFF5B8FB0),
 )
 
-class ApkAnalyzeViewModel(private val path: String, private val context: Context) : ViewModel() {
+class ApkAnalyzeViewModel(private val path: String, private val context: Context, private val manifests: com.snatik.storage.core.apps.ManifestDecoder) : ViewModel() {
     val name = path.substringAfterLast('/')
     private val _state = MutableStateFlow<ApkAnalysis?>(null)
     val state: StateFlow<ApkAnalysis?> = _state.asStateFlow()
 
     init { viewModelScope.launch { _state.value = withContext(Dispatchers.IO) { analyze() } } }
+
+    /** Extract (decoding compiled XML) one entry to the cache and return its path, for opening. */
+    suspend fun openEntry(entryName: String): String? = withContext(Dispatchers.IO) {
+        if (entryName.endsWith(".xml", ignoreCase = true)) {
+            val pkg = runCatching { context.packageManager.getPackageArchiveInfo(path, 0)?.packageName }.getOrNull().orEmpty()
+            val decoded = runCatching { manifests.decodeEntry(pkg, path, entryName) }.getOrNull()
+            if (!decoded.isNullOrBlank()) return@withContext writeCache(entryName, decoded.toByteArray())
+        }
+        runCatching {
+            ZipFile(File(path)).use { zip ->
+                val e = zip.getEntry(entryName) ?: return@use null
+                zip.getInputStream(e).use { writeCache(entryName, it.readBytes()) }
+            }
+        }.getOrNull()
+    }
+
+    private fun writeCache(entryName: String, bytes: ByteArray): String {
+        val dir = File(context.cacheDir, "apk-extract").apply { mkdirs() }
+        val out = File(dir, entryName.replace('/', '_').takeLast(120))
+        out.writeBytes(bytes)
+        return out.absolutePath
+    }
 
     private fun analyze(): ApkAnalysis {
         val root = AnalyzeNode(name)
@@ -120,14 +143,18 @@ class ApkAnalyzeViewModel(private val path: String, private val context: Context
                 totalCompressed += e.compressedSize.coerceAtLeast(0)
                 count++
                 val (cat, sub) = categorize(e.name)
+                val short = e.name.substringAfterLast('/')
                 root.size += size
                 val c = root.child(cat); c.size += size
-                if (sub != null) {
-                    val sc = c.child(sub); sc.size += size
-                    sc.child(e.name.substringAfterLast('/')).size += size
+                // Leaves are keyed by the full entry path (so same-named files in different folders
+                // stay distinct) and carry it for extraction; they display the short name.
+                val leaf = if (sub != null) {
+                    val sc = c.child(sub); sc.size += size; sc.child(e.name, short)
                 } else {
-                    c.child(e.name.substringAfterLast('/')).size += size
+                    c.child(e.name, short)
                 }
+                leaf.size += size
+                leaf.entryName = e.name
             }
         }
         // Assign a colour per top-level category (largest first), propagate to descendants.
@@ -154,8 +181,10 @@ class ApkAnalyzeViewModel(private val path: String, private val context: Context
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApkAnalyzeScreen(path: String, onBack: () -> Unit, viewModel: ApkAnalyzeViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+fun ApkAnalyzeScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, viewModel: ApkAnalyzeViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val analysis by viewModel.state.collectAsStateWithLifecycle()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val openLeaf: (AnalyzeNode) -> Unit = { node -> node.entryName?.let { en -> scope.launch { viewModel.openEntry(en)?.let(onOpenPath) } } }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -172,7 +201,7 @@ fun ApkAnalyzeScreen(path: String, onBack: () -> Unit, viewModel: ApkAnalyzeView
                 var focus by remember(a) { mutableStateOf(listOf(a.root)) }
                 LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item { HeaderCard(a) }
-                    item { SunburstCard(a, focus) { focus = it } }
+                    item { SunburstCard(a, focus, onFocus = { focus = it }, onOpenLeaf = openLeaf) }
                     item { CompositionBar(a) }
                     item { Text(stringResource(R.string.apk_analyze_categories), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 4.dp)) }
                     items(a.categories.size) { i ->
@@ -233,7 +262,7 @@ private fun sliceColor(hue: Int, depth: Int): Color {
 }
 
 @Composable
-private fun SunburstCard(a: ApkAnalysis, focusPath: List<AnalyzeNode>, onFocus: (List<AnalyzeNode>) -> Unit) {
+private fun SunburstCard(a: ApkAnalysis, focusPath: List<AnalyzeNode>, onFocus: (List<AnalyzeNode>) -> Unit, onOpenLeaf: (AnalyzeNode) -> Unit) {
     val focus = focusPath.last()
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -261,7 +290,10 @@ private fun SunburstCard(a: ApkAnalysis, focusPath: List<AnalyzeNode>, onFocus: 
                             var ang = Math.toDegrees(atan2((tap.y - center.y).toDouble(), (tap.x - center.x).toDouble())).toFloat()
                             ang = ((ang + 90f) % 360f + 360f) % 360f
                             val hit = arcs.firstOrNull { it.depth == depth && ang >= it.start && ang < it.start + it.sweep }
-                            if (hit != null && hit.node.childMap.isNotEmpty()) onFocus(focusPath + hit.node)
+                            if (hit != null) {
+                                if (hit.node.childMap.isNotEmpty()) onFocus(focusPath + hit.node)
+                                else if (hit.node.entryName != null) onOpenLeaf(hit.node)
+                            }
                         }
                     },
                 ) {

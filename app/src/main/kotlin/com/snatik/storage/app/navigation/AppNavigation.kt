@@ -314,7 +314,7 @@ fun AppNavigation() {
             entry<Route.MediaViewer> { route -> MediaViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.Decompile> { route -> DecompileScreen(path = route.path, onBack = ::pop) }
             entry<Route.VectorRender> { route -> VectorRenderScreen(path = route.path, onBack = ::pop) }
-            entry<Route.ApkAnalyze> { route -> ApkAnalyzeScreen(path = route.path, onBack = ::pop) }
+            entry<Route.ApkAnalyze> { route -> ApkAnalyzeScreen(path = route.path, onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.JsonViewer> { route ->
                 JsonViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) })
             }

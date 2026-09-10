@@ -168,7 +168,7 @@ val appModule = module {
     viewModel { (path: String) -> MediaViewModel(path, androidContext(), get()) }
     viewModel { (path: String) -> DecompileViewModel(path, androidContext()) }
     viewModel { (path: String) -> VectorRenderViewModel(path, androidContext()) }
-    viewModel { (path: String) -> ApkAnalyzeViewModel(path, androidContext()) }
+    viewModel { (path: String) -> ApkAnalyzeViewModel(path, androidContext(), get()) }
     viewModel { (path: String) -> ArchiveViewModel(path, androidContext()) }
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }
