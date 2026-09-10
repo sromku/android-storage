@@ -112,6 +112,10 @@ class DecompileViewModel(private val path: String, private val context: android.
         try {
             val list = withContext(Dispatchers.IO) {
                 runCatching { decompiler?.close() }
+                // Point jadx at a temp root we control and (re)create, so its process-wide cache is
+                // never left pointing at a directory our cleanup deleted.
+                val tmp = File(context.cacheDir, "jadxtmp").apply { mkdirs() }
+                runCatching { jadx.core.utils.files.FileUtils.updateTempRootDir(tmp.toPath()) }
                 val args = JadxArgs().apply {
                     inputFiles.add(dex)
                     security = AndroidJadxSecurity()
