@@ -158,6 +158,16 @@ class SqliteInspector(private val context: Context, private val fs: FileSystem) 
     }
 
     suspend fun open(path: String, writable: Boolean = false): OpenDatabase = withContext(Dispatchers.IO) {
+        // Check the magic header first. SQLite's default open deletes a file it deems corrupt, so
+        // handing it an encrypted (SQLCipher) or non-database file both fails and destroys our
+        // copy, producing a confusing "doesn't exist". Bail out early with a clear message instead.
+        val header = runCatching { fs.readBytes(path, 0, 16) }.getOrNull()
+        if (header == null || header.size < 16 || !String(header, Charsets.US_ASCII).startsWith("SQLite format 3")) {
+            throw java.io.IOException(
+                if (header != null && header.isNotEmpty()) "Not a plain SQLite database — this file looks encrypted (e.g. SQLCipher) or is another format."
+                else "Could not read this file.",
+            )
+        }
         val direct = File(path)
         if (direct.canRead() && (!writable || direct.canWrite())) {
             val flags = if (writable) SQLiteDatabase.OPEN_READWRITE else SQLiteDatabase.OPEN_READONLY
