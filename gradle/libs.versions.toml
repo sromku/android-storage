@@ -22,6 +22,7 @@ work = "2.10.1"
 ktor = "3.5.2"
 zxing = "3.5.4"
 exifinterface = "1.4.1"
+jadx = "1.5.1"
 ksp = "2.3.11"
 
 [libraries]
@@ -67,6 +68,8 @@ room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+jadx-core = { group = "io.github.skylot", name = "jadx-core", version.ref = "jadx" }
+jadx-dex-input = { group = "io.github.skylot", name = "jadx-dex-input", version.ref = "jadx" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }

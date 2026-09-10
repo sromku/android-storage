@@ -260,7 +260,7 @@ class ApkViewModel(private val path: String, private val context: Context, priva
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Unit = {}, onDecompile: () -> Unit = {}, viewModel: ApkViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val apk by viewModel.state.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(ApkTab.OVERVIEW) }
@@ -271,6 +271,7 @@ fun ApkViewerScreen(path: String, onBack: () -> Unit, onOpenPath: (String) -> Un
             TopAppBar(
                 title = { Text(viewModel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+                actions = { androidx.compose.material3.TextButton(onClick = onDecompile) { Text(stringResource(R.string.apk_decompile)) } },
             )
         },
     ) { padding ->

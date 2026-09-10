@@ -29,6 +29,9 @@ sealed interface Route : NavKey {
     data class MediaViewer(val path: String) : Route
 
     @Serializable
+    data class Decompile(val path: String) : Route
+
+    @Serializable
     data class JsonViewer(val path: String) : Route
 
     @Serializable

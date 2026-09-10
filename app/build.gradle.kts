@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.coil.video)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation(libs.jadx.core)
+    implementation(libs.jadx.dex.input)
     implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.compose.bom))

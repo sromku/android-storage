@@ -726,4 +726,9 @@
     <string name="detected_unknown">Unknown / raw binary</string>
     <string name="proto_decoded">Protobuf — decoded %1$d lines</string>
     <string name="cannot_open_entry">Could not open this item</string>
+    <string name="decompile_title">Decompile</string>
+    <string name="decompile_loading">Loading classes\u2026</string>
+    <string name="decompile_failed">Could not decompile</string>
+    <string name="decompile_search">Search %1$d classes</string>
+    <string name="apk_decompile">Decompile (jadx)</string>
 </resources>
