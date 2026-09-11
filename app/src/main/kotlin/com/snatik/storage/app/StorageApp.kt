@@ -14,6 +14,9 @@ import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.android.ext.android.get
 import com.snatik.storage.core.shell.PrivilegeManager
+import com.snatik.storage.core.apps.AppEventLog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 class StorageApp : Application(), SingletonImageLoader.Factory {
 
@@ -25,6 +28,11 @@ class StorageApp : Application(), SingletonImageLoader.Factory {
             modules(appModule)
         }
         get<PrivilegeManager>().start()
+        // App-event history: reconcile once now (catches changes since last launch) and keep a
+        // periodic background job running so changes are picked up even without opening the app.
+        AppEventLog.schedule(this)
+        val log = get<AppEventLog>()
+        get<CoroutineScope>().launch { runCatching { log.reconcile() } }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

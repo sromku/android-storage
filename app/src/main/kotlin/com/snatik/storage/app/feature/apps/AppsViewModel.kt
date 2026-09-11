@@ -27,7 +27,7 @@ data class AppsUiState(
     val searchActive: Boolean = false,
 )
 
-class AppsViewModel(private val repository: AppRepository) : ViewModel() {
+class AppsViewModel(private val repository: AppRepository, private val appEventLog: com.snatik.storage.core.apps.AppEventLog) : ViewModel() {
 
     private data class Local(
         val all: List<AppSummary> = emptyList(),
@@ -82,6 +82,8 @@ class AppsViewModel(private val repository: AppRepository) : ViewModel() {
             val apps = repository.list()
             local.update { it.copy(all = apps, loading = false, hasUsageAccess = repository.hasUsageAccess()) }
         }
+        // Fold any installs/uninstalls made elsewhere into the app-event history.
+        viewModelScope.launch { runCatching { appEventLog.reconcile() } }
     }
 
     fun setFilter(filter: AppFilter) = local.update { it.copy(filter = filter) }

@@ -107,7 +107,7 @@
     <string name="app_history_title">App history</string>
     <string name="history_clear">Clear history</string>
     <string name="history_empty">No app events yet</string>
-    <string name="history_live">%1$d events · tracking live</string>
+    <string name="history_live">%1$d events · updated in the background</string>
     <string name="hist_all">All</string>
     <string name="hist_seeded">from install date</string>
     <string name="ev_installed">Installed</string>

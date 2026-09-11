@@ -2,6 +2,12 @@ package com.snatik.storage.core.apps
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import java.util.concurrent.TimeUnit
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -189,7 +195,24 @@ class AppEventLog(
     }
 
     companion object {
+        private const val WORK_NAME = "app_events_reconcile"
+
         fun from(context: Context): AppEventLog =
             AppEventLog(context.applicationContext, AppEventDatabase.create(context), AppRepository(context.applicationContext))
+
+        /** Reconcile periodically in the background so changes are caught even if the app is never
+         *  opened. WorkManager throttles the cadence; an app that is both installed and removed
+         *  entirely between two runs still can't be seen (Android keeps no uninstall log). */
+        fun schedule(context: Context) {
+            val request = PeriodicWorkRequestBuilder<AppEventWorker>(3, TimeUnit.HOURS).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        }
     }
+}
+
+/** Background job that reconciles the app-event log; scheduled by [AppEventLog.schedule]. */
+class AppEventWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = runCatching {
+        AppEventLog.from(applicationContext).reconcile()
+    }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
 }
