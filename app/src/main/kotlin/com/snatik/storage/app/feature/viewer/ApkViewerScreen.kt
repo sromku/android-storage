@@ -90,7 +90,7 @@ data class ApkDetails(
     val entries: List<ApkEntry>, val totalUncompressed: Long,
     val dexFiles: List<ApkEntry>, val abis: List<String>, val arscSize: Long,
     val resCount: Int, val assetCount: Int, val manifestXml: String?,
-    val isSplit: Boolean = false, val splitName: String? = null,
+    val isSplit: Boolean = false, val splitName: String? = null, val splitCovers: String? = null,
 )
 
 enum class ApkTab { OVERVIEW, MANIFEST, RESOURCES, CONTENTS, SIGNING }
@@ -211,8 +211,33 @@ class ApkViewModel(private val path: String, private val context: Context, priva
             entries = entries, totalUncompressed = entries.sumOf { it.size },
             dexFiles = dexFiles, abis = abis.toList(), arscSize = arscSize,
             resCount = resCount, assetCount = assetCount, manifestXml = manifestXml,
-            isSplit = true, splitName = split,
+            isSplit = true, splitName = split, splitCovers = describeSplit(split),
         )
+    }
+
+    /** Turn a split name (config.en / config.xxhdpi / config.arm64_v8a / a feature name) into a
+     *  human line: which language, density or ABI this piece carries. */
+    private fun describeSplit(split: String?): String? {
+        if (split.isNullOrBlank()) return null
+        if (!split.startsWith("config.")) return "Feature module: $split"
+        val q = split.removePrefix("config.")
+        val densities = mapOf(
+            "ldpi" to "~120 dpi", "mdpi" to "~160 dpi", "tvdpi" to "~213 dpi", "hdpi" to "~240 dpi",
+            "xhdpi" to "~320 dpi", "xxhdpi" to "~480 dpi", "xxxhdpi" to "~640 dpi", "nodpi" to "any density", "anydpi" to "any density",
+        )
+        val abis = mapOf(
+            "armeabi_v7a" to "armeabi-v7a · 32-bit ARM", "arm64_v8a" to "arm64-v8a · 64-bit ARM",
+            "x86" to "x86 · 32-bit Intel", "x86_64" to "x86_64 · 64-bit Intel", "armeabi" to "armeabi · legacy ARM",
+        )
+        return when {
+            q in densities -> "Screen density — $q (${densities[q]})"
+            q in abis -> "Native code — ${abis[q]}"
+            else -> {
+                val lang = runCatching { java.util.Locale.forLanguageTag(q.replace('_', '-')).displayName }.getOrNull()
+                    ?.takeIf { it.isNotBlank() && !it.equals(q, ignoreCase = true) }
+                if (lang != null) "Language — $lang ($q)" else "Configuration — $q"
+            }
+        }
     }
 
     /**
@@ -373,6 +398,7 @@ private fun OverviewTab(a: ApkDetails) {
                     Text(stringResource(R.string.apk_split_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            a.splitCovers?.let { covers -> item { InfoLine(stringResource(R.string.apk_split_covers), covers) } }
         } else item {
             val sdk = stringResource(R.string.info_sdk_value, a.targetSdk, a.minSdk) + if (a.compileSdk > 0) " · compile ${a.compileSdk}" else ""
             InfoLine(stringResource(R.string.info_sdk), sdk)

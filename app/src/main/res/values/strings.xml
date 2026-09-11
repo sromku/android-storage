@@ -451,6 +451,7 @@
 
     <string name="apk_invalid">Not a valid APK</string>
     <string name="apk_split_note">Split APK — a configuration piece (language, density or ABI) of its base app, not a standalone package. Version, components and permissions live in the base APK; its manifest, contents, resources and signing are shown here.</string>
+    <string name="apk_split_covers">Covers</string>
     <string name="apk_components">Components</string>
     <string name="archive_summary">%1$d files · %2$s</string>
     <string name="archive_invalid">Cannot read this archive</string>
