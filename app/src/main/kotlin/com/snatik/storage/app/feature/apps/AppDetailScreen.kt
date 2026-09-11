@@ -349,10 +349,7 @@ private fun OverviewTab(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 val storage = s.storage
                 if (storage != null) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StorageBar(storage.appBytes, storage.dataBytes, storage.cacheBytes)
-                        Text(stringResource(R.string.storage_total, storage.totalBytes.readableSize()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    StorageBar(storage.appBytes, storage.dataBytes, storage.cacheBytes, storage.totalBytes)
                 } else {
                     Text(stringResource(R.string.usage_access_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -381,61 +378,65 @@ private fun OverviewTab(
 }
 
 @Composable
-private fun StorageBar(app: Long, data: Long, cache: Long) {
-    val total = (app + data + cache).coerceAtLeast(1)
+private fun StorageBar(app: Long, data: Long, cache: Long, total: Long) {
+    val denom = (app + data + cache).coerceAtLeast(1)
     val colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.outline)
     val labels = listOf(stringResource(R.string.storage_app), stringResource(R.string.storage_data), stringResource(R.string.storage_cache))
     val values = listOf(app, data, cache)
-    Row(modifier = Modifier.fillMaxWidth().height(10.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        values.forEachIndexed { i, v ->
-            val weight = v.toFloat() / total
-            if (weight > 0f) Box(modifier = Modifier.weight(weight).fillMaxSize().background(colors[i], MaterialTheme.shapes.extraSmall))
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            Text(stringResource(R.string.storage_section), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(total.readableSize(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         }
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        values.forEachIndexed { i, v ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(modifier = Modifier.width(10.dp).height(10.dp).background(colors[i], MaterialTheme.shapes.extraSmall))
-                Text("${labels[i]} ${v.readableSize()}", style = MaterialTheme.typography.bodySmall)
+        // One continuous rounded bar; segments sit flush against each other, no per-piece corners.
+        Row(modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp))) {
+            values.forEachIndexed { i, v ->
+                val weight = v.toFloat() / denom
+                if (weight > 0f) Box(modifier = Modifier.weight(weight).fillMaxSize().background(colors[i]))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            values.forEachIndexed { i, v ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(colors[i]))
+                    Text("${labels[i]} ${v.readableSize()}", style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
     }
 }
 
+/** Key/value shown label-on-top, value below — the layout every field on this screen follows. */
 @Composable
 private fun InfoRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(110.dp))
-        SelectionContainer(modifier = Modifier.weight(1f)) { Text(value, style = MonoStyle) }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SelectionContainer { Text(value, style = MonoStyle) }
     }
 }
 
 @Composable
 private fun PathRow(label: String, path: String, onBrowse: () -> Unit, onAnalyze: (() -> Unit)? = null) {
+    val tonal = IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SelectionContainer { Text(path, style = MonoStyle) }
         }
-        FilledTonalIconButton(
-            onClick = onBrowse,
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
-        ) { Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.browse)) }
+        FilledTonalIconButton(onClick = onBrowse, modifier = Modifier.size(34.dp), colors = tonal) {
+            Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.browse), modifier = Modifier.size(18.dp))
+        }
         if (onAnalyze != null) {
-            FilledTonalIconButton(
-                onClick = onAnalyze,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
-            ) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze)) }
+            FilledTonalIconButton(onClick = onAnalyze, modifier = Modifier.size(34.dp), colors = tonal) {
+                Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze), modifier = Modifier.size(18.dp))
+            }
         }
     }
 }

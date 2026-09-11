@@ -89,6 +89,7 @@
     <string name="storage_data">Data</string>
     <string name="storage_cache">Cache</string>
     <string name="storage_total">Total %1$s</string>
+    <string name="storage_section">Storage</string>
     <string name="action_open">Open</string>
     <string name="action_settings">Settings</string>
     <string name="action_export_apk">Export APK</string>
