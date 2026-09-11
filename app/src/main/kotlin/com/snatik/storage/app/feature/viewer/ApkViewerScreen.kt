@@ -3,6 +3,7 @@ package com.snatik.storage.app.feature.viewer
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,12 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +90,7 @@ data class ApkDetails(
     val entries: List<ApkEntry>, val totalUncompressed: Long,
     val dexFiles: List<ApkEntry>, val abis: List<String>, val arscSize: Long,
     val resCount: Int, val assetCount: Int, val manifestXml: String?,
+    val isSplit: Boolean = false, val splitName: String? = null,
 )
 
 enum class ApkTab { OVERVIEW, MANIFEST, RESOURCES, CONTENTS, SIGNING }
@@ -113,12 +118,10 @@ class ApkViewModel(private val path: String, private val context: Context, priva
         val flags = PackageManager.GET_PERMISSIONS or PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or
             PackageManager.GET_RECEIVERS or PackageManager.GET_PROVIDERS or PackageManager.GET_SIGNING_CERTIFICATES or
             PackageManager.GET_CONFIGURATIONS
-        val info: PackageInfo = pm.getPackageArchiveInfo(path, flags) ?: error("Not a valid APK")
-        val app = info.applicationInfo!!.apply { sourceDir = path; publicSourceDir = path }
-        val signatures = info.signingInfo?.let { s -> (if (s.hasMultipleSigners()) s.apkContentsSigners else s.signingCertificateHistory).orEmpty() }
-            ?.map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString(":") { b -> "%02X".format(b) } } ?: emptyList()
+        val info: PackageInfo? = pm.getPackageArchiveInfo(path, flags)
 
-        // Read the zip's own table of contents.
+        // Read the zip's own table of contents. Works for any APK, including split config APKs
+        // that PackageManager refuses to parse as a standalone package.
         val entries = ArrayList<ApkEntry>()
         val abis = sortedSetOf<String>()
         var resCount = 0; var assetCount = 0; var arscSize = 0L
@@ -148,6 +151,12 @@ class ApkViewModel(private val path: String, private val context: Context, priva
         if (v1) schemes += "v1 (JAR)"
         schemes += detectBlockSchemes(path)
 
+        if (info == null) return parseSplit(entries, abis, resCount, assetCount, arscSize, dexFiles, schemes)
+
+        val app = info.applicationInfo!!.apply { sourceDir = path; publicSourceDir = path }
+        val signatures = info.signingInfo?.let { s -> (if (s.hasMultipleSigners()) s.apkContentsSigners else s.signingCertificateHistory).orEmpty() }
+            ?.map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString(":") { b -> "%02X".format(b) } } ?: emptyList()
+
         val manifestXml = runCatching { manifests.decode(info.packageName, path) }.getOrNull()
 
         return ApkDetails(
@@ -175,6 +184,34 @@ class ApkViewModel(private val path: String, private val context: Context, priva
             resCount = resCount,
             assetCount = assetCount,
             manifestXml = manifestXml,
+        )
+    }
+
+    /**
+     * A split config APK (split_config.*.apk) isn't a standalone package, so PackageManager returns
+     * null for it. It's still a valid APK, so decode its own manifest and show contents, resources
+     * and signing directly — the package-level fields (version, components, permissions) live in the
+     * base APK and stay blank here.
+     */
+    private suspend fun parseSplit(
+        entries: List<ApkEntry>, abis: Set<String>, resCount: Int, assetCount: Int, arscSize: Long,
+        dexFiles: List<ApkEntry>, schemes: List<String>,
+    ): ApkDetails {
+        val manifestXml = runCatching { manifests.decode("", path) }.getOrNull()
+        val pkg = manifestXml?.let { Regex("package=\"([^\"]+)\"").find(it)?.groupValues?.getOrNull(1) }.orEmpty()
+        val split = manifestXml?.let { Regex("\\bsplit=\"([^\"]+)\"").find(it)?.groupValues?.getOrNull(1) }
+        return ApkDetails(
+            label = split ?: name,
+            packageName = pkg.ifEmpty { name },
+            versionName = "", versionCode = 0, minSdk = 0, targetSdk = 0, compileSdk = 0,
+            size = File(path).length(),
+            permissions = emptyList(), features = emptyList(),
+            activities = 0, services = 0, receivers = 0, providers = 0,
+            signatures = emptyList(), schemes = schemes,
+            entries = entries, totalUncompressed = entries.sumOf { it.size },
+            dexFiles = dexFiles, abis = abis.toList(), arscSize = arscSize,
+            resCount = resCount, assetCount = assetCount, manifestXml = manifestXml,
+            isSplit = true, splitName = split,
         )
     }
 
@@ -320,15 +357,27 @@ private fun OverviewTab(a: ApkDetails) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(a.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 SelectionContainer { Text(a.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Text("${a.versionName} (${a.versionCode}) · ${a.size.readableSize()} on disk", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val meta = if (a.isSplit) a.size.readableSize() + " on disk" else "${a.versionName} (${a.versionCode}) · ${a.size.readableSize()} on disk"
+                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider()
         }
-        item {
+        if (a.isSplit) {
+            item {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.apk_split_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else item {
             val sdk = stringResource(R.string.info_sdk_value, a.targetSdk, a.minSdk) + if (a.compileSdk > 0) " · compile ${a.compileSdk}" else ""
             InfoLine(stringResource(R.string.info_sdk), sdk)
         }
-        item { InfoLine(stringResource(R.string.apk_components), "${a.activities} act · ${a.services} svc · ${a.receivers} rcv · ${a.providers} prov") }
+        if (!a.isSplit) item { InfoLine(stringResource(R.string.apk_components), "${a.activities} act · ${a.services} svc · ${a.receivers} rcv · ${a.providers} prov") }
         item { InfoLine(stringResource(R.string.apk_uncompressed), "${a.totalUncompressed.readableSize()} · ${a.entries.size} entries") }
         item {
             Column(modifier = Modifier.padding(16.dp, 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -342,8 +391,10 @@ private fun OverviewTab(a: ApkDetails) {
             item { Text(stringResource(R.string.apk_features, a.features.size), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp)) }
             items(a.features.size) { i -> Text(a.features[i], style = MonoStyle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
         }
-        item { Text(stringResource(R.string.tab_permissions) + " · " + a.permissions.size, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp)) }
-        items(a.permissions.size) { i -> Text(a.permissions[i], style = MonoStyle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+        if (a.permissions.isNotEmpty()) {
+            item { Text(stringResource(R.string.tab_permissions) + " · " + a.permissions.size, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp)) }
+            items(a.permissions.size) { i -> Text(a.permissions[i], style = MonoStyle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+        }
     }
 }
 
