@@ -320,16 +320,21 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
     )
 }
 
-/** Tap the header to jump to any ancestor directory, from the browser's root down to here. */
+/** Tap the header to jump to any directory on the path, from the device root all the way down to here. */
 @Composable
 private fun PathMenu(route: Route.Browser, expanded: Boolean, onDismiss: () -> Unit, onNavigate: (String) -> Unit) {
-    data class Crumb(val label: String, val path: String)
-    val relative = route.path.removePrefix(route.rootPath).trim('/')
-    val segments = if (relative.isEmpty()) emptyList() else relative.split('/')
+    data class Crumb(val label: String, val path: String, val isRoot: Boolean)
+    val current = route.path.trimEnd('/').ifEmpty { "/" }
+    val rootTrim = route.rootPath.trimEnd('/')
+    val segments = current.split('/').filter { it.isNotEmpty() }
+    // Label the browser's declared root with its friendly name (e.g. "Shared storage"); everything
+    // else by its own folder name, with "/" for the device root.
+    fun labelFor(path: String, seg: String?): String =
+        if (path == rootTrim || path == route.rootPath) route.rootLabel else seg ?: "/"
     val crumbs = buildList {
-        add(Crumb(route.rootLabel, route.rootPath))
-        var acc = route.rootPath.trimEnd('/')
-        for (seg in segments) { acc = "$acc/$seg"; add(Crumb(seg, acc)) }
+        add(Crumb(labelFor("/", null), "/", isRoot = true))
+        var acc = ""
+        for (seg in segments) { acc = "$acc/$seg"; add(Crumb(labelFor(acc, seg), acc, isRoot = false)) }
     }
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         Text(
@@ -338,11 +343,11 @@ private fun PathMenu(route: Route.Browser, expanded: Boolean, onDismiss: () -> U
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        crumbs.forEachIndexed { i, c ->
-            val isCurrent = i == crumbs.lastIndex
+        crumbs.forEach { c ->
+            val isCurrent = c.path == current
             DropdownMenuItem(
                 text = { Text(c.label, fontWeight = if (isCurrent) FontWeight.SemiBold else null, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
-                leadingIcon = { Icon(if (i == 0) Icons.Default.Home else Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                leadingIcon = { Icon(if (c.isRoot) Icons.Default.Home else Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 trailingIcon = if (isCurrent) ({ Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }) else null,
                 onClick = { onDismiss(); if (!isCurrent) onNavigate(c.path) },
             )

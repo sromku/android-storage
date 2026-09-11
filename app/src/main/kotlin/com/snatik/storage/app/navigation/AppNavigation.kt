@@ -80,10 +80,13 @@ import com.snatik.storage.app.feature.viewer.ArchiveViewerScreen
 import com.snatik.storage.app.feature.viewer.TextViewerScreen
 import com.snatik.storage.core.fs.FileKind
 import com.snatik.storage.core.fs.FsEntry
+import androidx.compose.ui.res.stringResource
+import com.snatik.storage.app.R
 
 @Composable
 fun AppNavigation() {
     val backStack = rememberNavBackStack(Route.Home)
+    val systemRootLabel = stringResource(R.string.volume_root)
 
     fun push(route: NavKey) = backStack.add(route)
     fun pop() { backStack.removeLastOrNull() }
@@ -103,12 +106,21 @@ fun AppNavigation() {
     fun openBrowser(label: String, path: String) = push(Route.Browser(rootPath = path, rootLabel = label, path = path))
 
     fun openDirectory(from: Route.Browser, path: String) {
-        // Breadcrumb taps go back to an entry we already have; anything else is pushed.
-        val index = backStack.indexOfLast { it is Route.Browser && it.rootPath == from.rootPath && it.path == path }
-        if (index >= 0) {
-            while (backStack.lastIndex > index) backStack.removeLastOrNull()
+        val rootTrim = from.rootPath.trimEnd('/')
+        val target = path.trimEnd('/').ifEmpty { "/" }
+        val withinRoot = target == from.rootPath || target == rootTrim || rootTrim.isEmpty() || target.startsWith("$rootTrim/")
+        if (withinRoot) {
+            // Breadcrumb / jump taps within this browser go back to an entry we already have; anything else is pushed.
+            val index = backStack.indexOfLast { it is Route.Browser && it.rootPath == from.rootPath && it.path == path }
+            if (index >= 0) {
+                while (backStack.lastIndex > index) backStack.removeLastOrNull()
+            } else {
+                push(from.copy(path = path))
+            }
         } else {
-            push(from.copy(path = path))
+            // Jumped above this browser's root (e.g. from an app's data dir up towards /): re-root at the
+            // device root so breadcrumbs, the header's jump menu and Back all stay consistent.
+            push(Route.Browser(rootPath = "/", rootLabel = systemRootLabel, path = path))
         }
     }
 
