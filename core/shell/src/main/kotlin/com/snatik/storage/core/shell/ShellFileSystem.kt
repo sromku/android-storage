@@ -32,7 +32,12 @@ class ShellFileSystem(private val shell: ShellExecutor) : FileSystem {
 
     override suspend fun list(path: String): List<FsEntry> {
         val q = path.shellQuote()
-        val script = "[ -e $q ] || exit 3; [ -d $q ] || exit 4; [ -r $q ] || exit 6; cd $q || exit 5; stat -c $STAT_FORMAT -- * .[!.]* ..?* 2>/dev/null; exit 0"
+        // `[ -e ]`/`[ -d ]` can't tell a missing path from one we lack permission to even stat —
+        // both make the test false. Probe with the real error first so another app's unreadable
+        // /data/data/<pkg> reports "permission denied" rather than "directory no longer exists".
+        val script = "probe=\$(ls -ldL -- $q 2>&1 1>/dev/null); " +
+            "if [ -n \"\$probe\" ]; then case \"\$probe\" in *\"No such file\"*) exit 3;; *\"Not a directory\"*) exit 4;; *) exit 6;; esac; fi; " +
+            "[ -d $q ] || exit 4; [ -r $q ] || exit 6; cd $q || exit 6; stat -c $STAT_FORMAT -- * .[!.]* ..?* 2>/dev/null; exit 0"
         val result = shell.run(script)
         when (result.exitCode) {
             0 -> Unit
