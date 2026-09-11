@@ -59,8 +59,12 @@ class AppRepository(private val context: Context) {
         val requestedFlags = info.requestedPermissionsFlags ?: IntArray(requested.size)
         val permissions = requested.mapIndexed { i, name ->
             val granted = requestedFlags.getOrElse(i) { 0 } and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
-            val runtime = runCatching { pm.getPermissionInfo(name, 0).protection == PermissionInfo.PROTECTION_DANGEROUS }.getOrDefault(false)
-            RequestedPermission(name, granted, runtime)
+            val pi = runCatching { pm.getPermissionInfo(name, 0) }.getOrNull()
+            val runtime = pi?.protection == PermissionInfo.PROTECTION_DANGEROUS
+            val group = pi?.group?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
+            val label = runCatching { pi?.loadLabel(pm)?.toString() }.getOrNull()?.takeIf { it.isNotBlank() && !it.equals(name, ignoreCase = true) }
+            val description = runCatching { pi?.loadDescription(pm)?.toString() }.getOrNull()?.takeIf { it.isNotBlank() }
+            RequestedPermission(name, granted, runtime, protection = pi?.let(::describeProtection).orEmpty(), group = group, label = label, description = description)
         }
 
         val signatures = info.signingInfo?.let { signing ->
@@ -130,6 +134,25 @@ class AppRepository(private val context: Context) {
         apkPath = app.publicSourceDir ?: app.sourceDir ?: "",
         storage = storage,
     )
+
+    /** Base protection level plus the notable flags, e.g. "signature · privileged". */
+    private fun describeProtection(pi: PermissionInfo): String {
+        val base = when (pi.protection) {
+            PermissionInfo.PROTECTION_DANGEROUS -> "dangerous"
+            PermissionInfo.PROTECTION_SIGNATURE -> "signature"
+            PermissionInfo.PROTECTION_INTERNAL -> "internal"
+            else -> "normal"
+        }
+        val f = pi.protectionFlags
+        val flags = buildList {
+            if (f and PermissionInfo.PROTECTION_FLAG_PRIVILEGED != 0) add("privileged")
+            if (f and PermissionInfo.PROTECTION_FLAG_DEVELOPMENT != 0) add("development")
+            if (f and PermissionInfo.PROTECTION_FLAG_APPOP != 0) add("appop")
+            if (f and PermissionInfo.PROTECTION_FLAG_PREINSTALLED != 0) add("preinstalled")
+            if (f and PermissionInfo.PROTECTION_FLAG_INSTANT != 0) add("instant")
+        }
+        return if (flags.isEmpty()) base else "$base · ${flags.joinToString(" · ")}"
+    }
 
     /** Needs QUERY_ALL_PACKAGES in the app manifest to see every package. */
     @SuppressLint("QueryPermissionsNeeded")

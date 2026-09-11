@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,16 +21,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DonutLarge
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.MoreVert
@@ -38,6 +45,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,12 +65,15 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -479,34 +491,41 @@ private fun ManifestTab(state: AppDetailUiState, onQuery: (String) -> Unit) {
 
 @Composable
 private fun ComponentsTab(details: AppDetails) {
-    val pkg = details.summary.packageName
+    // Collapsed section keys, kept across navigation so long lists don't bury the rest.
+    val collapsed = rememberSaveable { mutableStateListOf<String>() }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        componentSection(R.string.section_activities, details.activities, pkg)
-        componentSection(R.string.section_services, details.services, pkg)
-        componentSection(R.string.section_receivers, details.receivers, pkg)
-        item { SectionTitle(stringResource(R.string.section_providers), details.providers.size) }
-        if (details.providers.isEmpty()) item { NothingDeclared() }
-        items(details.providers, key = { "p:" + it.name }) { ProviderRow(it, pkg) }
-        item { SectionTitle(stringResource(R.string.section_defined_permissions), details.definedPermissions.size) }
-        if (details.definedPermissions.isEmpty()) item { NothingDeclared() }
-        items(details.definedPermissions, key = { "dp:$it" }) { Text(it, style = MonoStyle, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
+        componentSection("act", R.string.section_activities, details.activities, collapsed)
+        componentSection("svc", R.string.section_services, details.services, collapsed)
+        componentSection("rcv", R.string.section_receivers, details.receivers, collapsed)
+        section("prov", R.string.section_providers, details.providers, collapsed) { ProviderRow(it) }
+        section("defp", R.string.section_defined_permissions, details.definedPermissions, collapsed) { NameAndPath(it) }
     }
 }
 
-private fun LazyListScope.componentSection(title: Int, items: List<Component>, pkg: String) {
-    item { SectionTitle(stringResource(title), items.size) }
-    if (items.isEmpty()) item { NothingDeclared() }
-    items(items, key = { "$title:" + it.name }) { ComponentRow(it, pkg) }
+private fun <T> LazyListScope.section(key: String, titleRes: Int, items: List<T>, collapsed: MutableList<String>, row: @Composable (T) -> Unit) {
+    item(key = "h:$key") { SectionHeader(stringResource(titleRes), items.size, key in collapsed) { collapsed.toggle(key) } }
+    if (key !in collapsed) {
+        if (items.isEmpty()) item(key = "e:$key") { NothingDeclared() }
+        items(items, key = { "$key:$it".hashCode() }) { row(it) }
+    }
 }
 
+private fun LazyListScope.componentSection(key: String, titleRes: Int, comps: List<Component>, collapsed: MutableList<String>) =
+    section(key, titleRes, comps, collapsed) { ComponentRow(it) }
+
+private fun MutableList<String>.toggle(key: String) { if (key in this) remove(key) else add(key) }
+
 @Composable
-private fun SectionTitle(text: String, count: Int) {
-    Text(
-        "$text · $count",
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-    )
+private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+        Text(count.toString(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(if (collapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable
@@ -514,60 +533,177 @@ private fun NothingDeclared() {
     Text(stringResource(R.string.nothing_declared), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
 }
 
-private fun shortName(name: String, pkg: String): String = if (name.startsWith("$pkg.")) name.removePrefix(pkg) else name
-
+/** A fully-qualified name shown readably: the simple name in front, its package path dimmed below. */
 @Composable
-private fun ComponentRow(component: Component, pkg: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SelectionContainer(modifier = Modifier.weight(1f, fill = false)) { Text(shortName(component.name, pkg), style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface)) }
-            if (component.exported) Tag(stringResource(R.string.chip_exported), MaterialTheme.colorScheme.error)
-            if (!component.enabled) Tag(stringResource(R.string.chip_disabled))
+private fun NameAndPath(fullName: String, modifier: Modifier = Modifier, trailing: (@Composable RowScope.() -> Unit)? = null) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(fullName.substringAfterLast('.'), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val path = fullName.substringBeforeLast('.', "")
+            if (path.isNotEmpty()) Text(path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         }
-        component.permission?.let { Text(stringResource(R.string.permission_requires, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        trailing?.invoke(this)
     }
 }
 
 @Composable
-private fun ProviderRow(provider: ContentProvider, pkg: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SelectionContainer(modifier = Modifier.weight(1f, fill = false)) { Text(provider.authority, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface)) }
+private fun ComponentRow(component: Component) {
+    Column {
+        NameAndPath(component.name) {
+            if (component.exported) Tag(stringResource(R.string.chip_exported), MaterialTheme.colorScheme.error)
+            if (!component.enabled) Tag(stringResource(R.string.chip_disabled))
+        }
+        component.permission?.let {
+            Text(stringResource(R.string.permission_requires, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp))
+        }
+    }
+}
+
+@Composable
+private fun ProviderRow(provider: ContentProvider) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SelectionContainer(modifier = Modifier.weight(1f)) { Text(provider.authority, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
             if (provider.exported) Tag(stringResource(R.string.chip_exported), MaterialTheme.colorScheme.error)
         }
-        Text(shortName(provider.name, pkg), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(provider.name, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         provider.readPermission?.let { Text(stringResource(R.string.provider_read, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         provider.writePermission?.let { Text(stringResource(R.string.provider_write, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
+private enum class PermGroupBy { NONE, STATUS, PROTECTION, CATEGORY }
+
+@Composable
+private fun permGroupLabel(g: PermGroupBy): String = stringResource(
+    when (g) {
+        PermGroupBy.NONE -> R.string.perm_by_none
+        PermGroupBy.STATUS -> R.string.perm_by_status
+        PermGroupBy.PROTECTION -> R.string.perm_by_protection
+        PermGroupBy.CATEGORY -> R.string.perm_by_category
+    },
+)
+
 @Composable
 private fun PermissionsTab(details: AppDetails, shellAvailable: Boolean, onToggle: (String, Boolean) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        if (shellAvailable) {
-            item { Text(stringResource(R.string.grant_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
+    val perms = details.permissions
+    var groupBy by rememberSaveable { mutableStateOf(PermGroupBy.NONE) }
+    val expanded = rememberSaveable { mutableStateListOf<String>() }
+    val listState = rememberLazyListState()
+    LaunchedEffect(groupBy) { listState.scrollToItem(0) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        PermControls(
+            groupBy = groupBy,
+            onGroupBy = { groupBy = it },
+            allExpanded = perms.isNotEmpty() && expanded.size >= perms.size,
+            onToggleAll = {
+                if (expanded.size >= perms.size) expanded.clear()
+                else { expanded.clear(); expanded.addAll(perms.map { it.name }) }
+            },
+        )
+        if (shellAvailable) Text(stringResource(R.string.grant_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        HorizontalDivider()
+        LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 32.dp)) {
+            if (perms.isEmpty()) item { NothingDeclared() }
+            groupPermissions(perms, groupBy).forEach { (header, list) ->
+                if (header != null) item(key = "ph:$header") {
+                    Text("$header · ${list.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp))
+                }
+                items(list, key = { it.name }) { p ->
+                    PermissionRow(p, shellAvailable, p.name in expanded, onExpand = { expanded.toggle(p.name) }, onToggle = onToggle)
+                }
+            }
         }
-        if (details.permissions.isEmpty()) item { NothingDeclared() }
-        items(details.permissions, key = { it.name }) { permission -> PermissionRow(permission, shellAvailable, onToggle) }
+    }
+}
+
+private fun groupPermissions(perms: List<RequestedPermission>, by: PermGroupBy): List<Pair<String?, List<RequestedPermission>>> = when (by) {
+    PermGroupBy.NONE -> listOf(null to perms)
+    PermGroupBy.STATUS -> listOf(
+        "Granted" to perms.filter { it.granted },
+        "Denied" to perms.filterNot { it.granted },
+    ).filter { it.second.isNotEmpty() }
+    PermGroupBy.PROTECTION -> {
+        val order = listOf("dangerous", "signature", "normal", "internal")
+        perms.groupBy { it.protection.substringBefore(" ").ifBlank { "unknown" } }
+            .toList()
+            .sortedBy { order.indexOf(it.first).let { i -> if (i < 0) order.size else i } }
+            .map { (k, v) -> k.replaceFirstChar { c -> c.uppercase() } to v }
+    }
+    PermGroupBy.CATEGORY -> perms.groupBy { it.group ?: "Ungrouped" }.toList().sortedBy { it.first.lowercase() }
+}
+
+@Composable
+private fun PermControls(groupBy: PermGroupBy, onGroupBy: (PermGroupBy) -> Unit, allExpanded: Boolean, onToggleAll: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        var menu by remember { mutableStateOf(false) }
+        Box {
+            TextButton(onClick = { menu = true }) {
+                Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.perm_group_prefix, permGroupLabel(groupBy)))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                PermGroupBy.entries.forEach { g ->
+                    DropdownMenuItem(
+                        text = { Text(permGroupLabel(g)) },
+                        trailingIcon = if (g == groupBy) ({ Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }) else null,
+                        onClick = { onGroupBy(g); menu = false },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = onToggleAll) {
+            Icon(if (allExpanded) Icons.Default.UnfoldLess else Icons.Default.UnfoldMore, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(if (allExpanded) R.string.perm_collapse_all else R.string.perm_expand_all))
+        }
     }
 }
 
 @Composable
-private fun PermissionRow(permission: RequestedPermission, shellAvailable: Boolean, onToggle: (String, Boolean) -> Unit) {
-    val clickable = shellAvailable && permission.isRuntime
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (clickable) Modifier.clickable { onToggle(permission.name, !permission.granted) } else Modifier)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(permission.name.substringAfterLast('.'), style = MaterialTheme.typography.bodyMedium)
-            Text(permission.name, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+private fun PermissionRow(permission: RequestedPermission, shellAvailable: Boolean, expanded: Boolean, onExpand: () -> Unit, onToggle: (String, Boolean) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onExpand).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(permission.name.substringAfterLast('.'), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(permission.name, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+            }
+            if (permission.isRuntime) Tag(stringResource(R.string.chip_dangerous), MaterialTheme.colorScheme.error)
+            Tag(
+                stringResource(if (permission.granted) R.string.chip_granted else R.string.chip_denied),
+                if (permission.granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            )
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (permission.isRuntime) Tag(stringResource(R.string.chip_runtime))
-        if (permission.granted) Tag(stringResource(R.string.chip_granted), MaterialTheme.colorScheme.primary) else Tag(stringResource(R.string.chip_denied), MaterialTheme.colorScheme.outline)
+        if (expanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                permission.label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface) }
+                permission.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (permission.protection.isNotBlank()) DetailLine(stringResource(R.string.perm_protection), permission.protection)
+                permission.group?.let { DetailLine(stringResource(R.string.perm_category), it) }
+                if (permission.isRuntime && shellAvailable) {
+                    TextButton(onClick = { onToggle(permission.name, !permission.granted) }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                        Icon(if (permission.granted) Icons.Default.Block else Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(if (permission.granted) R.string.perm_revoke else R.string.perm_grant))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }

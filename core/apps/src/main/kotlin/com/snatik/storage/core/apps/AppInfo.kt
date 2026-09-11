@@ -39,7 +39,19 @@ data class ContentProvider(
     val grantUriPermissions: Boolean,
 )
 
-data class RequestedPermission(val name: String, val granted: Boolean, val isRuntime: Boolean)
+data class RequestedPermission(
+    val name: String,
+    val granted: Boolean,
+    val isRuntime: Boolean,
+    /** "normal" | "dangerous" | "signature" | "internal", plus key flags e.g. "signature · privileged". */
+    val protection: String = "",
+    /** Short permission-group name (e.g. LOCATION, CAMERA), null when the permission has no group. */
+    val group: String? = null,
+    /** Human label from the defining package (e.g. "take pictures and videos"), when available. */
+    val label: String? = null,
+    /** Human description from the defining package, when available. */
+    val description: String? = null,
+)
 
 data class SigningCertificate(val sha256: String, val subject: String)
 
