@@ -112,10 +112,6 @@ class DecompileViewModel(private val path: String, private val context: android.
         try {
             val list = withContext(Dispatchers.IO) {
                 runCatching { decompiler?.close() }
-                // Point jadx at a temp root we control and (re)create, so its process-wide cache is
-                // never left pointing at a directory our cleanup deleted.
-                val tmp = File(context.cacheDir, "jadxtmp").apply { mkdirs() }
-                runCatching { jadx.core.utils.files.FileUtils.updateTempRootDir(tmp.toPath()) }
                 val args = JadxArgs().apply {
                     inputFiles.add(dex)
                     security = AndroidJadxSecurity()
@@ -124,6 +120,11 @@ class DecompileViewModel(private val path: String, private val context: android.
                     threadsCount = 1               // one dex at a time; keep the footprint small
                 }
                 val jadx = JadxDecompiler(args)
+                // jadx caches one base temp dir (under our cacheDir) at first use and reuses it for
+                // every later instance. A previous run's cleanup or its own deleteOnExit can remove
+                // that dir; load() then throws "Failed to update temp root directory" while trying
+                // to create an instance dir inside a path that no longer exists. Recreate it first.
+                runCatching { java.nio.file.Files.createDirectories(args.filesGetter.tempDir) }
                 jadx.load()
                 decompiler = jadx
                 jadx.classes.sortedBy { it.fullName }
@@ -198,7 +199,9 @@ class DecompileViewModel(private val path: String, private val context: android.
 
     private fun sweepJadxCache() {
         runCatching {
-            context.cacheDir.listFiles { file -> file.name.startsWith("jadx") }?.forEach { it.deleteRecursively() }
+            // Only our own extraction dir — never jadx's cached temp base (jadx-tmp-* / jadx-temp-* /
+            // jadx-instance-*), which it reuses across instances; deleting it breaks the next load().
+            context.cacheDir.listFiles { file -> file.name == "jadx" || file.name == "jadxtmp" }?.forEach { it.deleteRecursively() }
         }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +37,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.ContentPaste
@@ -99,6 +104,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -174,7 +180,7 @@ fun BrowserScreen(
                 if (selecting) {
                     SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) }, onSendTo = { onSendTo(state.selected.toList()) })
                 } else {
-                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot)
+                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot, onNavigate = onOpenDirectory)
                 }
             }
         },
@@ -253,8 +259,9 @@ fun BrowserScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit, onSnapshot: () -> Unit) {
+private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit, onSnapshot: () -> Unit, onNavigate: (String) -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
+    var pathMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     TopAppBar(
         title = {
@@ -276,9 +283,15 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                 )
                 LaunchedEffect(Unit) { focus.requestFocus() }
             } else {
-                Column {
-                    Text(if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    Text(route.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    Column(modifier = Modifier.clickable { pathMenu = true }) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = stringResource(R.string.jump_to_folder), modifier = Modifier.size(20.dp))
+                        }
+                        Text(route.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    PathMenu(route = route, expanded = pathMenu, onDismiss = { pathMenu = false }, onNavigate = onNavigate)
                 }
             }
         },
@@ -305,6 +318,36 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
             }
         },
     )
+}
+
+/** Tap the header to jump to any ancestor directory, from the browser's root down to here. */
+@Composable
+private fun PathMenu(route: Route.Browser, expanded: Boolean, onDismiss: () -> Unit, onNavigate: (String) -> Unit) {
+    data class Crumb(val label: String, val path: String)
+    val relative = route.path.removePrefix(route.rootPath).trim('/')
+    val segments = if (relative.isEmpty()) emptyList() else relative.split('/')
+    val crumbs = buildList {
+        add(Crumb(route.rootLabel, route.rootPath))
+        var acc = route.rootPath.trimEnd('/')
+        for (seg in segments) { acc = "$acc/$seg"; add(Crumb(seg, acc)) }
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        Text(
+            stringResource(R.string.jump_to_folder),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        crumbs.forEachIndexed { i, c ->
+            val isCurrent = i == crumbs.lastIndex
+            DropdownMenuItem(
+                text = { Text(c.label, fontWeight = if (isCurrent) FontWeight.SemiBold else null, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
+                leadingIcon = { Icon(if (i == 0) Icons.Default.Home else Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                trailingIcon = if (isCurrent) ({ Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }) else null,
+                onClick = { onDismiss(); if (!isCurrent) onNavigate(c.path) },
+            )
+        }
+    }
 }
 
 @Composable
