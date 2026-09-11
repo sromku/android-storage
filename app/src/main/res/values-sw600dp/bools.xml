@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tablets (smallest width ≥ 600dp): allow rotation. -->
+    <bool name="is_tablet">true</bool>
+</resources>
