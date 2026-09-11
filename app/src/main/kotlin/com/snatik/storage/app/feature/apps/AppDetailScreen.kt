@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,21 +13,40 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DonutLarge
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -42,7 +60,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -84,6 +104,9 @@ fun AppDetailScreen(
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
 
+    val onOpen = { viewModel.launchIntent()?.let(context::startActivity); Unit }
+    val onSettings = { context.startActivity(viewModel.settingsIntent()) }
+
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { message ->
             val text = when {
@@ -103,6 +126,20 @@ fun AppDetailScreen(
                 title = { Text(state.details?.summary?.label ?: packageName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
+                },
+                actions = {
+                    state.details?.let { d ->
+                        AppActionsMenu(
+                            details = d,
+                            shellAvailable = state.shellAvailable,
+                            onExport = viewModel::exportApk,
+                            onForceStop = viewModel::forceStop,
+                            onClearCache = viewModel::clearCache,
+                            onClearData = viewModel::requestClearData,
+                            onUninstall = viewModel::requestUninstall,
+                            onCompile = viewModel::compile,
+                        )
+                    }
                 },
             )
         },
@@ -130,19 +167,12 @@ fun AppDetailScreen(
                     when (state.tab) {
                         DetailTab.OVERVIEW -> OverviewTab(
                             details = details,
-                            shellAvailable = state.shellAvailable,
                             onNetwork = { onNetwork(details.summary.packageName) },
                             onStorage = { onStorage(details.summary.packageName) },
-                            onOpen = { viewModel.launchIntent()?.let(context::startActivity) },
-                            onSettings = { context.startActivity(viewModel.settingsIntent()) },
-                            onExport = viewModel::exportApk,
-                            onForceStop = viewModel::forceStop,
-                            onClearCache = viewModel::clearCache,
-                            onClearData = viewModel::requestClearData,
-                            onUninstall = viewModel::requestUninstall,
+                            onOpen = onOpen,
+                            onSettings = onSettings,
                             onBrowse = onBrowse,
                             onDiskUsage = onDiskUsage,
-                            onCompile = viewModel::compile,
                         )
                         DetailTab.BEHAVIOR -> BehaviorTab(state.watch, state.watchLoading)
                         DetailTab.MANIFEST -> ManifestTab(state, onQuery = viewModel::setManifestQuery)
@@ -197,67 +227,145 @@ private fun Header(details: AppDetails) {
     }
 }
 
+/** Overflow menu in the app bar: the management, ART and export actions, out of the body's way. */
 @Composable
-private fun OverviewTab(
+private fun AppActionsMenu(
     details: AppDetails,
     shellAvailable: Boolean,
-    onNetwork: () -> Unit,
-    onStorage: () -> Unit,
-    onOpen: () -> Unit,
-    onSettings: () -> Unit,
     onExport: () -> Unit,
     onForceStop: () -> Unit,
     onClearCache: () -> Unit,
     onClearData: () -> Unit,
     onUninstall: () -> Unit,
+    onCompile: (com.snatik.storage.core.apps.CompileMode) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val error = MaterialTheme.colorScheme.error
+    IconButton(onClick = { open = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        fun run(action: () -> Unit) { open = false; action() }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_export_apk)) },
+            leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
+            onClick = { run(onExport) },
+        )
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_force_stop)) },
+            leadingIcon = { Icon(Icons.Default.Stop, contentDescription = null) },
+            enabled = shellAvailable,
+            onClick = { run(onForceStop) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_clear_cache)) },
+            leadingIcon = { Icon(Icons.Default.CleaningServices, contentDescription = null) },
+            enabled = shellAvailable,
+            onClick = { run(onClearCache) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_clear_data), color = if (shellAvailable) error else MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = if (shellAvailable) error else disabledTint()) },
+            enabled = shellAvailable,
+            onClick = { run(onClearData) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_uninstall), color = if (shellAvailable && !details.summary.isSystem) error else MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = if (shellAvailable && !details.summary.isSystem) error else disabledTint()) },
+            enabled = shellAvailable && !details.summary.isSystem,
+            onClick = { run(onUninstall) },
+        )
+        HorizontalDivider()
+        Text(
+            stringResource(R.string.compile_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        val modes = listOf(
+            com.snatik.storage.core.apps.CompileMode.SPEED to R.string.compile_speed,
+            com.snatik.storage.core.apps.CompileMode.SPEED_PROFILE to R.string.compile_profile,
+            com.snatik.storage.core.apps.CompileMode.VERIFY to R.string.compile_verify,
+            com.snatik.storage.core.apps.CompileMode.RESET to R.string.compile_reset,
+        )
+        modes.forEach { (mode, label) ->
+            DropdownMenuItem(text = { Text(stringResource(label)) }, enabled = shellAvailable, onClick = { run { onCompile(mode) } })
+        }
+        if (!shellAvailable) {
+            Text(
+                stringResource(R.string.shell_actions_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).width(240.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun disabledTint() = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+
+/** Compact primary actions: one tap each to open, tweak, or inspect the app. */
+@Composable
+private fun QuickActions(launchable: Boolean, onOpen: () -> Unit, onSettings: () -> Unit, onNetwork: () -> Unit, onStorage: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (launchable) QuickAction(Icons.AutoMirrored.Filled.OpenInNew, R.string.action_open, Modifier.weight(1f), onOpen)
+        QuickAction(Icons.Default.Settings, R.string.action_settings, Modifier.weight(1f), onSettings)
+        QuickAction(Icons.Default.Lan, R.string.net_title, Modifier.weight(1f), onNetwork)
+        QuickAction(Icons.Default.PieChart, R.string.app_storage_title, Modifier.weight(1f), onStorage)
+    }
+}
+
+@Composable
+private fun QuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, labelRes: Int, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier = modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
+        }
+        Text(stringResource(labelRes), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun OverviewTab(
+    details: AppDetails,
+    onNetwork: () -> Unit,
+    onStorage: () -> Unit,
+    onOpen: () -> Unit,
+    onSettings: () -> Unit,
     onBrowse: (String, String) -> Unit,
     onDiskUsage: (String, String) -> Unit,
-    onCompile: (com.snatik.storage.core.apps.CompileMode) -> Unit,
 ) {
     val context = LocalContext.current
     val s = details.summary
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 val storage = s.storage
                 if (storage != null) {
-                    StorageBar(storage.appBytes, storage.dataBytes, storage.cacheBytes)
-                    Text(stringResource(R.string.storage_total, storage.totalBytes.readableSize()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StorageBar(storage.appBytes, storage.dataBytes, storage.cacheBytes)
+                        Text(stringResource(R.string.storage_total, storage.totalBytes.readableSize()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 } else {
                     Text(stringResource(R.string.usage_access_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                QuickActions(
+                    launchable = details.launchable,
+                    onOpen = onOpen,
+                    onSettings = onSettings,
+                    onNetwork = onNetwork,
+                    onStorage = onStorage,
+                )
             }
         }
-        item {
-            FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (details.launchable) AssistChip(onClick = onOpen, label = { Text(stringResource(R.string.action_open)) })
-                AssistChip(onClick = onSettings, label = { Text(stringResource(R.string.action_settings)) })
-                AssistChip(onClick = onExport, label = { Text(stringResource(R.string.action_export_apk)) })
-                AssistChip(onClick = onNetwork, label = { Text(stringResource(R.string.net_title)) })
-                AssistChip(onClick = onStorage, label = { Text(stringResource(R.string.app_storage_title)) })
-            }
-        }
-        item {
-            FlowRow(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = onForceStop, enabled = shellAvailable, label = { Text(stringResource(R.string.action_force_stop)) })
-                AssistChip(onClick = onClearCache, enabled = shellAvailable, label = { Text(stringResource(R.string.action_clear_cache)) })
-                AssistChip(onClick = onClearData, enabled = shellAvailable, label = { Text(stringResource(R.string.action_clear_data)) })
-                AssistChip(onClick = onUninstall, enabled = shellAvailable && !s.isSystem, label = { Text(stringResource(R.string.action_uninstall)) })
-            }
-            if (!shellAvailable) {
-                Text(stringResource(R.string.shell_actions_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
-            }
-            if (shellAvailable) {
-                Text(stringResource(R.string.compile_title), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.SPEED) }, label = { Text(stringResource(R.string.compile_speed)) })
-                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.SPEED_PROFILE) }, label = { Text(stringResource(R.string.compile_profile)) })
-                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.VERIFY) }, label = { Text(stringResource(R.string.compile_verify)) })
-                    AssistChip(onClick = { onCompile(com.snatik.storage.core.apps.CompileMode.RESET) }, label = { Text(stringResource(R.string.compile_reset)) })
-                }
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        }
+        item { HorizontalDivider() }
         item { InfoRow(stringResource(R.string.info_uid), s.uid.toString()) }
         item { InfoRow(stringResource(R.string.info_sdk), stringResource(R.string.info_sdk_value, s.targetSdk, details.minSdk)) }
         item { InfoRow(stringResource(R.string.info_installed), s.firstInstallTime.fullDateTime(context)) }
@@ -304,16 +412,30 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun PathRow(label: String, path: String, onBrowse: () -> Unit, onAnalyze: (() -> Unit)? = null) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(110.dp))
-            SelectionContainer(modifier = Modifier.weight(1f)) { Text(path, style = MonoStyle) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SelectionContainer { Text(path, style = MonoStyle) }
         }
-        Row(modifier = Modifier.padding(start = 110.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.browse), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onBrowse).padding(vertical = 4.dp))
-            if (onAnalyze != null) {
-                Text(stringResource(R.string.analyze), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onAnalyze).padding(vertical = 4.dp))
-            }
+        FilledTonalIconButton(
+            onClick = onBrowse,
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+        ) { Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.browse)) }
+        if (onAnalyze != null) {
+            FilledTonalIconButton(
+                onClick = onAnalyze,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze)) }
         }
     }
 }
