@@ -121,7 +121,20 @@ class AppDetailViewModel(
     fun forceStop() = shellAction { actions.forceStop(packageName) }
     fun clearCache() = shellAction { actions.clearCache(packageName) }
     fun clearData() { dismissDialog(); shellAction { actions.clearData(packageName) } }
-    fun uninstall() { dismissDialog(); shellAction { actions.uninstall(packageName) } }
+    fun uninstall() {
+        dismissDialog()
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true) }
+            try {
+                actions.uninstall(packageName)
+                _messages.send("uninstalled") // the screen pops back; don't reload a package that's gone
+            } catch (e: Exception) {
+                _messages.send(e.message ?: e.toString())
+                _state.update { it.copy(busy = false) }
+                load()
+            }
+        }
+    }
     fun setPermission(permission: String, grant: Boolean) = shellAction { actions.grantPermission(packageName, permission, grant) }
 
     fun compile(mode: com.snatik.storage.core.apps.CompileMode) {

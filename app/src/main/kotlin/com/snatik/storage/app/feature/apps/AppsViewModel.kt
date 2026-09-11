@@ -73,13 +73,12 @@ class AppsViewModel(private val repository: AppRepository) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppsUiState())
 
-    init {
-        refresh()
-    }
-
+    // Re-listed on every screen resume (see AppsScreen) so uninstalls/installs/updates made
+    // elsewhere show up on return. Only flip the loading state on the first, empty load so a
+    // routine refresh doesn't flash a spinner over the existing list.
     fun refresh() {
         viewModelScope.launch {
-            local.update { it.copy(loading = true) }
+            if (local.value.all.isEmpty()) local.update { it.copy(loading = true) }
             val apps = repository.list()
             local.update { it.copy(all = apps, loading = false, hasUsageAccess = repository.hasUsageAccess()) }
         }

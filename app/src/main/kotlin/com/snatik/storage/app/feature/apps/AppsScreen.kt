@@ -56,6 +56,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.navigation.TopLevel
@@ -74,6 +76,9 @@ fun AppsScreen(onOpenApp: (String) -> Unit, onSwitchTab: (TopLevel) -> Unit, vie
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // Re-list on every resume so an app uninstalled/updated from the detail screen (or outside the
+    // app) is reflected when returning here.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
     BackHandler(enabled = state.searchActive) { viewModel.setSearchActive(false) }
 

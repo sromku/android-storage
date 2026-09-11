@@ -121,6 +121,7 @@ fun AppDetailScreen(
 
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { message ->
+            if (message == "uninstalled") { onBack(); return@collect }
             val text = when {
                 message == "done" -> resources.getString(R.string.action_done)
                 message.startsWith("exported:") -> resources.getString(R.string.apk_exported, message.removePrefix("exported:"))
