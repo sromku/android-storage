@@ -32,6 +32,9 @@ import com.snatik.storage.core.apps.ElfInspector
 import com.snatik.storage.app.feature.system.SystemViewModel
 import com.snatik.storage.app.feature.viewer.ElfViewModel
 import com.snatik.storage.core.apps.TelemetryDatabase
+import com.snatik.storage.core.apps.AppEventDatabase
+import com.snatik.storage.core.apps.AppEventLog
+import com.snatik.storage.app.feature.history.AppHistoryViewModel
 import com.snatik.storage.core.apps.TelemetryRepository
 import com.snatik.storage.app.feature.timemachine.TimeMachineViewModel
 import com.snatik.storage.core.apps.StorageBenchmark
@@ -137,6 +140,8 @@ val appModule = module {
     single { ElfInspector(get<com.snatik.storage.core.fs.FileSystem>()) }
     single { TelemetryDatabase.create(androidContext()) }
     single { TelemetryRepository(androidContext(), get(), get()) }
+    single { AppEventDatabase.create(androidContext()) }
+    single { AppEventLog(androidContext(), get(), get()) }
     single { StorageBenchmark() }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
@@ -208,4 +213,5 @@ val appModule = module {
     viewModelOf(::TimeMachineViewModel)
     viewModel { BenchmarkViewModel(androidContext(), get()) }
     viewModelOf(::PermissionFootprintViewModel)
+    viewModelOf(::AppHistoryViewModel)
 }

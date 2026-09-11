@@ -87,6 +87,17 @@
                 android:value="Developer tooling: records logcat, broadcasts and file changes on request" />
         </service>
 
+        <receiver
+            android:name=".feature.history.PackageEventReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".feature.monitor.NotificationMonitorService"
             android:exported="false"

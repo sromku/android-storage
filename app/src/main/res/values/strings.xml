@@ -103,6 +103,17 @@
     <string name="perm_grant">Grant</string>
     <string name="perm_revoke">Revoke</string>
     <string name="action_open">Open</string>
+    <string name="action_play_store">Open in Play Store</string>
+    <string name="app_history_title">App history</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_empty">No app events yet</string>
+    <string name="history_live">%1$d events · tracking live</string>
+    <string name="hist_all">All</string>
+    <string name="hist_seeded">from install date</string>
+    <string name="ev_installed">Installed</string>
+    <string name="ev_updated">Updated</string>
+    <string name="ev_uninstalled">Uninstalled</string>
+    <string name="tools_history_sub">Installs, updates &amp; removals over time</string>
     <string name="action_settings">Settings</string>
     <string name="action_export_apk">Export APK</string>
     <string name="action_force_stop">Force stop</string>

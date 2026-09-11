@@ -74,6 +74,7 @@ fun ToolsScreen(
     onOpenTimeMachine: () -> Unit,
     onOpenBenchmark: () -> Unit,
     onOpenPermFootprint: () -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenPalette: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -95,6 +96,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine),
         Tool(stringResource(R.string.bench_title), stringResource(R.string.tools_bench_sub), Icons.Default.Speed, onOpenBenchmark),
         Tool(stringResource(R.string.permfoot_title), stringResource(R.string.tools_permfoot_sub), Icons.Default.Balance, onOpenPermFootprint),
+        Tool(stringResource(R.string.app_history_title), stringResource(R.string.tools_history_sub), Icons.Default.History, onOpenHistory),
     )
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

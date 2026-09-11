@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shop
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
@@ -78,6 +79,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -118,6 +120,13 @@ fun AppDetailScreen(
 
     val onOpen = { viewModel.launchIntent()?.let(context::startActivity); Unit }
     val onSettings = { context.startActivity(viewModel.settingsIntent()) }
+    val onPlayStore = {
+        val market = android.content.Intent(android.content.Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
+        runCatching { context.startActivity(market) }.onFailure {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$packageName".toUri()))
+        }
+        Unit
+    }
 
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { message ->
@@ -145,6 +154,7 @@ fun AppDetailScreen(
                         AppActionsMenu(
                             details = d,
                             shellAvailable = state.shellAvailable,
+                            onPlayStore = onPlayStore,
                             onExport = viewModel::exportApk,
                             onForceStop = viewModel::forceStop,
                             onClearCache = viewModel::clearCache,
@@ -245,6 +255,7 @@ private fun Header(details: AppDetails) {
 private fun AppActionsMenu(
     details: AppDetails,
     shellAvailable: Boolean,
+    onPlayStore: () -> Unit,
     onExport: () -> Unit,
     onForceStop: () -> Unit,
     onClearCache: () -> Unit,
@@ -257,6 +268,11 @@ private fun AppActionsMenu(
     IconButton(onClick = { open = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         fun run(action: () -> Unit) { open = false; action() }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_play_store)) },
+            leadingIcon = { Icon(Icons.Default.Shop, contentDescription = null) },
+            onClick = { run(onPlayStore) },
+        )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_export_apk)) },
             leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },

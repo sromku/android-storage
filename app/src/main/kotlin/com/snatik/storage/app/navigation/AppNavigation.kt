@@ -41,6 +41,7 @@ import com.snatik.storage.app.feature.benchmark.BenchmarkScreen
 import com.snatik.storage.app.feature.palette.Command
 import com.snatik.storage.app.feature.palette.CommandPaletteScreen
 import com.snatik.storage.app.feature.dashboard.PermissionFootprintScreen
+import com.snatik.storage.app.feature.history.AppHistoryScreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GridOn
@@ -232,6 +233,7 @@ fun AppNavigation() {
                     onOpenTimeMachine = { push(Route.TimeMachine) },
                     onOpenBenchmark = { push(Route.Benchmark) },
                     onOpenPermFootprint = { push(Route.PermissionFootprint) },
+                    onOpenHistory = { push(Route.AppHistory) },
                     onOpenPalette = { push(Route.CommandPalette) },
                 )
             }
@@ -250,6 +252,7 @@ fun AppNavigation() {
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
             entry<Route.PermissionFootprint> { PermissionFootprintScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
+            entry<Route.AppHistory> { AppHistoryScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.CommandPalette> {
                 val open: (Route) -> Unit = { r -> pop(); push(r) }
                 val commands = listOf(
@@ -268,6 +271,7 @@ fun AppNavigation() {
                     Command("Storage insights", "Duplicates, empties, ghosts", "duplicates reclaim insights", Icons.Default.Insights) { open(Route.Insights) },
                     Command("System", "Mounts, ZRAM, smaps", "mounts partitions zram smaps kernel", Icons.Default.Memory) { open(Route.System) },
                     Command("Time Machine", "Storage growth forecast", "telemetry growth forecast", Icons.Default.Timeline) { open(Route.TimeMachine) },
+                    Command("App history", "Installs, updates & removals", "history installed uninstalled timeline", Icons.Default.History) { open(Route.AppHistory) },
                     Command("Benchmark", "Read/write throughput", "benchmark speed iops", Icons.Default.Speed) { open(Route.Benchmark) },
                     Command("Intents", "Build and watch intents", "intents broadcast deeplink", Icons.AutoMirrored.Filled.Send) { open(Route.Intents) },
                     Command("Capture", "Snapshots and recording", "snapshot diff record", Icons.Default.FiberManualRecord) { open(Route.Capture()) },
