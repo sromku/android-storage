@@ -52,7 +52,10 @@ class RoutedFileSystem(
 
     private fun isAppSandboxOfOthers(path: String): Boolean {
         val match = ANDROID_SANDBOX.find(path) ?: return false
-        return match.groupValues[1] != ownPackage
+        val pkg = match.groupValues[1]
+        // The Android/data and Android/obb directories themselves (no package segment) and any
+        // other app's subtree are unreadable to this app but visible to the shell.
+        return pkg.isEmpty() || pkg != ownPackage
     }
 
     private val ownPackage: String get() = debuggable.ownPackageName
@@ -96,6 +99,6 @@ class RoutedFileSystem(
     }
 
     private companion object {
-        val ANDROID_SANDBOX = Regex("^/storage/[^/]+/(?:\\d+/)?Android/(?:data|obb)/([^/]+)")
+        val ANDROID_SANDBOX = Regex("^/storage/[^/]+/(?:\\d+/)?Android/(?:data|obb)(?:/([^/]+))?")
     }
 }

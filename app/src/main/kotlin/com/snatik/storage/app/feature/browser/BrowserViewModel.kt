@@ -17,8 +17,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+
+private const val MAX_SEARCH_ENTRIES = 50_000
+private const val MAX_SEARCH_RESULTS = 500
 
 sealed interface BrowserDialog {
     data object NewFolder : BrowserDialog
@@ -52,6 +56,7 @@ data class BrowserUiState(
     val error: StorageException? = null,
     val query: String = "",
     val searchActive: Boolean = false,
+    val searching: Boolean = false,
     val selected: Set<String> = emptySet(),
     val dialog: BrowserDialog? = null,
     val details: EntryDetails? = null,
@@ -78,6 +83,8 @@ class BrowserViewModel(
         val error: StorageException? = null,
         val query: String = "",
         val searchActive: Boolean = false,
+        val searching: Boolean = false,
+        val deepMatches: List<FsEntry> = emptyList(),
         val selected: Set<String> = emptySet(),
         val dialog: BrowserDialog? = null,
         val details: EntryDetails? = null,
@@ -87,11 +94,20 @@ class BrowserViewModel(
     private val local = MutableStateFlow(Local())
 
     val state: StateFlow<BrowserUiState> = combine(local, preferences.state, clipboard.content, runner.running) { l, prefs, clip, running ->
-        val visible = l.raw.asSequence()
+        val direct = l.raw.asSequence()
             .filter { prefs.showHidden || !it.isHidden }
             .filter { l.query.isBlank() || it.name.contains(l.query, ignoreCase = true) }
             .sortedWith(prefs.sort.comparator())
             .toList()
+        // While searching, current-directory matches come first, then matches found deeper down.
+        val visible = if (l.query.isBlank()) direct else {
+            val here = direct.mapTo(HashSet()) { it.path }
+            direct + l.deepMatches.asSequence()
+                .filter { prefs.showHidden || !it.isHidden }
+                .filter { it.path !in here }
+                .sortedWith(prefs.sort.comparator())
+                .toList()
+        }
         BrowserUiState(
             entries = visible,
             totalCount = l.raw.size,
@@ -100,6 +116,7 @@ class BrowserViewModel(
             error = l.error,
             query = l.query,
             searchActive = l.searchActive,
+            searching = l.searching,
             selected = l.selected.filterTo(HashSet()) { path -> visible.any { it.path == path } },
             dialog = l.dialog,
             details = l.details,
@@ -118,6 +135,7 @@ class BrowserViewModel(
     val messages = _messages.receiveAsFlow()
 
     private var detailsJob: Job? = null
+    private var searchJob: Job? = null
 
     init {
         load()
@@ -162,8 +180,57 @@ class BrowserViewModel(
 
     // Search, sort, hidden
 
-    fun setSearchActive(active: Boolean) = local.update { it.copy(searchActive = active, query = if (active) it.query else "") }
-    fun setQuery(query: String) = local.update { it.copy(query = query) }
+    fun setSearchActive(active: Boolean) {
+        if (!active) {
+            searchJob?.cancel()
+            searchJob = null
+        }
+        local.update { it.copy(searchActive = active, query = if (active) it.query else "", searching = false, deepMatches = if (active) it.deepMatches else emptyList()) }
+    }
+
+    fun setQuery(query: String) {
+        local.update { it.copy(query = query, deepMatches = emptyList()) }
+        startDeepSearch(query)
+    }
+
+    /** Walk the subtree under the current directory (debounced) to surface matches in nested folders. */
+    private fun startDeepSearch(query: String) {
+        searchJob?.cancel()
+        val needle = query.trim()
+        if (needle.isBlank()) {
+            local.update { it.copy(searching = false) }
+            return
+        }
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(300) // let the typist finish before we crawl
+            local.update { it.copy(searching = true, deepMatches = emptyList()) }
+            val found = ArrayList<FsEntry>()
+            var visited = 0
+            val queue = ArrayDeque<String>()
+            queue += route.path
+            try {
+                while (queue.isNotEmpty() && isActive) {
+                    val dir = queue.removeFirst()
+                    val children = runCatching { fs.list(dir) }.getOrNull() ?: continue
+                    val batch = ArrayList<FsEntry>()
+                    for (child in children) {
+                        // Skip direct children of the starting directory; those already show via the plain filter.
+                        if (child.name.contains(needle, ignoreCase = true) && child.parentPath != route.path) batch += child
+                        if (child.isDirectory && !child.isSymlink && child.canRead) queue += child.path
+                    }
+                    if (batch.isNotEmpty()) {
+                        found += batch
+                        val snapshot = found.toList()
+                        local.update { if (it.query.trim() == needle) it.copy(deepMatches = snapshot) else it }
+                    }
+                    visited += children.size
+                    if (visited > MAX_SEARCH_ENTRIES || found.size > MAX_SEARCH_RESULTS) break
+                }
+            } finally {
+                local.update { if (it.query.trim() == needle) it.copy(searching = false) else it }
+            }
+        }
+    }
     fun setSort(field: SortField, ascending: Boolean) = preferences.setSort(field, ascending)
     fun setShowHidden(show: Boolean) = preferences.setShowHidden(show)
 

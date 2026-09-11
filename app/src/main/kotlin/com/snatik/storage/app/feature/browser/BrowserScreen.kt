@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -50,6 +51,7 @@ import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -64,6 +66,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -96,6 +99,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.StorageException
@@ -194,15 +198,18 @@ fun BrowserScreen(
             if (route.path != route.rootPath) {
                 Breadcrumbs(rootLabel = route.rootLabel, rootPath = route.rootPath, path = route.path, onNavigate = onOpenDirectory)
             }
-            if (state.loading) {
+            if (state.loading || state.searching) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
             } else {
                 Spacer(Modifier.height(2.dp))
             }
+            if (state.searching || (state.query.isNotBlank() && state.entries.isNotEmpty())) {
+                SearchStatus(searching = state.searching, count = state.entries.size)
+            }
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
                     state.error != null -> ErrorState(state.error!!)
-                    !state.loading && state.entries.isEmpty() -> {
+                    !state.loading && !state.searching && state.entries.isEmpty() -> {
                         when {
                             state.query.isNotBlank() -> EmptyState(Icons.Default.SearchOff, stringResource(R.string.no_matches), null)
                             state.totalCount > 0 -> EmptyState(
@@ -216,6 +223,7 @@ fun BrowserScreen(
                     }
                     else -> EntryList(
                         state = state,
+                        currentPath = route.path,
                         listState = listState,
                         onOpen = { entry -> if (entry.isDirectory) onOpenDirectory(entry.path) else onOpenFile(entry) },
                         onToggle = viewModel::toggleSelected,
@@ -268,7 +276,10 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                 )
                 LaunchedEffect(Unit) { focus.requestFocus() }
             } else {
-                Text(if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'), maxLines = 1)
+                Column {
+                    Text(if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text(route.path, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         },
         navigationIcon = {
@@ -449,8 +460,25 @@ private fun ErrorState(error: StorageException) {
 }
 
 @Composable
+private fun SearchStatus(searching: Boolean, count: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (searching) {
+            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+            Text(stringResource(R.string.searching_nested), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.weight(1f))
+        }
+        Text(stringResource(R.string.search_results_count, count), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 private fun EntryList(
     state: BrowserUiState,
+    currentPath: String,
     listState: LazyListState,
     onOpen: (FsEntry) -> Unit,
     onToggle: (String) -> Unit,
@@ -473,11 +501,15 @@ private fun EntryList(
     ) {
         items(state.entries, key = { it.path }) { entry ->
             val selected = entry.path in state.selected
+            val subPath = entry.parentPath?.takeIf { it != currentPath }?.let { parent ->
+                if (parent.startsWith("$currentPath/")) parent.removePrefix("$currentPath/") else parent
+            }
             EntryRow(
                 entry = entry,
                 selected = selected,
                 selectionMode = state.selectionMode,
                 encrypted = entry.path in state.encryptedDbs,
+                subPath = subPath,
                 onClick = { if (state.selectionMode) onToggle(entry.path) else onOpen(entry) },
                 onLongClick = { onToggle(entry.path) },
                 menu = { dismiss ->
@@ -514,6 +546,7 @@ private fun EntryRow(
     selected: Boolean,
     selectionMode: Boolean,
     encrypted: Boolean = false,
+    subPath: String? = null,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     menu: @Composable (dismiss: () -> Unit) -> Unit,
@@ -548,6 +581,12 @@ private fun EntryRow(
             val symlink = if (entry.isSymlink) "  ·  " + stringResource(R.string.symlink) else ""
             val detail = listOfNotNull(primary, entry.lastModified.relativeTime(context)).joinToString("  ·  ") + symlink
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            if (subPath != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Icon(Icons.Default.SubdirectoryArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                    Text(subPath, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                }
+            }
         }
         if (!selectionMode) {
             var open by remember { mutableStateOf(false) }

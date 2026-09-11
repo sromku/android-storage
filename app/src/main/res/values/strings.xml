@@ -468,6 +468,8 @@
     <string name="show_hidden">Show hidden files</string>
     <string name="empty_directory">Nothing here yet</string>
     <string name="no_matches">No matches</string>
+    <string name="searching_nested">Searching nested folders…</string>
+    <string name="search_results_count">%1$d found</string>
     <string name="cannot_read_directory">Can\'t read this directory</string>
     <string name="cannot_read_hint">It needs more access than the app has right now. Shell access via Shizuku covers most of the device; a few paths need root.</string>
     <string name="directory_missing">This directory no longer exists</string>
