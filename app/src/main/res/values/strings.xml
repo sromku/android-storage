@@ -309,6 +309,12 @@
     <string name="uri_discover_title">Provider URIs</string>
     <string name="uri_discovering">Decompiling base APK and scanning for UriMatcher.addURI…</string>
     <string name="uri_scanned">Scanned %1$d / %2$d classes · %3$d found</string>
+    <string name="uri_phase_reading">Reading base APK…</string>
+    <string name="uri_phase_loading">Loading dex — this can take a while for large apps…</string>
+    <string name="uri_phase_scanning">Scanning app classes for UriMatcher.addURI</string>
+    <string name="uri_phase_scanning_dex">Scanning dex %1$d / %2$d for UriMatcher.addURI</string>
+    <string name="uri_scan_all">Scan all classes (slower)</string>
+    <string name="uri_none_scoped_body">Nothing in the app\'s own code. It may inherit paths from a library base class — try scanning all classes.</string>
     <string name="uri_none">No URI paths found</string>
     <string name="uri_none_body">This provider may not use UriMatcher, or its paths are built at runtime rather than string literals.</string>
     <string name="uri_cancel">Cancel</string>

@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,11 +50,16 @@ import org.koin.core.parameter.parametersOf
 
 data class UrisUiState(
     val running: Boolean = true,
+    val phase: UriDiscovery.Phase = UriDiscovery.Phase.READING,
     val scanned: Int = 0,
     val total: Int = 0,
     val found: Int = 0,
+    val dexIndex: Int = 0,
+    val dexCount: Int = 0,
     val paths: List<String> = emptyList(),
     val error: String? = null,
+    /** True once a scoped (app-code-only) scan finished with no results — offer a full scan. */
+    val offerScanAll: Boolean = false,
 )
 
 class ProviderUrisViewModel(route: Route.ProviderUris, private val discovery: UriDiscovery) : ViewModel() {
@@ -64,17 +72,19 @@ class ProviderUrisViewModel(route: Route.ProviderUris, private val discovery: Ur
     val state: StateFlow<UrisUiState> = _state.asStateFlow()
     private var job: Job? = null
 
-    init { start() }
+    init { start(scanAll = false) }
 
-    fun start() {
+    fun start(scanAll: Boolean) {
         job?.cancel()
         _state.value = UrisUiState(running = true)
         job = viewModelScope.launch {
             try {
-                discovery.discover(pkg, providerClass, authority).collect { e ->
+                discovery.discover(pkg, providerClass, authority, scanAll).collect { e ->
                     when (e) {
-                        is UriDiscovery.Event.Progress -> _state.update { it.copy(scanned = e.scanned, total = e.total, found = e.found) }
-                        is UriDiscovery.Event.Done -> _state.update { it.copy(running = false, paths = e.paths, found = e.paths.size) }
+                        is UriDiscovery.Event.Status -> _state.update { it.copy(phase = e.phase, scanned = e.scanned, total = e.total, found = e.found, dexIndex = e.dexIndex, dexCount = e.dexCount) }
+                        is UriDiscovery.Event.Done -> _state.update {
+                            it.copy(running = false, paths = e.paths, found = e.paths.size, offerScanAll = e.scopedOnly && e.paths.isEmpty())
+                        }
                     }
                 }
             } catch (e: UriDiscovery.DiscoveryException) {
@@ -84,6 +94,8 @@ class ProviderUrisViewModel(route: Route.ProviderUris, private val discovery: Ur
             }
         }
     }
+
+    fun scanAll() = start(scanAll = true)
 
     fun cancel() {
         job?.cancel()
@@ -119,10 +131,23 @@ fun ProviderUrisScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (state.running) {
+                val phaseLabel = when (state.phase) {
+                    UriDiscovery.Phase.READING -> stringResource(R.string.uri_phase_reading)
+                    UriDiscovery.Phase.LOADING -> stringResource(R.string.uri_phase_loading)
+                    UriDiscovery.Phase.SCANNING ->
+                        if (state.dexCount > 0) stringResource(R.string.uri_phase_scanning_dex, state.dexIndex, state.dexCount)
+                        else stringResource(R.string.uri_phase_scanning)
+                }
+                val scanning = state.phase == UriDiscovery.Phase.SCANNING && state.total > 0
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.uri_discovering), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (state.total > 0) {
-                        LinearProgressIndicator(progress = { state.scanned.toFloat() / state.total }, modifier = Modifier.fillMaxWidth())
+                    Text(phaseLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (scanning) {
+                        LinearProgressIndicator(
+                            progress = { state.scanned.toFloat() / state.total },
+                            modifier = Modifier.fillMaxWidth(),
+                            drawStopIndicator = {},
+                            gapSize = 0.dp,
+                        )
                         Text(stringResource(R.string.uri_scanned, state.scanned, state.total, state.found), style = MaterialTheme.typography.bodySmall)
                     } else {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -133,7 +158,26 @@ fun ProviderUrisScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
                     state.error != null -> EmptyState(Icons.Default.Link, stringResource(R.string.query_failed), state.error)
-                    !state.running && state.paths.isEmpty() -> EmptyState(Icons.Default.Link, stringResource(R.string.uri_none), stringResource(R.string.uri_none_body))
+                    !state.running && state.paths.isEmpty() -> Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(stringResource(R.string.uri_none), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            stringResource(if (state.offerScanAll) R.string.uri_none_scoped_body else R.string.uri_none_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        if (state.offerScanAll) {
+                            Spacer(Modifier.height(12.dp))
+                            androidx.compose.material3.Button(onClick = viewModel::scanAll) { Text(stringResource(R.string.uri_scan_all)) }
+                        }
+                    }
                     else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                         items(state.paths, key = { it }) { path ->
                             UriRow(uri = viewModel.uriFor(path), pattern = path.any { it == '#' || it == '*' }, onClick = { onOpenProvider(path, viewModel.uriFor(path)) })

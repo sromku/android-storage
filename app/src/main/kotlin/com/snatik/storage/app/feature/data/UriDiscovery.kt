@@ -19,61 +19,74 @@ import java.util.zip.ZipFile
  * Recovers a provider's real content:// paths by decompiling its base APK and scraping
  * `UriMatcher.addURI(...)` calls. Obfuscation-safe: `addURI` is an SDK method (never renamed) and
  * string literals survive R8, so we take the 2nd argument (the path) and pair it with the known
- * authority. Code lives in base.apk, so splits are ignored. Best-effort: providers that don't use
- * UriMatcher yield nothing.
+ * authority. Code lives in base.apk, so splits are ignored. Best-effort.
+ *
+ * By default only the app's own packages are decompiled (huge apps bundle tens of thousands of
+ * library classes); [scanAll] widens to every class.
  */
 class UriDiscovery(private val context: Context, private val apps: AppRepository) {
 
+    enum class Phase { READING, LOADING, SCANNING }
+
     sealed interface Event {
-        data class Progress(val scanned: Int, val total: Int, val found: Int) : Event
-        data class Done(val paths: List<String>) : Event
+        data class Status(val phase: Phase, val scanned: Int = 0, val total: Int = 0, val found: Int = 0, val dexIndex: Int = 0, val dexCount: Int = 0) : Event
+        data class Done(val paths: List<String>, val scopedOnly: Boolean) : Event
     }
 
     class DiscoveryException(message: String) : Exception(message)
 
-    fun discover(packageName: String, providerClass: String, authority: String): Flow<Event> = flow {
+    fun discover(packageName: String, providerClass: String, authority: String, scanAll: Boolean = false): Flow<Event> = flow {
+        emit(Event.Status(Phase.READING))
         val info = apps.applicationInfo(packageName) ?: throw DiscoveryException("App not found")
         val apk = info.publicSourceDir ?: info.sourceDir ?: throw DiscoveryException("Base APK not found")
-        val dexes = extractDexes(File(apk))
+        val dexes = extractDexes(File(apk)).sortedBy { it.name }
         if (dexes.isEmpty()) throw DiscoveryException("No dex in base APK")
 
-        val args = JadxArgs().apply {
-            inputFiles.addAll(dexes)
-            security = AndroidJadxSecurity()
-            setSkipResources(true)
-            isShowInconsistentCode = true
-            threadsCount = 1
-        }
-        val jadx = JadxDecompiler(args)
-        runCatching { Files.createDirectories(args.filesGetter.tempDir) }
-        jadx.load()
-        try {
-            val providerPkg = providerClass.substringBeforeLast('.', "")
-            // Decompile the likely classes first (the provider, its package, the app package) so
-            // results stream early even though we still scan everything.
-            val ordered = jadx.classes.sortedByDescending { c ->
-                val n = c.fullName
-                when {
-                    n == providerClass -> 3
-                    providerPkg.isNotEmpty() && n.startsWith(providerPkg) -> 2
-                    n.startsWith(packageName) -> 1
-                    else -> 0
-                }
+        val providerPkg = providerClass.substringBeforeLast('.', "")
+        val prefixes = listOf(packageName, providerPkg).filter { it.isNotEmpty() }.distinct()
+        val found = LinkedHashSet<String>()
+        var lastEmit = 0L
+
+        // Decompile one dex at a time and close it before the next, so peak memory stays bounded to a
+        // single dex — loading a huge app's whole dex set at once OOMs the 512MB heap.
+        dexes.forEachIndexed { di, dex ->
+            currentCoroutineContext().ensureActive()
+            emit(Event.Status(Phase.LOADING, dexIndex = di + 1, dexCount = dexes.size))
+            val args = JadxArgs().apply {
+                inputFiles.add(dex)
+                security = AndroidJadxSecurity()
+                setSkipResources(true)
+                isShowInconsistentCode = true
+                setDebugInfo(false)
+                threadsCount = 1
             }
-            val total = ordered.size
-            val found = LinkedHashSet<String>()
-            ordered.forEachIndexed { i, cls ->
-                currentCoroutineContext().ensureActive()
-                val code = runCatching { cls.code }.getOrNull()
-                if (code != null && code.contains("addURI")) {
-                    extractPaths(code, authority).forEach { found.add(it) }
+            val jadx = JadxDecompiler(args)
+            runCatching { Files.createDirectories(args.filesGetter.tempDir) }
+            try {
+                jadx.load()
+                val target = if (scanAll) jadx.classes
+                else jadx.classes.filter { c -> prefixes.any { c.fullName == it || c.fullName.startsWith("$it.") } }
+                val total = target.size
+                target.forEachIndexed { i, cls ->
+                    currentCoroutineContext().ensureActive()
+                    val code = runCatching { cls.code }.getOrNull()
+                    if (code != null && code.contains("addURI")) {
+                        extractPaths(code, authority).forEach { found.add(it) }
+                    }
+                    runCatching { cls.unload() } // free the decompiled AST immediately
+                    val now = System.currentTimeMillis()
+                    if (now - lastEmit > 150 || i == total - 1) {
+                        lastEmit = now
+                        emit(Event.Status(Phase.SCANNING, i + 1, total, found.size, di + 1, dexes.size))
+                    }
                 }
-                if (i % 20 == 0 || i == total - 1) emit(Event.Progress(i + 1, total, found.size))
+            } catch (oom: OutOfMemoryError) {
+                // Skip a dex too big to fit; keep whatever we already found.
+            } finally {
+                runCatching { jadx.close() }
             }
-            emit(Event.Done(found.sorted()))
-        } finally {
-            runCatching { jadx.close() }
         }
+        emit(Event.Done(found.sorted(), scopedOnly = !scanAll))
     }.flowOn(Dispatchers.IO)
 
     private fun extractDexes(apk: File): List<File> {
