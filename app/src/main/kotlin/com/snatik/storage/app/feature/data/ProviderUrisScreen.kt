@@ -34,9 +34,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -129,8 +131,8 @@ fun ProviderUrisScreen(
         ModalBottomSheet(onDismissRequest = viewModel::closeResolve, sheetState = sheetState) {
             ResolveSheet(
                 resolve = resolve,
-                onPick = { value ->
-                    val concrete = viewModel.concretePath(resolve.path, value)
+                toUri = viewModel::uriFor,
+                onQuery = { concrete ->
                     viewModel.closeResolve()
                     onOpenProvider(concrete, viewModel.uriFor(concrete))
                 },
@@ -279,36 +281,77 @@ private fun MenuRow(icon: ImageVector, text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ResolveSheet(resolve: ResolveState, onPick: (String) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            stringResource(if (resolve.wildcard == '#') R.string.uri_resolve_title_id else R.string.uri_resolve_title_key),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(resolve.path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-        when {
-            resolve.loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 12.dp)) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.uri_resolve_loading), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            resolve.error != null -> Text(resolve.error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-            else -> {
-                Text(stringResource(R.string.uri_resolve_hint, resolve.values.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(360.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(resolve.values, key = { it.value }) { v ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onPick(v.value) }.padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(v.value, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                                v.label?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                            }
-                            Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+private fun ResolveSheet(resolve: ResolveState, toUri: (String) -> String, onQuery: (String) -> Unit) {
+    val slots = remember(resolve.path) { PatternUris.slots(resolve.path) }
+    var inputs by remember(resolve.path) { mutableStateOf(List(slots.size) { "" }) }
+    val manualPath = PatternUris.substituteAll(resolve.path, inputs)
+    val manualReady = inputs.all { it.isNotBlank() }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item("title") {
+            Text(
+                stringResource(if (resolve.wildcard == '#') R.string.uri_resolve_title_id else R.string.uri_resolve_title_key),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        // Transparency: the exact collection URI we queried, and how it went.
+        item("checked") {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.uri_resolve_checked), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(resolve.parentUri, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 2, overflow = TextOverflow.MiddleEllipsis)
+                    when {
+                        resolve.loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text(stringResource(R.string.uri_resolve_loading), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        resolve.error != null -> Text(resolve.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        resolve.values.isNotEmpty() -> Text(stringResource(R.string.uri_resolve_hint, resolve.values.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        else -> Text(stringResource(R.string.uri_resolve_empty), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+        }
+        items(resolve.values, key = { "v/" + it.value }) { v ->
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onQuery(PatternUris.substitute(resolve.path, v.value)) }.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(v.value, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                    v.label?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            }
+        }
+        // Manual entry: fill each placeholder yourself and query.
+        item("manual") {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+                HorizontalDivider()
+                Text(stringResource(R.string.uri_resolve_manual), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                slots.forEachIndexed { i, (ch, preceding) ->
+                    val base = stringResource(if (ch == '#') R.string.uri_resolve_slot_id else R.string.uri_resolve_slot_value)
+                    // Label by the preceding path segment when it's a real one; otherwise number the slot.
+                    val where = preceding.takeIf { it.isNotEmpty() && it != "#" && it != "*" }
+                    val label = if (where != null) "$where · $base" else "$base ${i + 1}"
+                    OutlinedTextField(
+                        value = inputs[i],
+                        onValueChange = { v -> inputs = inputs.toMutableList().also { it[i] = v } },
+                        label = { Text(label) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text(toUri(manualPath), style = MonoStyle.copy(color = if (manualReady) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 2, overflow = TextOverflow.MiddleEllipsis)
+                Button(onClick = { onQuery(manualPath) }, enabled = manualReady, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.uri_action_query), modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

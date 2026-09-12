@@ -340,8 +340,13 @@
     <string name="uri_perm_sig_need_shell">Signature permission — a normal app can\'t hold it. Connect Shizuku or root to read this provider.</string>
     <string name="uri_resolve_title_id">Pick an id</string>
     <string name="uri_resolve_title_key">Pick a value</string>
-    <string name="uri_resolve_loading">Querying the parent collection…</string>
+    <string name="uri_resolve_loading">Querying…</string>
     <string name="uri_resolve_hint">%1$d values found — tap one to query with it</string>
+    <string name="uri_resolve_checked">Queried the parent collection</string>
+    <string name="uri_resolve_empty">No rows returned — enter a value manually below.</string>
+    <string name="uri_resolve_manual">Or set values manually</string>
+    <string name="uri_resolve_slot_id">id (#)</string>
+    <string name="uri_resolve_slot_value">value (*)</string>
     <string name="qq_remove">Remove</string>
     <string name="qq_remove_title">Remove saved query?</string>
     <string name="qq_remove_message">\"%1$s\" will be removed from Quick queries. To get it back you\'ll have to discover and save it again.</string>

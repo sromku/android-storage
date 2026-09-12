@@ -37,6 +37,22 @@ class PatternUrisTest {
         assertNull(PatternUris.pickIdColumn(emptyList(), '#'))
     }
 
+    @Test fun slotsListEachWildcardWithItsPrecedingSegment() {
+        assertEquals(listOf('#' to "calls"), PatternUris.slots("calls/#"))
+        assertEquals(listOf('#' to "contacts"), PatternUris.slots("contacts/#/data"))
+        assertEquals(listOf('*' to "suggestion", '*' to "*"), PatternUris.slots("suggestion/*/*"))
+        assertEquals(listOf('#' to ""), PatternUris.slots("#"))
+        assertEquals(emptyList(), PatternUris.slots("contacts"))
+    }
+
+    @Test fun substituteAllFillsEveryWildcardInOrder() {
+        assertEquals("calls/42", PatternUris.substituteAll("calls/#", listOf("42")))
+        assertEquals("suggestion/battery/low", PatternUris.substituteAll("suggestion/*/*", listOf("battery", "low")))
+        // a blank value keeps its placeholder (partial fill)
+        assertEquals("suggestion/battery/*", PatternUris.substituteAll("suggestion/*/*", listOf("battery", "")))
+        assertEquals("suggestion/*/*", PatternUris.substituteAll("suggestion/*/*", emptyList()))
+    }
+
     @Test fun pickLabelColumnFindsDisplayNameButNotTheIdColumn() {
         assertEquals("display_name", PatternUris.pickLabelColumn(listOf("_id", "display_name"), "_id"))
         // the id column itself is never used as its own label

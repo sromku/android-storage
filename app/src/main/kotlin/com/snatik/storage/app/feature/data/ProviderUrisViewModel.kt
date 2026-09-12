@@ -43,6 +43,26 @@ object PatternUris {
         return segs.joinToString("/")
     }
 
+    /** The wildcard segments in order, each paired with the segment that precedes it (for labelling). */
+    fun slots(path: String): List<Pair<Char, String>> {
+        val segs = segments(path)
+        return segs.mapIndexedNotNull { i, s ->
+            if (s == "#" || s == "*") s.first() to (segs.getOrNull(i - 1) ?: "") else null
+        }
+    }
+
+    /** Fill every wildcard in order from [values]; a blank value keeps its placeholder. */
+    fun substituteAll(path: String, values: List<String>): String {
+        var vi = 0
+        return segments(path).joinToString("/") { s ->
+            if (s == "#" || s == "*") {
+                val v = values.getOrNull(vi)?.takeIf { it.isNotBlank() } ?: s
+                vi++
+                v
+            } else s
+        }
+    }
+
     /** For `#` prefer a numeric id column; for `*` a text key. Falls back to _id then first column. */
     fun pickIdColumn(columns: List<String>, wildcard: Char): String? {
         if (columns.isEmpty()) return null
@@ -67,8 +87,11 @@ data class WildcardValue(val value: String, val label: String?)
 data class ResolveState(
     val path: String,
     val wildcard: Char,
+    /** The parent-collection URI we queried to find values — shown so the user knows what was tried. */
+    val parentUri: String = "",
     val loading: Boolean = true,
     val values: List<WildcardValue> = emptyList(),
+    /** Only set for a real failure; an empty-but-successful query leaves this null. */
     val error: String? = null,
 )
 
@@ -195,7 +218,7 @@ class ProviderUrisViewModel(
         val wildcard = PatternUris.firstWildcard(path) ?: return
         val parentPath = PatternUris.parentPath(path)
         val parentUri = if (parentPath.isEmpty()) "content://$authority" else "content://$authority/$parentPath"
-        _state.update { it.copy(resolve = ResolveState(path = path, wildcard = wildcard, loading = true)) }
+        _state.update { it.copy(resolve = ResolveState(path = path, wildcard = wildcard, parentUri = parentUri, loading = true)) }
         viewModelScope.launch {
             try {
                 val result = query.query(QueryRequest(uri = parentUri, limit = 100))
@@ -208,7 +231,7 @@ class ProviderUrisViewModel(
                     val v = row.getOrNull(idIdx) ?: return@mapNotNull null
                     WildcardValue(v, labelIdx?.let { row.getOrNull(it) })
                 }.distinctBy { it.value }.take(60)
-                _state.update { it.copy(resolve = it.resolve?.copy(loading = false, values = values, error = if (values.isEmpty()) "Nothing returned from $parentUri" else null)) }
+                _state.update { it.copy(resolve = it.resolve?.copy(loading = false, values = values, error = null)) }
             } catch (e: ProviderQuery.QueryException) {
                 _state.update { it.copy(resolve = it.resolve?.copy(loading = false, error = e.message)) }
             } catch (e: Exception) {
@@ -218,8 +241,6 @@ class ProviderUrisViewModel(
     }
 
     fun closeResolve() = _state.update { it.copy(resolve = null) }
-
-    fun concretePath(path: String, value: String): String = PatternUris.substitute(path, value)
 
     @Suppress("DEPRECATION")
     private fun permStatus(name: String?): PermStatus? {
