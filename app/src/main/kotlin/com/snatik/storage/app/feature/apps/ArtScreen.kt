@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Info
@@ -103,19 +104,26 @@ class ArtViewModel(
             val beforeTotal = _state.value.totalBytes ?: 0
             _state.update { it.copy(busy = true, runningMode = mode, error = null) }
             val start = System.currentTimeMillis()
-            try {
+            val raw = try {
                 actions.compile(packageName, mode)
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, runningMode = null, error = e.message ?: e.toString()) }
                 return@launch
             }
+            val files = com.snatik.storage.core.apps.parseDexoptResults(raw)
+            val finalStatus = com.snatik.storage.core.apps.dexoptFinalStatus(raw)
             val status = runCatching { actions.compilationFilter(packageName) }.getOrNull()
             val storage = runCatching { apps.storage(packageName) }.getOrNull()
             val afterCode = storage?.appBytes ?: beforeCode
             val afterTotal = storage?.totalBytes ?: beforeTotal
             log.add(
                 packageName,
-                ArtOp(mode, fromStatus, status, beforeCode, afterCode, beforeTotal, afterTotal, System.currentTimeMillis() - start),
+                ArtOp(
+                    mode = mode, fromStatus = fromStatus, toStatus = status,
+                    artifactBefore = files.sumOf { it.sizeBeforeBytes }, artifactAfter = files.sumOf { it.sizeBytes },
+                    beforeTotal = beforeTotal, afterTotal = afterTotal,
+                    files = files, finalStatus = finalStatus, raw = raw, millis = System.currentTimeMillis() - start,
+                ),
             )
             _state.update { it.copy(busy = false, runningMode = null, status = status, codeBytes = afterCode, totalBytes = afterTotal) }
         }
@@ -143,6 +151,7 @@ fun ArtScreen(
     debuggable: Boolean,
     onBack: () -> Unit,
     onViewAllOps: () -> Unit,
+    onOpenOp: (ArtOp) -> Unit,
     viewModel: ArtViewModel = koinViewModel(parameters = { parametersOf(packageName) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -193,7 +202,7 @@ fun ArtScreen(
                         TextButton(onClick = onViewAllOps) { Text(stringResource(R.string.art_view_all, ops.size)) }
                     }
                 }
-                ops.take(RECENT_LIMIT).forEach { OpRow(it) }
+                ops.take(RECENT_LIMIT).forEach { op -> OpRow(op, onClick = { onOpenOp(op) }) }
             }
         }
     }
@@ -280,8 +289,12 @@ private fun modeForStatus(status: String?): CompileMode? = when (status) {
 }
 
 @Composable
-fun OpRow(op: ArtOp) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+fun OpRow(op: ArtOp, onClick: (() -> Unit)? = null) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(modifier = Modifier.size(30.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
@@ -297,8 +310,9 @@ fun OpRow(op: ArtOp) {
                     }
                 }
                 Text("${op.millis} ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            DeltaRow(stringResource(R.string.art_code), op.beforeCode, op.afterCode)
+            DeltaRow(stringResource(R.string.art_artifacts), op.artifactBefore, op.artifactAfter)
             DeltaRow(stringResource(R.string.art_app_total), op.beforeTotal, op.afterTotal)
         }
     }
@@ -335,7 +349,7 @@ private fun statusMeaning(status: String?): String = stringResource(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArtHistoryScreen(packageName: String, label: String, onBack: () -> Unit, log: ArtOpLog = koinInject()) {
+fun ArtHistoryScreen(packageName: String, label: String, onBack: () -> Unit, onOpenOp: (ArtOp) -> Unit, log: ArtOpLog = koinInject()) {
     val ops by log.ops(packageName).collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
@@ -354,7 +368,88 @@ fun ArtHistoryScreen(packageName: String, label: String, onBack: () -> Unit, log
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ops.forEach { OpRow(it) }
+            ops.forEach { op -> OpRow(op, onClick = { onOpenOp(op) }) }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ArtOpDetailScreen(packageName: String, opTs: Long, label: String, onBack: () -> Unit, log: ArtOpLog = koinInject()) {
+    val ops by log.ops(packageName).collectAsStateWithLifecycle()
+    val op = ops.firstOrNull { it.ts == opTs }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(op?.mode?.name?.lowercase()?.replace('_', '-') ?: stringResource(R.string.compile_title), style = MaterialTheme.typography.titleMedium)
+                        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+            )
+        },
+    ) { padding ->
+        if (op == null) {
+            EmptyState(Icons.Default.Block, stringResource(R.string.art_op_gone), null)
+            return@Scaffold
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Summary
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(op.fromStatus ?: "?", style = MonoStyle, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("→", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(op.toStatus ?: "?", style = MonoStyle, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    op.finalStatus?.let { Text(stringResource(R.string.art_final_status, it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    val wall = op.files.sumOf { it.wallMs }.takeIf { it > 0 } ?: op.millis
+                    val cpu = op.files.sumOf { it.cpuMs }
+                    Text(stringResource(R.string.art_timing, wall, cpu), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f))
+                }
+            }
+
+            if (op.files.isNotEmpty()) {
+                Text(stringResource(R.string.art_dex_files, op.files.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                op.files.forEach { FileResultCard(it) }
+            }
+
+            Text(stringResource(R.string.art_raw_output), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Text(op.raw.ifBlank { "—" }, style = MonoStyle, modifier = Modifier.padding(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileResultCard(f: com.snatik.storage.core.apps.DexoptFileResult) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(f.simpleFile, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                val ok = f.status.equals("PERFORMED", true)
+                Surface(color = if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
+                    Text(f.status, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+            }
+            DetailLine(stringResource(R.string.art_filter_abi), "${f.filter} · ${f.abi}")
+            DeltaRow(stringResource(R.string.art_artifacts), f.sizeBeforeBytes, f.sizeBytes)
+            DetailLine(stringResource(R.string.art_dex2oat), stringResource(R.string.art_timing, f.wallMs, f.cpuMs))
+            if (f.flags != "[]") DetailLine(stringResource(R.string.art_flags), f.flags)
+        }
+    }
+}
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }

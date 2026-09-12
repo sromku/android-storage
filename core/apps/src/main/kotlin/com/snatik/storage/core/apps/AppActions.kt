@@ -47,13 +47,13 @@ class AppActions(private val privilege: PrivilegeManager) {
      */
     suspend fun compile(packageName: String, mode: CompileMode): String {
         val flag = when (mode) {
-            CompileMode.SPEED -> "-m speed -f"
-            CompileMode.SPEED_PROFILE -> "-m speed-profile -f"
-            CompileMode.EVERYTHING -> "-m everything -f"
-            CompileMode.VERIFY -> "-m verify -f"
+            CompileMode.SPEED -> "-m speed -f -v"
+            CompileMode.SPEED_PROFILE -> "-m speed-profile -f -v"
+            CompileMode.EVERYTHING -> "-m everything -f -v"
+            CompileMode.VERIFY -> "-m verify -f -v"
             CompileMode.RESET -> "--reset"
         }
-        return shell().runOrThrow("cmd package compile $flag ${packageName.shellQuote()}").out.trim()
+        return shell().runOrThrow("cmd package compile $flag ${packageName.shellQuote()}", timeoutMs = 180_000).out.trim()
     }
 
     /**
@@ -83,3 +83,40 @@ class AppActions(private val privilege: PrivilegeManager) {
 }
 
 enum class CompileMode { SPEED_PROFILE, SPEED, EVERYTHING, VERIFY, RESET }
+
+/** One dex container's result from a verbose `cmd package compile -v` run. */
+data class DexoptFileResult(
+    val file: String,
+    val abi: String,
+    val filter: String,
+    val status: String,
+    val sizeBytes: Long,
+    val sizeBeforeBytes: Long,
+    val wallMs: Long,
+    val cpuMs: Long,
+    val flags: String,
+) {
+    val simpleFile: String get() = file.substringAfterLast('/')
+}
+
+/** Parse the `DexContainerFileDexoptResult{...}` lines a verbose compile prints. */
+fun parseDexoptResults(raw: String): List<DexoptFileResult> =
+    Regex("DexContainerFileDexoptResult\\{([^}]*)\\}").findAll(raw).map { m ->
+        val body = m.groupValues[1]
+        fun str(k: String) = Regex("(?:^|[ ,])$k=([^,}]+)").find(body)?.groupValues?.get(1)?.trim()
+        fun num(k: String) = str(k)?.toLongOrNull() ?: 0L
+        DexoptFileResult(
+            file = str("dexContainerFile").orEmpty(),
+            abi = str("abi").orEmpty(),
+            filter = str("actualCompilerFilter").orEmpty(),
+            status = str("status").orEmpty(),
+            sizeBytes = num("sizeBytes"),
+            sizeBeforeBytes = num("sizeBeforeBytes"),
+            wallMs = num("dex2oatWallTimeMillis"),
+            cpuMs = num("dex2oatCpuTimeMillis"),
+            flags = Regex("extendedStatusFlags=(\\[[^\\]]*\\])").find(body)?.groupValues?.get(1) ?: "[]",
+        )
+    }.toList()
+
+/** The overall "Final Status: X" line a verbose compile prints. */
+fun dexoptFinalStatus(raw: String): String? = Regex("Final Status:\\s*(\\w+)").find(raw)?.groupValues?.get(1)

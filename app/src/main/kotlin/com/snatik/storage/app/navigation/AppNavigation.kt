@@ -186,10 +186,17 @@ fun AppNavigation() {
                 com.snatik.storage.app.feature.apps.ArtScreen(
                     packageName = route.packageName, label = route.label, debuggable = route.debuggable,
                     onBack = ::pop, onViewAllOps = { push(Route.ArtHistory(route.packageName, route.label)) },
+                    onOpenOp = { op -> push(Route.ArtOpDetail(route.packageName, op.ts, route.label)) },
                 )
             }
             entry<Route.ArtHistory> { route ->
-                com.snatik.storage.app.feature.apps.ArtHistoryScreen(packageName = route.packageName, label = route.label, onBack = ::pop)
+                com.snatik.storage.app.feature.apps.ArtHistoryScreen(
+                    packageName = route.packageName, label = route.label, onBack = ::pop,
+                    onOpenOp = { op -> push(Route.ArtOpDetail(route.packageName, op.ts, route.label)) },
+                )
+            }
+            entry<Route.ArtOpDetail> { route ->
+                com.snatik.storage.app.feature.apps.ArtOpDetailScreen(packageName = route.packageName, opTs = route.opTs, label = route.label, onBack = ::pop)
             }
             entry<Route.DiskUsage> { route ->
                 DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) }, onSunburst = { push(Route.Sunburst(route.label, route.path)) })
