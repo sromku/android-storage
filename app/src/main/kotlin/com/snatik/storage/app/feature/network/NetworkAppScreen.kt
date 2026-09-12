@@ -65,7 +65,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NetworkAppScreen(packageName: String, onBack: () -> Unit, viewModel: NetworkViewModel = koinViewModel()) {
+fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () -> Unit = {}, viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val app = state.forPackage(packageName)
 
@@ -113,7 +113,7 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, viewModel: Network
                     Text(stringResource(R.string.net_no_history), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.net_no_history_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                else -> Detail(app, state.hostNames, scroll, fraction) { headerHeightPx = it }
+                else -> Detail(app, state.hostNames, scroll, fraction, onOpenGraph) { headerHeightPx = it }
             }
         }
     }
@@ -125,6 +125,7 @@ private fun Detail(
     hosts: Map<String, String>,
     scroll: androidx.compose.foundation.ScrollState,
     headerFraction: Float,
+    onOpenGraph: () -> Unit,
     onHeaderHeight: (Float) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -163,8 +164,13 @@ private fun Detail(
         // shell usually sees just the current "since boot" bucket, which is not a series.
         val chartBuckets = app.buckets.filter { it.totalBytes > 0 }
         if (chartBuckets.size >= 4) {
-            SectionTitle(stringResource(R.string.net_over_time))
-            UsageChart(chartBuckets)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle(stringResource(R.string.net_over_time))
+                Text(stringResource(R.string.net_tap_expand), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            Box(modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable(onClick = onOpenGraph)) {
+                UsageChart(chartBuckets)
+            }
         }
 
         // Transport split
