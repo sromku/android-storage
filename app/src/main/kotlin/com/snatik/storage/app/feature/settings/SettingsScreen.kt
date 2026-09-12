@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Brightness6
+import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,8 +42,13 @@ import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, prefs: ThemePreferences = koinInject()) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    prefs: ThemePreferences = koinInject(),
+    netPrefs: com.snatik.storage.app.feature.network.NetworkPreferences = koinInject(),
+) {
     val settings by prefs.state.collectAsStateWithLifecycle()
+    val resolveHosts by netPrefs.resolveHosts.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,7 +73,29 @@ fun SettingsScreen(onBack: () -> Unit, prefs: ThemePreferences = koinInject()) {
                     enabled = dynAvailable,
                 ) { if (dynAvailable) prefs.setColorMode(ColorMode.DYNAMIC) }
             }
+            SettingGroup(Icons.Default.Lan, stringResource(R.string.settings_network)) {
+                SwitchRow(
+                    stringResource(R.string.settings_resolve_hosts),
+                    resolveHosts,
+                    stringResource(R.string.settings_resolve_hosts_sub),
+                ) { netPrefs.setResolveHosts(it) }
+            }
         }
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, subtitle: String? = null, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

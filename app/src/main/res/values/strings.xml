@@ -2,6 +2,9 @@
     <string name="app_name">Storage</string>
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
+    <string name="settings_network">Network tool</string>
+    <string name="settings_resolve_hosts">Resolve host names</string>
+    <string name="settings_resolve_hosts_sub">Look up host names for remote IPs via reverse DNS. This makes the app itself send DNS queries — so with it off, browsing the Network tool sends nothing. Owner labels work either way.</string>
     <string name="settings_color">Color</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>

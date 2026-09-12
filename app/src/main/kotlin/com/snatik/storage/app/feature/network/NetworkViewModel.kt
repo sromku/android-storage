@@ -33,6 +33,7 @@ class NetworkViewModel(
     private val inspector: NetworkInspector,
     private val privilege: PrivilegeManager,
     private val asnDb: AsnDb,
+    private val prefs: NetworkPreferences,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(NetworkUiState())
@@ -52,8 +53,11 @@ class NetworkViewModel(
             val allHosts = apps.flatMap { it.remoteHosts }
             val orgs = runCatching { asnDb.orgs(allHosts) }.getOrDefault(emptyMap())
             if (orgs.isNotEmpty()) _state.update { it.copy(orgNames = it.orgNames + orgs) }
-            val hosts = inspector.resolve(allHosts)
-            if (hosts.isNotEmpty()) _state.update { it.copy(hostNames = it.hostNames + hosts) }
+            // Reverse-DNS is the app's only self-inflicted traffic while browsing; gate it.
+            if (prefs.resolveHosts.value) {
+                val hosts = inspector.resolve(allHosts)
+                if (hosts.isNotEmpty()) _state.update { it.copy(hostNames = it.hostNames + hosts) }
+            }
         }
     }
 
