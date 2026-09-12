@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -70,6 +71,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
+    var pendingRemove by remember { mutableStateOf<com.snatik.storage.core.data.ProviderShortcut?>(null) }
     var filtersOpen by remember { mutableStateOf(false) }
     var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
 
@@ -147,7 +149,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
                                     onClick = { onOpenProvider(s.title, s.uri) },
                                     label = { Text(s.title, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
                                     trailingIcon = {
-                                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.qq_remove), modifier = Modifier.size(18.dp).clickable { viewModel.removeSaved(s.uri) })
+                                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.qq_remove), modifier = Modifier.size(18.dp).clickable { pendingRemove = s })
                                     },
                                 )
                             }
@@ -173,7 +175,6 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
             ProviderDetail(
                 provider,
                 related = related,
-                onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null },
                 onOpenShortcut = { title, uri -> onOpenProvider(title, uri); selected = null },
                 onDiscover = { onDiscoverUris(provider.packageName, provider.className, provider.authority, provider.appLabel, provider.readPermission); selected = null },
             )
@@ -185,6 +186,16 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
         ModalBottomSheet(onDismissRequest = { filtersOpen = false }, sheetState = sheetState) {
             FiltersSheet(state, viewModel)
         }
+    }
+
+    pendingRemove?.let { shortcut ->
+        AlertDialog(
+            onDismissRequest = { pendingRemove = null },
+            title = { Text(stringResource(R.string.qq_remove_title)) },
+            text = { Text(stringResource(R.string.qq_remove_message, shortcut.title)) },
+            confirmButton = { TextButton(onClick = { viewModel.removeSaved(shortcut.uri); pendingRemove = null }) { Text(stringResource(R.string.qq_remove)) } },
+            dismissButton = { TextButton(onClick = { pendingRemove = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 
@@ -255,7 +266,6 @@ private fun shortcutAuthority(uri: String): String = uri.removePrefix("content:/
 private fun ProviderDetail(
     provider: ProviderEntry,
     related: List<com.snatik.storage.core.data.ProviderShortcut>,
-    onQuery: () -> Unit,
     onOpenShortcut: (String, String) -> Unit,
     onDiscover: () -> Unit,
 ) {
@@ -281,11 +291,7 @@ private fun ProviderDetail(
                 related.forEach { s -> AssistChip(onClick = { onOpenShortcut(s.title, s.uri) }, label = { Text(s.title) }) }
             }
         }
-        androidx.compose.material3.Button(onClick = onQuery, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.prov_query), modifier = Modifier.padding(start = 8.dp))
-        }
-        androidx.compose.material3.OutlinedButton(onClick = onDiscover, modifier = Modifier.fillMaxWidth()) {
+        androidx.compose.material3.Button(onClick = onDiscover, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.uri_discover), modifier = Modifier.padding(start = 8.dp))
         }
