@@ -184,6 +184,11 @@
     <string name="tools_net_sub">See which apps are talking to the network.</string>
     <string name="net_title">Network</string>
     <string name="net_search">Search app or host</string>
+    <string name="net_sort">Sort</string>
+    <string name="net_sort_total">Total data</string>
+    <string name="net_sort_received">Received</string>
+    <string name="net_sort_sent">Sent</string>
+    <string name="net_sort_name">Name</string>
     <string name="net_needs_shell">Shell access needed</string>
     <string name="net_needs_shell_body">Connect Shizuku or root to read live connections.</string>
     <string name="net_none">No active connections</string>

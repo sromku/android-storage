@@ -9,14 +9,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,11 +53,32 @@ import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.core.apps.AppNetworkUsage
 import org.koin.androidx.compose.koinViewModel
 
+private enum class SortField(val labelRes: Int) {
+    TOTAL(R.string.net_sort_total),
+    RECEIVED(R.string.net_sort_received),
+    SENT(R.string.net_sort_sent),
+    NAME(R.string.net_sort_name),
+}
+
+private fun List<AppNetworkUsage>.sorted(field: SortField, desc: Boolean): List<AppNetworkUsage> {
+    val base = when (field) {
+        SortField.TOTAL -> sortedByDescending { it.totalBytes }
+        SortField.RECEIVED -> sortedByDescending { it.rxBytes }
+        SortField.SENT -> sortedByDescending { it.txBytes }
+        SortField.NAME -> sortedBy { it.label.lowercase() }
+    }
+    return if (desc) base else base.reversed()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery: String = "", viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var sortField by rememberSaveable { mutableStateOf(SortField.TOTAL) }
+    // Numeric fields default to largest-first; Name defaults to A-Z.
+    var sortDesc by rememberSaveable { mutableStateOf(true) }
+    var sortMenu by remember { mutableStateOf(false) }
     remember(initialQuery) { if (initialQuery.isNotEmpty()) { viewModel.setQuery(initialQuery); searchOpen = true }; 0 }
 
     Scaffold(
@@ -66,8 +93,36 @@ fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery:
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
                 actions = {
-                    if (searchOpen) IconButton(onClick = { searchOpen = false; viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
-                    else IconButton(onClick = { searchOpen = true }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
+                    if (searchOpen) {
+                        IconButton(onClick = { searchOpen = false; viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
+                    } else {
+                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
+                        Box {
+                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.net_sort)) }
+                            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                SortField.entries.forEach { f ->
+                                    val active = f == sortField
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(f.labelRes), fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal) },
+                                        onClick = {
+                                            if (active) sortDesc = !sortDesc
+                                            else { sortField = f; sortDesc = f != SortField.NAME }
+                                        },
+                                        trailingIcon = if (active) {
+                                            {
+                                                Icon(
+                                                    if (sortDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            }
+                                        } else null,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 },
             )
         },
@@ -77,7 +132,7 @@ fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery:
                 EmptyState(Icons.Default.Terminal, stringResource(R.string.net_needs_shell), stringResource(R.string.net_needs_shell_body))
             } else {
                 PullToRefreshBox(isRefreshing = state.loading, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
-                    val visible = state.visible
+                    val visible = state.visible.sorted(sortField, sortDesc)
                     if (!state.loading && visible.isEmpty()) {
                         EmptyState(Icons.Default.Lan, stringResource(R.string.net_none), stringResource(R.string.net_none_body))
                     } else {
