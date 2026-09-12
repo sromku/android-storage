@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,7 +66,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () -> Unit = {}, viewModel: NetworkViewModel = koinViewModel()) {
+fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val app = state.forPackage(packageName)
 
@@ -97,6 +98,7 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () ->
                     }
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+                actions = { IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.settings_title)) } },
             )
         },
     ) { padding ->

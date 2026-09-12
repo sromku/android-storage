@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,7 +74,7 @@ private fun List<AppNetworkUsage>.sorted(field: SortField, desc: Boolean): List<
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery: String = "", viewModel: NetworkViewModel = koinViewModel()) {
+fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, onOpenSettings: () -> Unit = {}, initialQuery: String = "", viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var sortField by rememberSaveable { mutableStateOf(SortField.TOTAL) }
@@ -124,6 +125,7 @@ fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery:
                                 }
                             }
                         }
+                        IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.settings_title)) }
                     }
                 },
             )

@@ -257,8 +257,8 @@ fun AppNavigation() {
                     onOpenPalette = { push(Route.CommandPalette) },
                 )
             }
-            entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, onOpenApp = { push(Route.NetworkApp(it)) }, initialQuery = route.query) }
-            entry<Route.NetworkApp> { route -> NetworkAppScreen(packageName = route.packageName, onBack = ::pop, onOpenGraph = { push(Route.NetworkGraph(route.packageName)) }) }
+            entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, onOpenApp = { push(Route.NetworkApp(it)) }, onOpenSettings = { push(Route.Settings) }, initialQuery = route.query) }
+            entry<Route.NetworkApp> { route -> NetworkAppScreen(packageName = route.packageName, onBack = ::pop, onOpenGraph = { push(Route.NetworkGraph(route.packageName)) }, onOpenSettings = { push(Route.Settings) }) }
             entry<Route.NetworkGraph> { route -> NetworkGraphScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
