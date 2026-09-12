@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Folder
@@ -93,6 +94,7 @@ fun HomeScreen(
     onOpenVolume: (label: String, path: String) -> Unit,
     onOpenDiskUsage: (label: String, path: String) -> Unit,
     onSwitchTab: (TopLevel) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -114,6 +116,11 @@ fun HomeScreen(
             LargeTopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
+                    }
+                },
             )
         },
         bottomBar = { TopLevelBar(current = TopLevel.STORAGE, onSelect = onSwitchTab) },
