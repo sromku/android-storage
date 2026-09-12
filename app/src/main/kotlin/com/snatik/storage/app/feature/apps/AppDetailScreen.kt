@@ -112,7 +112,7 @@ fun AppDetailScreen(
     onDiskUsage: (label: String, path: String) -> Unit,
     onNetwork: (String) -> Unit,
     onStorage: (String) -> Unit,
-    onArt: (label: String, packageName: String) -> Unit,
+    onArt: (label: String, packageName: String, debuggable: Boolean) -> Unit,
     viewModel: AppDetailViewModel = koinViewModel(parameters = { parametersOf(packageName) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -162,7 +162,7 @@ fun AppDetailScreen(
                             onClearCache = viewModel::clearCache,
                             onClearData = viewModel::requestClearData,
                             onUninstall = viewModel::requestUninstall,
-                            onArt = { onArt(d.summary.label, d.summary.packageName) },
+                            onArt = { onArt(d.summary.label, d.summary.packageName, d.summary.isDebuggable) },
                         )
                     }
                 },

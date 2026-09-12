@@ -112,6 +112,13 @@ class AppRepository(private val context: Context) {
     fun applicationInfo(packageName: String): ApplicationInfo? =
         runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull()
 
+    /** Just the storage stats for one package (code / data / cache), cheap enough to poll. */
+    suspend fun storage(packageName: String): AppStorage? = withContext(Dispatchers.IO) {
+        if (!hasUsageAccess()) return@withContext null
+        val app = packageInfo(packageName, 0)?.applicationInfo ?: return@withContext null
+        storageOf(app)
+    }
+
     private fun storageOf(app: ApplicationInfo): AppStorage? = runCatching {
         val manager = context.getSystemService(StorageStatsManager::class.java)
         val uuid = app.storageUuid ?: StorageManager.UUID_DEFAULT

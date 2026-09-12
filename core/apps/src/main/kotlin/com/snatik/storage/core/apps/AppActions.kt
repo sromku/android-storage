@@ -56,14 +56,29 @@ class AppActions(private val privilege: PrivilegeManager) {
         return shell().runOrThrow("cmd package compile $flag ${packageName.shellQuote()}").out.trim()
     }
 
-    /** Current ART compilation filter for a package, read from dumpsys. */
+    /**
+     * Current ART compilation filter for one package. `pm art dump <pkg>` is scoped to the package;
+     * `dumpsys package dexopt` dumps every package, so its output is narrowed to the package's block
+     * before reading the status (the old code read the first status in the whole dump).
+     */
     suspend fun compilationFilter(packageName: String): String? {
-        val out = runCatching { shell().run("dumpsys package dexopt ${packageName.shellQuote()} 2>/dev/null").out }.getOrNull()
-            ?: runCatching { shell().run("dumpsys package ${packageName.shellQuote()} 2>/dev/null").out }.getOrNull()
-            ?: return null
-        // lines look like:  [status=speed] [reason=install] ... or  status: speed-profile
-        val m = Regex("\\[status=([\\w-]+)").find(out) ?: Regex("status:?\\s*([\\w-]+)").find(out)
-        return m?.groupValues?.get(1)
+        val art = runCatching { shell().run("pm art dump ${packageName.shellQuote()} 2>/dev/null").out }.getOrNull()
+        statusIn(art)?.let { return it }
+        val dump = runCatching { shell().run("dumpsys package dexopt 2>/dev/null").out }.getOrNull() ?: return null
+        return statusIn(blockFor(dump, packageName))
+    }
+
+    private fun statusIn(text: String?): String? =
+        text?.let { Regex("\\[status=([\\w-]+)").find(it)?.groupValues?.get(1) }
+
+    /** The lines of a `dumpsys package dexopt` dump that belong to one package's `[pkg]` block. */
+    private fun blockFor(dump: String, pkg: String): String? {
+        val lines = dump.lines()
+        val start = lines.indexOfFirst { it.trim() == "[$pkg]" }
+        if (start < 0) return null
+        val rest = lines.drop(start + 1)
+        val end = rest.indexOfFirst { val t = it.trim(); t.startsWith("[") && t.endsWith("]") }
+        return (if (end < 0) rest else rest.take(end)).joinToString("\n")
     }
 }
 

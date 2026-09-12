@@ -209,7 +209,8 @@ val appModule = module {
     viewModelOf(::InsightsViewModel)
     viewModel { (path: String) -> SunburstViewModel(path, get()) }
     viewModel { (packageName: String) -> AppStorageViewModel(packageName, get()) }
-    viewModel { (packageName: String) -> com.snatik.storage.app.feature.apps.ArtViewModel(packageName, get(), get()) }
+    single { com.snatik.storage.app.feature.apps.ArtOpLog() }
+    viewModel { (packageName: String) -> com.snatik.storage.app.feature.apps.ArtViewModel(packageName, get(), get(), get()) }
     viewModelOf(::SystemViewModel)
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
     viewModelOf(::TimeMachineViewModel)

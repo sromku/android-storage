@@ -179,11 +179,17 @@ fun AppNavigation() {
                     onDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onNetwork = { pkg -> push(Route.Network(pkg)) },
                     onStorage = { pkg -> push(Route.AppStorage(pkg)) },
-                    onArt = { label, pkg -> push(Route.Art(pkg, label)) },
+                    onArt = { label, pkg, dbg -> push(Route.Art(pkg, label, dbg)) },
                 )
             }
             entry<Route.Art> { route ->
-                com.snatik.storage.app.feature.apps.ArtScreen(packageName = route.packageName, label = route.label, onBack = ::pop)
+                com.snatik.storage.app.feature.apps.ArtScreen(
+                    packageName = route.packageName, label = route.label, debuggable = route.debuggable,
+                    onBack = ::pop, onViewAllOps = { push(Route.ArtHistory(route.packageName, route.label)) },
+                )
+            }
+            entry<Route.ArtHistory> { route ->
+                com.snatik.storage.app.feature.apps.ArtHistoryScreen(packageName = route.packageName, label = route.label, onBack = ::pop)
             }
             entry<Route.DiskUsage> { route ->
                 DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) }, onSunburst = { push(Route.Sunburst(route.label, route.path)) })
