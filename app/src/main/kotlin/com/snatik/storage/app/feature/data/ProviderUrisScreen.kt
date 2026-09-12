@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -33,6 +37,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -110,6 +115,9 @@ fun ProviderUrisScreen(
                         state.lastDiscoveredAt?.takeIf { !state.running }?.let { at ->
                             item(key = "meta") { DiscoveredMeta(at, state.paths.size, state.scannedAll) }
                         }
+                        if (state.hints.isNotEmpty()) {
+                            item(key = "hints") { HintsSection(state.hints) }
+                        }
                         items(state.paths, key = { it }) { path ->
                             UriRow(
                                 uri = viewModel.uriFor(path),
@@ -131,6 +139,7 @@ fun ProviderUrisScreen(
         ModalBottomSheet(onDismissRequest = viewModel::closeResolve, sheetState = sheetState) {
             ResolveSheet(
                 resolve = resolve,
+                hints = state.hints,
                 toUri = viewModel::uriFor,
                 onQuery = { concrete ->
                     viewModel.closeResolve()
@@ -203,6 +212,38 @@ private fun DiscoveredMeta(at: Long, count: Int, scannedAll: Boolean) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 2.dp),
     )
+}
+
+@Composable
+private fun HintsSection(hints: List<String>) {
+    val clipboard = LocalClipboardManager.current
+    var expanded by remember { mutableStateOf(false) }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Default.Code, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.uri_hints_title, hints.size), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (expanded) {
+                Text(
+                    stringResource(R.string.uri_hints_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+                )
+                FlowRow(modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    hints.forEach { h ->
+                        AssistChip(onClick = { clipboard.setText(AnnotatedString(h)) }, label = { Text(h, style = MonoStyle) })
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -281,7 +322,7 @@ private fun MenuRow(icon: ImageVector, text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ResolveSheet(resolve: ResolveState, toUri: (String) -> String, onQuery: (String) -> Unit) {
+private fun ResolveSheet(resolve: ResolveState, hints: List<String>, toUri: (String) -> String, onQuery: (String) -> Unit) {
     val slots = remember(resolve.path) { PatternUris.slots(resolve.path) }
     var inputs by remember(resolve.path) { mutableStateOf(List(slots.size) { "" }) }
     val manualPath = PatternUris.substituteAll(resolve.path, inputs)
@@ -347,6 +388,20 @@ private fun ResolveSheet(resolve: ResolveState, toUri: (String) -> String, onQue
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                if (hints.isNotEmpty()) {
+                    Text(stringResource(R.string.uri_resolve_hints), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        hints.take(30).forEach { h ->
+                            AssistChip(
+                                onClick = {
+                                    val idx = inputs.indexOfFirst { it.isBlank() }.let { if (it < 0) inputs.lastIndex else it }
+                                    if (idx >= 0) inputs = inputs.toMutableList().also { it[idx] = h }
+                                },
+                                label = { Text(h, style = MonoStyle) },
+                            )
+                        }
+                    }
                 }
                 Text(toUri(manualPath), style = MonoStyle.copy(color = if (manualReady) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 2, overflow = TextOverflow.MiddleEllipsis)
                 Button(onClick = { onQuery(manualPath) }, enabled = manualReady, modifier = Modifier.fillMaxWidth()) {

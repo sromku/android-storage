@@ -347,6 +347,9 @@
     <string name="uri_resolve_manual">Or set values manually</string>
     <string name="uri_resolve_slot_id">id (#)</string>
     <string name="uri_resolve_slot_value">value (*)</string>
+    <string name="uri_resolve_hints">Keywords from code — tap to fill</string>
+    <string name="uri_hints_title">Keywords found in code · %1$d</string>
+    <string name="uri_hints_body">Column names, keys and tables the provider keeps as literals — useful for projections, WHERE clauses or guessing pattern values. Tap to copy.</string>
     <string name="qq_remove">Remove</string>
     <string name="qq_remove_title">Remove saved query?</string>
     <string name="qq_remove_message">\"%1$s\" will be removed from Quick queries. To get it back you\'ll have to discover and save it again.</string>

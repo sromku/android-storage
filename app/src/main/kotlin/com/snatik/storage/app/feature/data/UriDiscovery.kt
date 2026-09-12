@@ -40,7 +40,11 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
 
     sealed interface Event {
         data class Status(val phase: Phase, val scanned: Int = 0, val total: Int = 0, val found: Int = 0, val dexIndex: Int = 0, val dexCount: Int = 0) : Event
-        data class Done(val paths: List<String>, val scopedOnly: Boolean) : Event
+        /**
+         * @param hints identifier-like string literals (column names, keys, table names) found in the
+         * classes that declare these URIs — useful for building queries or guessing pattern values.
+         */
+        data class Done(val paths: List<String>, val scopedOnly: Boolean, val hints: List<String>) : Event
     }
 
     class DiscoveryException(message: String) : Exception(message)
@@ -55,6 +59,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
         val providerPkg = providerClass.substringBeforeLast('.', "")
         val prefixes = listOf(packageName, providerPkg).filter { it.isNotEmpty() }.distinct()
         val found = LinkedHashSet<String>()
+        val hints = LinkedHashSet<String>()
         var lastEmit = 0L
 
         // Load one dex at a time and close it before the next, so peak memory stays bounded to a
@@ -83,7 +88,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 val addUriRefs = HashMap<Int, Boolean>()
                 target.forEachIndexed { i, cls ->
                     currentCoroutineContext().ensureActive()
-                    scanClass(cls, authority, found, addUriRefs)
+                    scanClass(cls, authority, found, hints, addUriRefs)
                     val now = System.currentTimeMillis()
                     if (now - lastEmit > 150 || i == total - 1) {
                         lastEmit = now
@@ -96,16 +101,20 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 runCatching { jadx.close() }
             }
         }
-        emit(Event.Done(found.sorted(), scopedOnly = !scanAll))
+        emit(Event.Done(found.sorted(), scopedOnly = !scanAll, hints = hints.sorted().take(80)))
     }.flowOn(Dispatchers.IO)
 
     /**
      * Walk one class's methods at the bytecode level (no decompilation). For each method we track the
      * string most recently loaded into each register, and on every `addURI` invoke read the path from
-     * argument register 2 (0 = matcher, 1 = authority, 2 = path).
+     * argument register 2 (0 = matcher, 1 = authority, 2 = path). If the class declares any URIs, its
+     * identifier-like string literals are collected into [hints] — provider classes keep their column
+     * names, table names and keys as literals, which help build queries or guess pattern values.
      */
-    private fun scanClass(cls: JavaClass, authority: String, found: MutableSet<String>, addUriRefs: HashMap<Int, Boolean>) {
+    private fun scanClass(cls: JavaClass, authority: String, found: MutableSet<String>, hints: MutableSet<String>, addUriRefs: HashMap<Int, Boolean>) {
         val data = runCatching { cls.classNode.clsData }.getOrNull() ?: return
+        var classHasUri = false
+        val classStrings = HashSet<String>()
         val fields = ISeqConsumer<IFieldData> { /* ignored */ }
         val methods = ISeqConsumer<IMethodData> { method ->
             val reader = runCatching { method.codeReader }.getOrNull() ?: return@ISeqConsumer
@@ -117,7 +126,9 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                         when {
                             insn.opcode == Opcode.CONST_STRING && insn.indexType == InsnIndexType.STRING_REF -> {
                                 val dest = insn.resultReg.takeIf { it >= 0 } ?: insn.getReg(0)
-                                regString[dest] = insn.indexAsString
+                                val str = insn.indexAsString
+                                regString[dest] = str
+                                classStrings.add(str)
                             }
                             insn.indexType == InsnIndexType.METHOD_REF -> {
                                 // Only real UriMatcher.addURI calls — some apps have unrelated methods
@@ -131,7 +142,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                                 if (isAddUri && insn.regsCount >= 3) {
                                     // addURI(authority, path, code): invoke args are
                                     // [matcher, authority, path, code] → path is register 2.
-                                    regString[insn.getReg(2)]?.let { addPath(it, authority, found) }
+                                    regString[insn.getReg(2)]?.let { addPath(it, authority, found); classHasUri = true }
                                 }
                             }
                         }
@@ -140,6 +151,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
             }
         }
         runCatching { data.visitFieldsAndMethods(fields, methods) }
+        if (classHasUri) classStrings.forEach { if (looksLikeIdentifier(it)) hints.add(it) }
     }
 
     private fun extractDexes(apk: File): List<File> {
@@ -156,6 +168,16 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
     companion object {
         private const val URI_MATCHER = "Landroid/content/UriMatcher;"
         private val STRING = Regex(""""((?:\\.|[^"\\])*)"""")
+        private val IDENTIFIER = Regex("""[A-Za-z_][A-Za-z0-9_]{1,39}""")
+
+        /**
+         * A single bareword literal — a column name, table, or key — as opposed to a path, message,
+         * class/package name, or MIME type. Used to pick hint literals out of a provider class.
+         */
+        fun looksLikeIdentifier(s: String): Boolean =
+            s.matches(IDENTIFIER) && s.any { it.isLowerCase() } && s !in RESERVED
+
+        private val RESERVED = setOf("addURI", "content", "android", "java", "kotlin", "TAG", "true", "false", "null")
 
         /** From decompiled code, take the 2nd argument of each addURI(...) call as the path. */
         fun extractPaths(code: String, authority: String): List<String> {

@@ -104,6 +104,8 @@ data class UrisUiState(
     val dexIndex: Int = 0,
     val dexCount: Int = 0,
     val paths: List<String> = emptyList(),
+    /** Identifier literals (columns/keys) scraped from the provider's code. */
+    val hints: List<String> = emptyList(),
     val error: String? = null,
     /** True once a scoped (app-code-only) scan finished with no results — offer a full scan. */
     val offerScanAll: Boolean = false,
@@ -154,6 +156,7 @@ class ProviderUrisViewModel(
                     running = false,
                     paths = cached.paths,
                     found = cached.paths.size,
+                    hints = cached.hints,
                     lastDiscoveredAt = cached.discoveredAt,
                     scannedAll = cached.scannedAll,
                     offerScanAll = !cached.scannedAll && cached.paths.isEmpty(),
@@ -166,21 +169,23 @@ class ProviderUrisViewModel(
 
     fun start(scanAll: Boolean) {
         job?.cancel()
-        _state.update { it.copy(running = true, phase = UriDiscovery.Phase.READING, paths = emptyList(), found = 0, error = null, offerScanAll = false, lastDiscoveredAt = null) }
+        _state.update { it.copy(running = true, phase = UriDiscovery.Phase.READING, paths = emptyList(), hints = emptyList(), found = 0, error = null, offerScanAll = false, lastDiscoveredAt = null) }
         job = viewModelScope.launch {
             try {
                 discovery.discover(pkg, providerClass, authority, scanAll).collect { e ->
                     when (e) {
                         is UriDiscovery.Event.Status -> _state.update { it.copy(phase = e.phase, scanned = e.scanned, total = e.total, found = e.found, dexIndex = e.dexIndex, dexCount = e.dexCount) }
                         is UriDiscovery.Event.Done -> {
-                            discoveryStore.put(UriDiscoveryStore.Record(providerClass, authority, e.paths, System.currentTimeMillis(), scannedAll = !e.scopedOnly))
+                            val now = System.currentTimeMillis()
+                            discoveryStore.put(UriDiscoveryStore.Record(providerClass, authority, e.paths, now, scannedAll = !e.scopedOnly, hints = e.hints))
                             _state.update {
                                 it.copy(
                                     running = false,
                                     paths = e.paths,
                                     found = e.paths.size,
+                                    hints = e.hints,
                                     scannedAll = !e.scopedOnly,
-                                    lastDiscoveredAt = System.currentTimeMillis(),
+                                    lastDiscoveredAt = now,
                                     offerScanAll = e.scopedOnly && e.paths.isEmpty(),
                                 )
                             }

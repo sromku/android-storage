@@ -74,6 +74,8 @@ class UriDiscoveryStore(context: Context, private val scope: CoroutineScope) {
         val paths: List<String>,
         val discoveredAt: Long,
         val scannedAll: Boolean,
+        /** Identifier-like literals (columns/keys/tables) scraped from the provider's classes. */
+        val hints: List<String> = emptyList(),
     )
 
     private val file = File(context.filesDir, "uri_discovery.json")

@@ -46,4 +46,24 @@ class UriDiscoveryTest {
         val code = """x.addURI("com.example", "a,b/c", 7);"""
         assertEquals(listOf("a,b/c"), extract(code))
     }
+
+    @Test
+    fun identifierHintKeepsColumnLikeLiteralsAndDropsNoise() {
+        // column / key names — kept
+        listOf("batteryLevel", "packageName", "raw_contacts", "_id", "consumeType").forEach {
+            assert(UriDiscovery.looksLikeIdentifier(it)) { "$it should be a hint" }
+        }
+        // noise — dropped
+        listOf(
+            "contacts/#",                       // a path, not a bareword
+            "com.android.contacts",             // dotted (package/authority)
+            "unknown URI:",                     // message with punctuation/space
+            "vnd.android.cursor.dir/contact",   // MIME
+            "SUGGESTION",                       // all-caps constant (no lowercase)
+            "addURI",                           // reserved
+            "x",                                // too short
+        ).forEach {
+            assert(!UriDiscovery.looksLikeIdentifier(it)) { "$it should not be a hint" }
+        }
+    }
 }
