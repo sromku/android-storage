@@ -68,7 +68,7 @@ import java.util.Calendar
 import kotlin.math.roundToInt
 
 private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total), RX(R.string.net_metric_down), TX(R.string.net_metric_up) }
-private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), STATE(R.string.net_metric_split) }
+private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), DIR(R.string.net_split_dir), STATE(R.string.net_metric_split) }
 private enum class ChartType { AREA, BARS }
 private enum class Measure(val labelRes: Int) { DATA(R.string.net_unit_data), PACKETS(R.string.net_unit_packets) }
 private enum class Range(val labelRes: Int, val ms: Long) {
@@ -124,7 +124,8 @@ private fun Graph(app: AppNetworkUsage) {
     val ctx = LocalContext.current
     var range by remember { mutableStateOf(Range.D1) }
     var metric by remember { mutableStateOf(Metric.TOTAL) }
-    var split by remember { mutableStateOf(Split.OFF) }
+    // Open stacked received+sent, matching the mini "Data over time" chart the user tapped.
+    var split by remember { mutableStateOf(Split.DIR) }
     var unit by remember { mutableStateOf(Measure.DATA) }
     // Open as bars, matching the mini "Data over time" chart the user tapped.
     var chartType by remember { mutableStateOf(ChartType.BARS) }
@@ -138,7 +139,9 @@ private fun Graph(app: AppNetworkUsage) {
     val slots = remember(range, app, now) {
         buildList { var t = startAligned; while (t < now && size < 512) { add(t); t += SLOT_MS } }
     }
-    val stacked = split == Split.STATE
+    val stackedState = split == Split.STATE
+    val stackedDir = split == Split.DIR
+    val stacked = stackedState || stackedDir
     val cells = slots.map { byStart[it] }
     // Foreground / background value of the chosen direction and unit — every combination is valid.
     fun UsageBucket.fgVal(m: Metric, u: Measure) = when (u) {
@@ -149,13 +152,22 @@ private fun Graph(app: AppNetworkUsage) {
         Measure.DATA -> when (m) { Metric.RX -> bgRxBytes; Metric.TX -> bgTxBytes; else -> backgroundBytes }
         Measure.PACKETS -> when (m) { Metric.RX -> bgRxPackets; Metric.TX -> bgTxPackets; else -> backgroundPackets }
     }
-    val fgSeries = cells.map { it?.fgVal(metric, unit) ?: 0L }
-    val bgSeries = cells.map { it?.bgVal(metric, unit) ?: 0L }
-    val values = if (stacked) fgSeries.indices.map { fgSeries[it] + bgSeries[it] } else cells.map { it?.value(metric, unit) ?: 0L }
+    fun UsageBucket.rxVal(u: Measure) = if (u == Measure.DATA) rxBytes else rxPackets
+    fun UsageBucket.txVal(u: Measure) = if (u == Measure.DATA) txBytes else txPackets
+    // Two decomposition series (fg/bg or rx/tx) plus the single-metric series.
+    val aSeries = if (stackedDir) cells.map { it?.rxVal(unit) ?: 0L } else cells.map { it?.fgVal(metric, unit) ?: 0L }
+    val bSeries = if (stackedDir) cells.map { it?.txVal(unit) ?: 0L } else cells.map { it?.bgVal(metric, unit) ?: 0L }
+    val values = if (stacked) aSeries.indices.map { aSeries[it] + bSeries[it] } else cells.map { it?.value(metric, unit) ?: 0L }
     val inRange = app.buckets.filter { it.startMs >= startAligned }
 
-    val windowTotal = if (stacked) inRange.sumOf { it.fgVal(metric, unit) + it.bgVal(metric, unit) } else inRange.sumOf { it.value(metric, unit) }
+    val windowTotal = when {
+        stackedDir -> inRange.sumOf { it.rxVal(unit) + it.txVal(unit) }
+        stackedState -> inRange.sumOf { it.fgVal(metric, unit) + it.bgVal(metric, unit) }
+        else -> inRange.sumOf { it.value(metric, unit) }
+    }
     val peakIdx = values.indices.maxByOrNull { values[it] }?.takeIf { values.isNotEmpty() && values[it] > 0 }
+    val aLabel = if (stackedDir) stringResource(R.string.net_received) else stringResource(R.string.net_foreground)
+    val bLabel = if (stackedDir) stringResource(R.string.net_sent) else stringResource(R.string.net_background)
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -175,18 +187,18 @@ private fun Graph(app: AppNetworkUsage) {
             Text(
                 scrubbed?.let { s ->
                     val base = slotLabel(slots[s.first], ctx)
-                    if (stacked) "$base · ${stringResource(R.string.net_foreground)} ${fmt(fgSeries[s.first], unit)} · ${stringResource(R.string.net_background)} ${fmt(bgSeries[s.first], unit)}" else base
+                    if (stacked) "$base · $aLabel ${fmt(aSeries[s.first], unit)} · $bLabel ${fmt(bSeries[s.first], unit)}" else base
                 } ?: rangeSubtitle(range, startAligned, ctx),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         // The chart
-        val fgColor = MaterialTheme.colorScheme.primary
-        val bgColor = MaterialTheme.colorScheme.secondary
+        val aColor = MaterialTheme.colorScheme.primary
+        val bColor = if (stackedDir) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary
         val bands = if (stacked)
-            listOf(Band(fgSeries, fgColor, stringResource(R.string.net_foreground)), Band(bgSeries, bgColor, stringResource(R.string.net_background)))
-        else listOf(Band(values, fgColor, ""))
+            listOf(Band(aSeries, aColor, aLabel), Band(bSeries, bColor, bLabel))
+        else listOf(Band(values, aColor, ""))
         UsageGraph(bands = bands, type = chartType, onType = { chartType = it }, scrub = scrub, onScrub = { scrub = it })
 
         // Range chips
@@ -203,6 +215,7 @@ private fun Graph(app: AppNetworkUsage) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             Metric.entries.forEachIndexed { i, m ->
                 SegmentedButton(
+                    enabled = !stackedDir,
                     selected = metric == m,
                     onClick = { metric = m; scrub = null },
                     shape = SegmentedButtonDefaults.itemShape(i, Metric.entries.size),
@@ -211,7 +224,7 @@ private fun Graph(app: AppNetworkUsage) {
         }
         // Split (state) and unit share a row — both are independent of the direction above.
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1.35f)) {
                 Split.entries.forEachIndexed { i, sp ->
                     SegmentedButton(
                         selected = split == sp,
