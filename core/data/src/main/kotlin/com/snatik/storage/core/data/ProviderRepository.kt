@@ -23,8 +23,12 @@ data class ProviderEntry(
     val writePermission: String?,
     val grantUriPermissions: Boolean,
     val pathPermissions: List<String>,
+    val isSystem: Boolean,
+    /** Whether this app can read the provider right now (own provider, or exported with no/held read perm). */
+    val queryableNow: Boolean,
 ) {
     val uri: String get() = "content://$authority"
+    val hasPermission: Boolean get() = readPermission != null || writePermission != null
 }
 
 data class ProviderShortcut(val title: String, val uri: String, val group: String)
@@ -41,8 +45,12 @@ class ProviderRepository(private val context: Context) {
         } else {
             pm.getInstalledPackages(PackageManager.GET_PROVIDERS)
         }
+        val ownPkg = context.packageName
         packages.flatMap { info ->
-            val label = info.applicationInfo?.let { pm.getApplicationLabel(it).toString() } ?: info.packageName
+            val appInfo = info.applicationInfo
+            val label = appInfo?.let { pm.getApplicationLabel(it).toString() } ?: info.packageName
+            val system = appInfo != null &&
+                (appInfo.flags and (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
             info.providers.orEmpty().flatMap { p ->
                 val authorities = p.authority?.split(';')?.filter { it.isNotBlank() } ?: emptyList()
                 authorities.map { authority ->
@@ -58,10 +66,20 @@ class ProviderRepository(private val context: Context) {
                         pathPermissions = p.pathPermissions.orEmpty().map { pp ->
                             listOfNotNull(pp.path, pp.readPermission?.let { "r:$it" }, pp.writePermission?.let { "w:$it" }).joinToString(" ")
                         },
+                        isSystem = system,
+                        queryableNow = canRead(info.packageName == ownPkg, p.exported, p.readPermission),
                     )
                 }
             }
         }.sortedWith(compareBy({ it.appLabel.lowercase() }, { it.authority }))
+    }
+
+    /** App-side readability heuristic (ignores the shell fallback): own provider, or exported with a read perm we hold. */
+    private fun canRead(own: Boolean, exported: Boolean, readPermission: String?): Boolean {
+        if (own) return true
+        if (!exported) return false
+        if (readPermission == null) return true
+        return context.checkSelfPermission(readPermission) == PackageManager.PERMISSION_GRANTED
     }
 
     fun shortcuts(): List<ProviderShortcut> = listOfNotNull(
