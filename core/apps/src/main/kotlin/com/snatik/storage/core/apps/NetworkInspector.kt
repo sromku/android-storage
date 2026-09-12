@@ -47,11 +47,15 @@ data class UsageBucket(
     val txPackets: Long = 0,
     val wifiBytes: Long = 0,
     val mobileBytes: Long = 0,
-    val foregroundBytes: Long = 0,
-    val backgroundBytes: Long = 0,
+    val fgRxBytes: Long = 0,
+    val fgTxBytes: Long = 0,
+    val bgRxBytes: Long = 0,
+    val bgTxBytes: Long = 0,
 ) {
     val totalBytes: Long get() = rxBytes + txBytes
     val totalPackets: Long get() = rxPackets + txPackets
+    val foregroundBytes: Long get() = fgRxBytes + fgTxBytes
+    val backgroundBytes: Long get() = bgRxBytes + bgTxBytes
 }
 
 /**
@@ -166,12 +170,12 @@ class NetworkInspector(private val context: Context, private val privilege: Priv
         var wifiBytes = 0L; var mobileBytes = 0L
         var foregroundBytes = 0L; var backgroundBytes = 0L
         var firstMs = Long.MAX_VALUE; var lastMs = 0L
-        // startMs -> [rx, tx, rxPkts, txPkts, wifi, mobile, fg, bg, durationMs]
+        // startMs -> [rx, tx, rxPkts, txPkts, wifi, mobile, fgRx, fgTx, bgRx, bgTx, durationMs]
         val byBucket = HashMap<Long, LongArray>()
 
         fun buckets(): List<UsageBucket> = byBucket.entries
             .sortedBy { it.key }
-            .map { (start, v) -> UsageBucket(start, v[8], v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]) }
+            .map { (start, v) -> UsageBucket(start, v[10], v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]) }
     }
 
     companion object {
@@ -313,10 +317,10 @@ class NetworkInspector(private val context: Context, private val privilege: Priv
                 if (foreground) agg.foregroundBytes += rb + tb else agg.backgroundBytes += rb + tb
                 if (st < agg.firstMs) agg.firstMs = st
                 if (st + durationMs > agg.lastMs) agg.lastMs = st + durationMs
-                val slot = agg.byBucket.getOrPut(st) { longArrayOf(0, 0, 0, 0, 0, 0, 0, 0, durationMs) }
+                val slot = agg.byBucket.getOrPut(st) { longArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, durationMs) }
                 slot[0] += rb; slot[1] += tb; slot[2] += rp; slot[3] += tp
                 if (wifi) slot[4] += rb + tb else slot[5] += rb + tb
-                if (foreground) slot[6] += rb + tb else slot[7] += rb + tb
+                if (foreground) { slot[6] += rb; slot[7] += tb } else { slot[8] += rb; slot[9] += tb }
             }
             return out
         }

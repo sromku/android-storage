@@ -63,7 +63,8 @@ import org.koin.androidx.compose.koinViewModel
 import java.util.Calendar
 import kotlin.math.roundToInt
 
-private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total), RX(R.string.net_metric_down), TX(R.string.net_metric_up), STATE(R.string.net_metric_split) }
+private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total), RX(R.string.net_metric_down), TX(R.string.net_metric_up) }
+private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), STATE(R.string.net_metric_split) }
 private enum class Measure(val labelRes: Int) { DATA(R.string.net_unit_data), PACKETS(R.string.net_unit_packets) }
 private enum class Range(val labelRes: Int, val ms: Long) {
     H6(R.string.net_range_6h, 6 * 3_600_000L),
@@ -115,6 +116,7 @@ private fun Graph(app: AppNetworkUsage) {
     val ctx = LocalContext.current
     var range by remember { mutableStateOf(Range.D1) }
     var metric by remember { mutableStateOf(Metric.TOTAL) }
+    var split by remember { mutableStateOf(Split.OFF) }
     var unit by remember { mutableStateOf(Measure.DATA) }
     var scrub by remember { mutableStateOf<Int?>(null) }
 
@@ -126,16 +128,19 @@ private fun Graph(app: AppNetworkUsage) {
     val slots = remember(range, app, now) {
         buildList { var t = startAligned; while (t < now && size < 512) { add(t); t += SLOT_MS } }
     }
-    val stacked = metric == Metric.STATE
+    val stacked = split == Split.STATE
+    // Fg/Bg is only recorded as bytes, so the split view is always in Data.
     val effUnit = if (stacked) Measure.DATA else unit
     val cells = slots.map { byStart[it] }
-    fun slotValue(b: UsageBucket?): Long = b?.let { if (stacked) it.totalBytes else it.value(metric, effUnit) } ?: 0L
-    val values = cells.map { slotValue(it) }
-    val fgSeries = cells.map { it?.foregroundBytes ?: 0L }
-    val bgSeries = cells.map { it?.backgroundBytes ?: 0L }
+    // Foreground / background value of the chosen direction (Total / Down / Up).
+    fun UsageBucket.fgVal(m: Metric) = when (m) { Metric.RX -> fgRxBytes; Metric.TX -> fgTxBytes; else -> foregroundBytes }
+    fun UsageBucket.bgVal(m: Metric) = when (m) { Metric.RX -> bgRxBytes; Metric.TX -> bgTxBytes; else -> backgroundBytes }
+    val fgSeries = cells.map { it?.fgVal(metric) ?: 0L }
+    val bgSeries = cells.map { it?.bgVal(metric) ?: 0L }
+    val values = if (stacked) fgSeries.indices.map { fgSeries[it] + bgSeries[it] } else cells.map { it?.value(metric, effUnit) ?: 0L }
     val inRange = app.buckets.filter { it.startMs >= startAligned }
 
-    val windowTotal = inRange.sumOf { if (stacked) it.totalBytes else it.value(metric, effUnit) }
+    val windowTotal = if (stacked) inRange.sumOf { it.fgVal(metric) + it.bgVal(metric) } else inRange.sumOf { it.value(metric, effUnit) }
     val peakIdx = values.indices.maxByOrNull { values[it] }?.takeIf { values.isNotEmpty() && values[it] > 0 }
 
     Column(
@@ -188,6 +193,16 @@ private fun Graph(app: AppNetworkUsage) {
                     onClick = { metric = m; scrub = null },
                     shape = SegmentedButtonDefaults.itemShape(i, Metric.entries.size),
                 ) { Text(stringResource(m.labelRes)) }
+            }
+        }
+        // Split by app state — orthogonal to the direction above.
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            Split.entries.forEachIndexed { i, sp ->
+                SegmentedButton(
+                    selected = split == sp,
+                    onClick = { split = sp; scrub = null },
+                    shape = SegmentedButtonDefaults.itemShape(i, Split.entries.size),
+                ) { Text(stringResource(sp.labelRes)) }
             }
         }
         // Unit — packets aren't tracked per fg/bg, so hide when viewing the state split.

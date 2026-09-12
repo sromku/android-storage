@@ -209,6 +209,7 @@
     <string name="net_metric_down">Down</string>
     <string name="net_metric_up">Up</string>
     <string name="net_metric_split">Fg / Bg</string>
+    <string name="net_split_off">Combined</string>
     <string name="net_unit_data">Data</string>
     <string name="net_unit_packets">Packets</string>
     <string name="net_window_total">Total this range</string>
