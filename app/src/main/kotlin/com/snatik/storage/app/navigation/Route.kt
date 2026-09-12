@@ -171,6 +171,9 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object Settings : Route
+
+    @Serializable
+    data class Art(val packageName: String, val label: String) : Route
 }
 
 /** The destinations reachable from the bottom bar. */

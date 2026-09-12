@@ -49,6 +49,7 @@ class AppActions(private val privilege: PrivilegeManager) {
         val flag = when (mode) {
             CompileMode.SPEED -> "-m speed -f"
             CompileMode.SPEED_PROFILE -> "-m speed-profile -f"
+            CompileMode.EVERYTHING -> "-m everything -f"
             CompileMode.VERIFY -> "-m verify -f"
             CompileMode.RESET -> "--reset"
         }
@@ -66,4 +67,4 @@ class AppActions(private val privilege: PrivilegeManager) {
     }
 }
 
-enum class CompileMode { SPEED, SPEED_PROFILE, VERIFY, RESET }
+enum class CompileMode { SPEED_PROFILE, SPEED, EVERYTHING, VERIFY, RESET }

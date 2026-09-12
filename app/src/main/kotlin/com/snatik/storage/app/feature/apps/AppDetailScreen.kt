@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Save
@@ -111,6 +112,7 @@ fun AppDetailScreen(
     onDiskUsage: (label: String, path: String) -> Unit,
     onNetwork: (String) -> Unit,
     onStorage: (String) -> Unit,
+    onArt: (label: String, packageName: String) -> Unit,
     viewModel: AppDetailViewModel = koinViewModel(parameters = { parametersOf(packageName) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -160,7 +162,7 @@ fun AppDetailScreen(
                             onClearCache = viewModel::clearCache,
                             onClearData = viewModel::requestClearData,
                             onUninstall = viewModel::requestUninstall,
-                            onCompile = viewModel::compile,
+                            onArt = { onArt(d.summary.label, d.summary.packageName) },
                         )
                     }
                 },
@@ -261,7 +263,7 @@ private fun AppActionsMenu(
     onClearCache: () -> Unit,
     onClearData: () -> Unit,
     onUninstall: () -> Unit,
-    onCompile: (com.snatik.storage.core.apps.CompileMode) -> Unit,
+    onArt: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     val error = MaterialTheme.colorScheme.error
@@ -304,21 +306,11 @@ private fun AppActionsMenu(
             onClick = { run(onUninstall) },
         )
         HorizontalDivider()
-        Text(
-            stringResource(R.string.compile_title),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.compile_title)) },
+            leadingIcon = { Icon(Icons.Default.Memory, contentDescription = null) },
+            onClick = { run(onArt) },
         )
-        val modes = listOf(
-            com.snatik.storage.core.apps.CompileMode.SPEED to R.string.compile_speed,
-            com.snatik.storage.core.apps.CompileMode.SPEED_PROFILE to R.string.compile_profile,
-            com.snatik.storage.core.apps.CompileMode.VERIFY to R.string.compile_verify,
-            com.snatik.storage.core.apps.CompileMode.RESET to R.string.compile_reset,
-        )
-        modes.forEach { (mode, label) ->
-            DropdownMenuItem(text = { Text(stringResource(label)) }, enabled = shellAvailable, onClick = { run { onCompile(mode) } })
-        }
         if (!shellAvailable) {
             Text(
                 stringResource(R.string.shell_actions_hint),
