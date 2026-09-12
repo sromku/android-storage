@@ -99,13 +99,10 @@ private fun Detail(app: AppNetworkUsage, hosts: Map<String, String>) {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Identity
+        // Identity — the name is in the top bar, so here just the icon and package.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppIcon(app.packageName, size = 44.dp)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(app.label, style = MaterialTheme.typography.titleLarge)
-                Text(app.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            }
+            AppIcon(app.packageName, size = 40.dp)
+            Text(app.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         }
 
         // Received / Sent headline
