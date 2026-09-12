@@ -16,10 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,6 +68,7 @@ import kotlin.math.roundToInt
 
 private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total), RX(R.string.net_metric_down), TX(R.string.net_metric_up) }
 private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), STATE(R.string.net_metric_split) }
+private enum class ChartType { AREA, BARS }
 private enum class Measure(val labelRes: Int) { DATA(R.string.net_unit_data), PACKETS(R.string.net_unit_packets) }
 private enum class Range(val labelRes: Int, val ms: Long) {
     H6(R.string.net_range_6h, 6 * 3_600_000L),
@@ -118,6 +122,7 @@ private fun Graph(app: AppNetworkUsage) {
     var metric by remember { mutableStateOf(Metric.TOTAL) }
     var split by remember { mutableStateOf(Split.OFF) }
     var unit by remember { mutableStateOf(Measure.DATA) }
+    var chartType by remember { mutableStateOf(ChartType.AREA) }
     var scrub by remember { mutableStateOf<Int?>(null) }
 
     val now = remember { System.currentTimeMillis() }
@@ -173,7 +178,7 @@ private fun Graph(app: AppNetworkUsage) {
         val bands = if (stacked)
             listOf(Band(fgSeries, fgColor, stringResource(R.string.net_foreground)), Band(bgSeries, bgColor, stringResource(R.string.net_background)))
         else listOf(Band(values, fgColor, ""))
-        AreaChart(bands = bands, scrub = scrub, onScrub = { scrub = it })
+        UsageGraph(bands = bands, type = chartType, onType = { chartType = it }, scrub = scrub, onScrub = { scrub = it })
 
         // Range chips
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -253,10 +258,11 @@ private fun Graph(app: AppNetworkUsage) {
 
 private data class Band(val values: List<Long>, val color: Color, val label: String)
 
-/** Smooth Robinhood-style chart with press-and-drag scrubbing. One band draws a gradient area;
- *  multiple bands stack (fg + bg). */
+/** Robinhood-style chart with press-and-drag scrubbing. Renders as a smooth area or as columns;
+ *  a single band fills a gradient, multiple bands stack (fg + bg). The area/bars switch sits in
+ *  the chart's top-right corner. */
 @Composable
-private fun AreaChart(bands: List<Band>, scrub: Int?, onScrub: (Int?) -> Unit) {
+private fun UsageGraph(bands: List<Band>, type: ChartType, onType: (ChartType) -> Unit, scrub: Int?, onScrub: (Int?) -> Unit) {
     val grid = MaterialTheme.colorScheme.surfaceContainerHighest
     val crosshair = MaterialTheme.colorScheme.onSurfaceVariant
     var widthPx by remember { mutableStateOf(1f) }
@@ -266,86 +272,129 @@ private fun AreaChart(bands: List<Band>, scrub: Int?, onScrub: (Int?) -> Unit) {
     val maxV = (totals.maxOrNull() ?: 1L).coerceAtLeast(1L)
 
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-        Column {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .padding(top = 18.dp, bottom = 10.dp)
-                    .onSizeChanged { widthPx = it.width.toFloat() }
-                    .pointerInput(n) {
-                        if (n < 2) return@pointerInput
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-                            fun idx(x: Float) = ((x / widthPx) * (n - 1)).roundToInt().coerceIn(0, n - 1)
-                            onScrub(idx(down.position.x))
-                            while (true) {
-                                val e = awaitPointerEvent()
-                                val c = e.changes.first()
-                                if (!c.pressed) break
-                                onScrub(idx(c.position.x))
-                                c.consume()
+        Box {
+            Column {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .padding(top = 18.dp, bottom = 10.dp)
+                        .onSizeChanged { widthPx = it.width.toFloat() }
+                        .pointerInput(n) {
+                            if (n < 2) return@pointerInput
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                fun idx(x: Float) = ((x / widthPx) * (n - 1)).roundToInt().coerceIn(0, n - 1)
+                                onScrub(idx(down.position.x))
+                                while (true) {
+                                    val e = awaitPointerEvent()
+                                    val c = e.changes.first()
+                                    if (!c.pressed) break
+                                    onScrub(idx(c.position.x))
+                                    c.consume()
+                                }
+                                onScrub(null)
                             }
-                            onScrub(null)
-                        }
-                    },
-            ) {
-                if (n < 2) return@Canvas
-                val h = size.height
-                val w = size.width
-                val top = h * 0.06f
-                fun x(i: Int) = w * i / (n - 1)
-                fun y(v: Long) = h - (v.toFloat() / maxV) * (h - top)
-                fun smooth(pts: List<Offset>) = Path().apply {
-                    moveTo(pts[0].x, pts[0].y)
-                    for (i in 0 until pts.size - 1) {
-                        val cx = (pts[i].x + pts[i + 1].x) / 2
-                        cubicTo(cx, pts[i].y, cx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y)
+                        },
+                ) {
+                    if (n < 2) return@Canvas
+                    val h = size.height
+                    val w = size.width
+                    val top = h * 0.06f
+                    fun x(i: Int) = w * i / (n - 1)
+                    fun y(v: Long) = h - (v.toFloat() / maxV) * (h - top)
+
+                    for (g in 0..2) {
+                        val gy = top + (h - top) * g / 2f
+                        drawLine(grid, Offset(0f, gy), Offset(w, gy), strokeWidth = 1f)
                     }
-                }
 
-                for (g in 0..2) {
-                    val gy = top + (h - top) * g / 2f
-                    drawLine(grid, Offset(0f, gy), Offset(w, gy), strokeWidth = 1f)
-                }
-
-                // cumulative upper edge per band; draw largest first so lower bands paint on top.
-                val cum = MutableList(n) { 0L }
-                val edges = bands.map { b -> List(n) { i -> cum[i] += b.values[i]; cum[i] } }
-                for (bi in bands.indices.reversed()) {
-                    val topLine = smooth(List(n) { Offset(x(it), y(edges[bi][it])) })
-                    val area = Path().apply { addPath(topLine); lineTo(w, h); lineTo(0f, h); close() }
-                    if (stacked) {
-                        drawPath(area, color = bands[bi].color.copy(alpha = 0.85f))
+                    if (type == ChartType.BARS) {
+                        val gap = (w / n * 0.28f).coerceIn(1.5f, 8f)
+                        val bw = ((w - gap * (n - 1)) / n).coerceAtLeast(1f)
+                        for (i in 0 until n) {
+                            val x0 = i * (bw + gap)
+                            var base = h
+                            for (b in bands) {
+                                val bh = (b.values[i].toFloat() / maxV) * (h - top)
+                                if (bh > 0.5f) {
+                                    drawRect(b.color, topLeft = Offset(x0, base - bh), size = androidx.compose.ui.geometry.Size(bw, bh))
+                                    base -= bh
+                                }
+                            }
+                        }
+                        scrub?.let { s ->
+                            val si = s.coerceIn(0, n - 1)
+                            val cx = si * (bw + gap) + bw / 2
+                            drawLine(crosshair, Offset(cx, 0f), Offset(cx, h), strokeWidth = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                        }
                     } else {
-                        drawPath(area, Brush.verticalGradient(listOf(bands[bi].color.copy(alpha = 0.28f), bands[bi].color.copy(alpha = 0.02f)), startY = top, endY = h))
-                        drawPath(topLine, color = bands[bi].color, style = Stroke(width = 3f))
+                        fun smooth(pts: List<Offset>) = Path().apply {
+                            moveTo(pts[0].x, pts[0].y)
+                            for (i in 0 until pts.size - 1) {
+                                val cx = (pts[i].x + pts[i + 1].x) / 2
+                                cubicTo(cx, pts[i].y, cx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y)
+                            }
+                        }
+                        // cumulative upper edge per band; draw largest first so lower bands paint on top.
+                        val cum = MutableList(n) { 0L }
+                        val edges = bands.map { b -> List(n) { i -> cum[i] += b.values[i]; cum[i] } }
+                        for (bi in bands.indices.reversed()) {
+                            val topLine = smooth(List(n) { Offset(x(it), y(edges[bi][it])) })
+                            val area = Path().apply { addPath(topLine); lineTo(w, h); lineTo(0f, h); close() }
+                            if (stacked) {
+                                drawPath(area, color = bands[bi].color.copy(alpha = 0.85f))
+                            } else {
+                                drawPath(area, Brush.verticalGradient(listOf(bands[bi].color.copy(alpha = 0.28f), bands[bi].color.copy(alpha = 0.02f)), startY = top, endY = h))
+                                drawPath(topLine, color = bands[bi].color, style = Stroke(width = 3f))
+                            }
+                        }
+                        if (stacked) drawPath(smooth(List(n) { Offset(x(it), y(edges.last()[it])) }), color = bands.first().color, style = Stroke(width = 2f))
+                        scrub?.let { s ->
+                            val si = s.coerceIn(0, n - 1)
+                            val sx = x(si)
+                            val sy = y(totals[si])
+                            drawLine(crosshair, Offset(sx, 0f), Offset(sx, h), strokeWidth = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                            drawCircle(bands.first().color, radius = 7f, center = Offset(sx, sy))
+                            drawCircle(Color.White, radius = 3f, center = Offset(sx, sy))
+                        }
                     }
                 }
                 if (stacked) {
-                    drawPath(smooth(List(n) { Offset(x(it), y(edges.last()[it])) }), color = bands.first().color, style = Stroke(width = 2f))
-                }
-
-                scrub?.let { s ->
-                    val si = s.coerceIn(0, n - 1)
-                    val sx = x(si)
-                    val sy = y(totals[si])
-                    drawLine(crosshair, Offset(sx, 0f), Offset(sx, h), strokeWidth = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
-                    drawCircle(bands.first().color, radius = 7f, center = Offset(sx, sy))
-                    drawCircle(Color.White, radius = 3f, center = Offset(sx, sy))
-                }
-            }
-            if (stacked) {
-                Row(modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    bands.forEach { b ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(b.color))
-                            Text(b.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        bands.forEach { b ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(b.color))
+                                Text(b.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
             }
+            // chart-type switch, top-right corner
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            ) {
+                Row {
+                    ChartTypeButton(Icons.Default.ShowChart, type == ChartType.AREA) { onType(ChartType.AREA) }
+                    ChartTypeButton(Icons.Default.BarChart, type == ChartType.BARS) { onType(ChartType.BARS) }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun ChartTypeButton(icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(34.dp)) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
