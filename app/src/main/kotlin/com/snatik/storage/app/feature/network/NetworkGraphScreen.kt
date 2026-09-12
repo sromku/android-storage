@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
+import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.util.fullDateTime
 import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.app.util.relativeTime
@@ -95,9 +96,12 @@ fun NetworkGraphScreen(packageName: String, onBack: () -> Unit, viewModel: Netwo
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(app?.label ?: stringResource(R.string.net_title), style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                        Text(stringResource(R.string.net_over_time), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (app != null) AppIcon(app.packageName, size = 30.dp)
+                        Column {
+                            Text(app?.label ?: stringResource(R.string.net_title), style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                            Text(stringResource(R.string.net_over_time), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
