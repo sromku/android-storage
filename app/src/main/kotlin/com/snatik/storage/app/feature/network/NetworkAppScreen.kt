@@ -200,9 +200,16 @@ private fun Detail(
         }
 
         // Live connections
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionTitle(stringResource(R.string.net_live))
-            if (app.connections.isNotEmpty()) Tag(stringResource(R.string.net_live_count, app.connections.size), MaterialTheme.colorScheme.primary)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionTitle(stringResource(R.string.net_live))
+                if (app.connections.isNotEmpty()) Tag(stringResource(R.string.net_live_count, app.connections.size), MaterialTheme.colorScheme.primary)
+            }
+            if (app.connections.isNotEmpty()) {
+                val tally = app.connections.groupingBy { serviceType(it.remotePort, it.protocol) }.eachCount()
+                    .entries.sortedByDescending { it.value }.joinToString("  ·  ") { "${it.key} ×${it.value}" }
+                Text(tally, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         if (app.connections.isEmpty()) {
             Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
@@ -328,6 +335,7 @@ private fun ConnectionCard(conn: Connection, host: String?) {
                     Text("$display:${conn.remotePort}", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1)
                     if (host != null) Text(conn.remoteAddress, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
+                Tag(serviceType(conn.remotePort, conn.protocol), MaterialTheme.colorScheme.tertiary)
                 val established = conn.state == "ESTABLISHED"
                 Tag(stateLabel(conn.state), if (established) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -349,6 +357,24 @@ private fun ConnectionCard(conn: Connection, host: String?) {
 
 private fun endpoint(address: String, port: Int, ipv6: Boolean): String =
     if (ipv6) "[$address]:$port" else "$address:$port"
+
+/** Best-effort service name from the remote port — the only "type" a raw socket exposes. */
+private fun serviceType(port: Int, protocol: Protocol): String = when (port) {
+    443 -> if (protocol == Protocol.UDP) "QUIC" else "HTTPS"
+    80 -> "HTTP"
+    53 -> "DNS"
+    853 -> "DoT"
+    993 -> "IMAPS"
+    995 -> "POP3S"
+    465, 587 -> "SMTP"
+    5222, 5223, 5228, 5229, 5230 -> "Push"      // XMPP / FCM
+    3478, 3479, 5349, 5350 -> "STUN/TURN"        // calls / WebRTC
+    8009 -> "Cast"
+    1900 -> "SSDP"
+    123 -> "NTP"
+    22 -> "SSH"
+    else -> "$protocol:$port"
+}
 
 @Composable
 private fun Line(label: String, value: String) {
