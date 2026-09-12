@@ -68,7 +68,7 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, viewModel: Network
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(app?.label ?: stringResource(R.string.net_title)) },
+                title = { Text(stringResource(R.string.net_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
             )
         },
@@ -99,10 +99,13 @@ private fun Detail(app: AppNetworkUsage, hosts: Map<String, String>) {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Identity — the name is in the top bar, so here just the icon and package.
+        // Identity — the top bar stays generic ("Network"), so the page owns the app header.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppIcon(app.packageName, size = 40.dp)
-            Text(app.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            AppIcon(app.packageName, size = 44.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(app.label, style = MaterialTheme.typography.titleLarge)
+                Text(app.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
         }
 
         // Received / Sent headline
