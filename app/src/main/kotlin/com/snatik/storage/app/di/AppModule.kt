@@ -150,6 +150,8 @@ val appModule = module {
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
     single { com.snatik.storage.app.feature.data.UriDiscovery(androidContext(), get()) }
+    single { com.snatik.storage.app.feature.data.SavedQueryStore(androidContext(), get()) }
+    single { com.snatik.storage.app.feature.data.UriDiscoveryStore(androidContext(), get()) }
     single { SqliteInspector(androidContext(), get()) }
     single { DatabaseSessions(get()) }
     single { IntentSender(androidContext()) }
@@ -182,9 +184,9 @@ val appModule = module {
     viewModelOf(::AppsViewModel)
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DiskUsageViewModel(path, get()) }
-    viewModelOf(::DataViewModel)
+    viewModel { DataViewModel(get(), get()) }
     viewModel { (route: Route.ProviderQuery) -> ProviderQueryViewModel(route, get(), get()) }
-    viewModel { (route: Route.ProviderUris) -> com.snatik.storage.app.feature.data.ProviderUrisViewModel(route, get()) }
+    viewModel { (route: Route.ProviderUris) -> com.snatik.storage.app.feature.data.ProviderUrisViewModel(route, androidContext(), get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }

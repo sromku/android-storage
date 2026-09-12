@@ -222,7 +222,7 @@ fun AppNavigation() {
             entry<Route.Data> {
                 DataScreen(
                     onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) },
-                    onDiscoverUris = { pkg, className, authority, label -> push(Route.ProviderUris(pkg, className, authority, label)) },
+                    onDiscoverUris = { pkg, className, authority, label, readPermission -> push(Route.ProviderUris(pkg, className, authority, label, readPermission)) },
                     onSwitchTab = ::switchTab,
                 )
             }

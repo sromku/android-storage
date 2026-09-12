@@ -26,6 +26,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -65,7 +66,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverUris: (pkg: String, className: String, authority: String, label: String) -> Unit = { _, _, _, _ -> }, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
+fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverUris: (pkg: String, className: String, authority: String, label: String, readPermission: String?) -> Unit = { _, _, _, _, _ -> }, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
@@ -136,6 +137,23 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
                 }
             }
             } else {
+                state.saved.groupBy { it.group }.forEach { (group, chips) ->
+                    item(key = "saved/$group") {
+                        Text(group, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 14.dp))
+                        FlowRow(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            chips.forEach { s ->
+                                InputChip(
+                                    selected = false,
+                                    onClick = { onOpenProvider(s.title, s.uri) },
+                                    label = { Text(s.title, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) },
+                                    trailingIcon = {
+                                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.qq_remove), modifier = Modifier.size(18.dp).clickable { viewModel.removeSaved(s.uri) })
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
                 state.shortcuts.groupBy { it.group }.forEach { (group, chips) ->
                     item(key = "qq/$group") {
                         Text(group, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 14.dp))
@@ -157,7 +175,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
                 related = related,
                 onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null },
                 onOpenShortcut = { title, uri -> onOpenProvider(title, uri); selected = null },
-                onDiscover = { onDiscoverUris(provider.packageName, provider.className, provider.authority, provider.appLabel); selected = null },
+                onDiscover = { onDiscoverUris(provider.packageName, provider.className, provider.authority, provider.appLabel, provider.readPermission); selected = null },
             )
         }
     }

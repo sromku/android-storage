@@ -15,6 +15,8 @@ enum class ProviderSource { ALL, SYSTEM, APPS }
 
 data class DataUiState(
     val shortcuts: List<ProviderShortcut> = emptyList(),
+    /** User-saved URIs (from the Provider URIs screen), shown as a removable group. */
+    val saved: List<ProviderShortcut> = emptyList(),
     val providers: List<ProviderEntry> = emptyList(),
     val query: String = "",
     val source: ProviderSource = ProviderSource.ALL,
@@ -50,7 +52,7 @@ data class DataUiState(
             listOf(onlyExported, onlyPermission, onlyGrantsUri, onlyQueryable).count { it }
 }
 
-class DataViewModel(private val repository: ProviderRepository) : ViewModel() {
+class DataViewModel(private val repository: ProviderRepository, private val savedStore: SavedQueryStore) : ViewModel() {
 
     private val _state = MutableStateFlow(DataUiState(shortcuts = repository.shortcuts()))
     val state: StateFlow<DataUiState> = _state.asStateFlow()
@@ -60,7 +62,14 @@ class DataViewModel(private val repository: ProviderRepository) : ViewModel() {
             val providers = repository.list()
             _state.update { it.copy(providers = providers, loading = false) }
         }
+        viewModelScope.launch {
+            savedStore.saved.collect { saved ->
+                _state.update { it.copy(saved = saved.map { s -> ProviderShortcut(s.title, s.uri, s.group) }) }
+            }
+        }
     }
+
+    fun removeSaved(uri: String) = savedStore.remove(uri)
 
     fun setQuery(query: String) = _state.update { it.copy(query = query) }
     fun setSource(source: ProviderSource) = _state.update { it.copy(source = source) }
