@@ -153,8 +153,13 @@ private fun PermissionCard(perm: PermStatus, privileged: Boolean) {
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
+                // Signature/privileged permissions can never be held by a normal app (not even via
+                // pm grant) — so make clear there's nothing to grant, unlike a runtime permission.
+                val signatureOnly = perm.protection == "signature" || perm.protection == "special"
                 val note = when {
                     held -> stringResource(R.string.uri_perm_held)
+                    signatureOnly && privileged -> stringResource(R.string.uri_perm_sig_shell)
+                    signatureOnly -> stringResource(R.string.uri_perm_sig_need_shell)
                     privileged -> stringResource(R.string.uri_perm_shell)
                     else -> stringResource(R.string.uri_perm_need_shell)
                 }

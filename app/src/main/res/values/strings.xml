@@ -336,6 +336,8 @@
     <string name="uri_perm_held">Granted — the app can read this provider directly.</string>
     <string name="uri_perm_shell">Not granted — reads route through the privileged shell (Shizuku/root).</string>
     <string name="uri_perm_need_shell">Not granted — connect Shizuku or root to read this provider.</string>
+    <string name="uri_perm_sig_shell">Signature permission — a normal app can\'t hold it, so there\'s nothing to grant. Reads route through the privileged shell (Shizuku/root).</string>
+    <string name="uri_perm_sig_need_shell">Signature permission — a normal app can\'t hold it. Connect Shizuku or root to read this provider.</string>
     <string name="uri_resolve_title_id">Pick an id</string>
     <string name="uri_resolve_title_key">Pick a value</string>
     <string name="uri_resolve_loading">Querying the parent collection…</string>
