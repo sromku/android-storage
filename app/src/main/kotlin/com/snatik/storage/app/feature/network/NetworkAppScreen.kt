@@ -40,12 +40,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
@@ -65,10 +69,33 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, viewModel: Network
     val state by viewModel.state.collectAsStateWithLifecycle()
     val app = state.forPackage(packageName)
 
+    val scroll = rememberScrollState()
+    var headerHeightPx by remember { mutableStateOf(1f) }
+    val topPadPx = with(LocalDensity.current) { 16.dp.toPx() }
+    // 0 while the big page header is fully visible; 1 once it has scrolled under the bar.
+    val fraction = (scroll.value / (headerHeightPx + topPadPx)).coerceIn(0f, 1f)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.net_title)) },
+                title = {
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        Text(stringResource(R.string.net_title), modifier = Modifier.alpha(1f - fraction))
+                        if (app != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.alpha(fraction),
+                            ) {
+                                AppIcon(app.packageName, size = 30.dp)
+                                Column {
+                                    Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(app.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
             )
         },
@@ -86,21 +113,31 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, viewModel: Network
                     Text(stringResource(R.string.net_no_history), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.net_no_history_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                else -> Detail(app, state.hostNames)
+                else -> Detail(app, state.hostNames, scroll, fraction) { headerHeightPx = it }
             }
         }
     }
 }
 
 @Composable
-private fun Detail(app: AppNetworkUsage, hosts: Map<String, String>) {
+private fun Detail(
+    app: AppNetworkUsage,
+    hosts: Map<String, String>,
+    scroll: androidx.compose.foundation.ScrollState,
+    headerFraction: Float,
+    onHeaderHeight: (Float) -> Unit,
+) {
     val ctx = LocalContext.current
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Identity — the top bar stays generic ("Network"), so the page owns the app header.
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Identity — crossfades up into the top bar as it scrolls away.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.alpha(1f - headerFraction).onSizeChanged { onHeaderHeight(it.height.toFloat()) },
+        ) {
             AppIcon(app.packageName, size = 44.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(app.label, style = MaterialTheme.typography.titleLarge)
