@@ -54,6 +54,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
@@ -191,6 +192,9 @@ private fun Graph(app: AppNetworkUsage) {
                     if (stacked) "$base · $aLabel ${fmt(aSeries[s.first], unit)} · $bLabel ${fmt(bSeries[s.first], unit)}" else base
                 } ?: rangeSubtitle(range, startAligned, ctx),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Reserve two lines so scrubbing (which adds the per-series breakdown) doesn't
+                // grow the header and push the chart down.
+                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
 
