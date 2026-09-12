@@ -278,6 +278,12 @@
     <string name="data_title">Data</string>
     <string name="section_shortcuts">System providers</string>
     <string name="section_all_providers">All providers</string>
+    <string name="prov_filters_title">Filters</string>
+    <string name="prov_filters_button">Filters</string>
+    <string name="prov_source_label">Source</string>
+    <string name="prov_view_label">View</string>
+    <string name="prov_show_only">Show only</string>
+    <string name="prov_clear">Clear</string>
     <string name="prov_source_all">All</string>
     <string name="prov_source_system">System</string>
     <string name="prov_source_apps">Apps</string>

@@ -43,6 +43,11 @@ data class DataUiState(
     /** For the grouped view: providers bucketed by app, app groups ordered by name. */
     val grouped: List<Pair<String, List<ProviderEntry>>>
         get() = visible.groupBy { it.appLabel }.entries.sortedBy { it.key.lowercase() }.map { it.key to it.value }
+
+    /** Number of active constraints, for the Filters button badge. */
+    val activeFilterCount: Int
+        get() = (if (source != ProviderSource.ALL) 1 else 0) +
+            listOf(onlyExported, onlyPermission, onlyGrantsUri, onlyQueryable).count { it }
 }
 
 class DataViewModel(private val repository: ProviderRepository) : ViewModel() {
@@ -64,4 +69,7 @@ class DataViewModel(private val repository: ProviderRepository) : ViewModel() {
     fun togglePermission() = _state.update { it.copy(onlyPermission = !it.onlyPermission) }
     fun toggleGrantsUri() = _state.update { it.copy(onlyGrantsUri = !it.onlyGrantsUri) }
     fun toggleQueryable() = _state.update { it.copy(onlyQueryable = !it.onlyQueryable) }
+    fun clearFilters() = _state.update {
+        it.copy(source = ProviderSource.ALL, onlyExported = false, onlyPermission = false, onlyGrantsUri = false, onlyQueryable = false)
+    }
 }

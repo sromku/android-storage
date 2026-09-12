@@ -14,9 +14,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,7 +32,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -59,6 +65,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
+    var filtersOpen by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -88,36 +95,26 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 6.dp),
                 )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    val sources = listOf(
-                        ProviderSource.ALL to stringResource(R.string.prov_source_all),
-                        ProviderSource.SYSTEM to stringResource(R.string.prov_source_system),
-                        ProviderSource.APPS to stringResource(R.string.prov_source_apps),
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = state.query,
+                        onValueChange = viewModel::setQuery,
+                        placeholder = { Text(stringResource(R.string.providers_search)) },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = { if (state.query.isNotEmpty()) IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) } },
+                        modifier = Modifier.weight(1f),
                     )
-                    sources.forEachIndexed { i, (src, label) ->
-                        SegmentedButton(
-                            selected = state.source == src,
-                            onClick = { viewModel.setSource(src) },
-                            shape = SegmentedButtonDefaults.itemShape(i, sources.size),
-                        ) { Text(label, maxLines = 1) }
+                    BadgedBox(badge = { if (state.activeFilterCount > 0) Badge { Text("${state.activeFilterCount}") } }) {
+                        FilledTonalIconButton(onClick = { filtersOpen = true }) {
+                            Icon(Icons.Default.FilterList, contentDescription = stringResource(R.string.prov_filters_button))
+                        }
                     }
                 }
-                FlowRow(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(state.groupByApp, onClick = viewModel::toggleGroupByApp, label = { Text(stringResource(R.string.prov_filter_group)) })
-                    FilterChip(state.onlyExported, onClick = viewModel::toggleExported, label = { Text(stringResource(R.string.prov_filter_exported)) })
-                    FilterChip(state.onlyPermission, onClick = viewModel::togglePermission, label = { Text(stringResource(R.string.prov_filter_permission)) })
-                    FilterChip(state.onlyGrantsUri, onClick = viewModel::toggleGrantsUri, label = { Text(stringResource(R.string.prov_filter_grant)) })
-                    FilterChip(state.onlyQueryable, onClick = viewModel::toggleQueryable, label = { Text(stringResource(R.string.prov_filter_queryable)) })
-                }
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = viewModel::setQuery,
-                    placeholder = { Text(stringResource(R.string.providers_search)) },
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = { if (state.query.isNotEmpty()) IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) } },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                )
             }
             if (!state.loading && visible.isEmpty()) {
                 item { Text(stringResource(R.string.no_providers), modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -147,6 +144,50 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(onDismissRequest = { selected = null }, sheetState = sheetState) {
             ProviderDetail(provider, onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null })
+        }
+    }
+
+    if (filtersOpen) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(onDismissRequest = { filtersOpen = false }, sheetState = sheetState) {
+            FiltersSheet(state, viewModel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FiltersSheet(state: DataUiState, viewModel: DataViewModel) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.prov_filters_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            if (state.activeFilterCount > 0) TextButton(onClick = viewModel::clearFilters) { Text(stringResource(R.string.prov_clear)) }
+        }
+        Text(stringResource(R.string.prov_source_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            val sources = listOf(
+                ProviderSource.ALL to stringResource(R.string.prov_source_all),
+                ProviderSource.SYSTEM to stringResource(R.string.prov_source_system),
+                ProviderSource.APPS to stringResource(R.string.prov_source_apps),
+            )
+            sources.forEachIndexed { i, (src, label) ->
+                SegmentedButton(
+                    selected = state.source == src,
+                    onClick = { viewModel.setSource(src) },
+                    shape = SegmentedButtonDefaults.itemShape(i, sources.size),
+                ) { Text(label, maxLines = 1) }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.prov_filter_group), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Switch(checked = state.groupByApp, onCheckedChange = { viewModel.toggleGroupByApp() })
+        }
+        Text(stringResource(R.string.prov_show_only), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(state.onlyExported, onClick = viewModel::toggleExported, label = { Text(stringResource(R.string.prov_filter_exported)) })
+            FilterChip(state.onlyPermission, onClick = viewModel::togglePermission, label = { Text(stringResource(R.string.prov_filter_permission)) })
+            FilterChip(state.onlyGrantsUri, onClick = viewModel::toggleGrantsUri, label = { Text(stringResource(R.string.prov_filter_grant)) })
+            FilterChip(state.onlyQueryable, onClick = viewModel::toggleQueryable, label = { Text(stringResource(R.string.prov_filter_queryable)) })
         }
     }
 }
