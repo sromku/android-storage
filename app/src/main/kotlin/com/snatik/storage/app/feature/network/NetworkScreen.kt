@@ -163,9 +163,10 @@ private fun AppRow(app: AppNetworkUsage, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
             )
         }
-        if (app.connections.any { it.state == "ESTABLISHED" }) {
-            Tag(stringResource(R.string.net_live_badge), MaterialTheme.colorScheme.primary)
-        } else {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (app.connections.any { it.state == "ESTABLISHED" }) {
+                Tag(stringResource(R.string.net_live_badge), MaterialTheme.colorScheme.primary)
+            }
             Text(app.totalBytes.readableSize(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         }
     }
