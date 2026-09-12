@@ -751,6 +751,11 @@
     <string name="art_timing">%1$d ms wall · %2$d ms CPU</string>
     <string name="art_dex_files">Dex files (%1$d)</string>
     <string name="art_raw_output">Raw output</string>
+    <string name="art_show_raw">Show raw output</string>
+    <string name="art_hide_raw">Hide raw output</string>
+    <string name="art_copy">Copy</string>
+    <string name="art_copied">Copied</string>
+    <string name="art_raw_hint">Full verbose log from cmd package compile -v</string>
     <string name="art_filter_abi">Compiler · ABI</string>
     <string name="art_dex2oat">dex2oat</string>
     <string name="art_flags">Flags</string>

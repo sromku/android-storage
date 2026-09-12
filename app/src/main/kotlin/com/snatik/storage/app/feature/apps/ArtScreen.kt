@@ -14,11 +14,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
@@ -38,11 +44,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -419,10 +430,7 @@ fun ArtOpDetailScreen(packageName: String, opTs: Long, label: String, onBack: ()
                 op.files.forEach { FileResultCard(it) }
             }
 
-            Text(stringResource(R.string.art_raw_output), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-                Text(op.raw.ifBlank { "—" }, style = MonoStyle, modifier = Modifier.padding(12.dp))
-            }
+            RawOutputSection(op.raw)
         }
     }
 }
@@ -451,5 +459,82 @@ private fun DetailLine(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** Strip the noisy async-job chatter dexopt prints so the log reads as pure compile output. */
+private fun cleanRaw(raw: String): String =
+    raw.lineSequence()
+        .filterNot { val t = it.trim(); t.startsWith("Job running") || t.contains("pm art cancel") }
+        .joinToString("\n")
+        .trim()
+
+/**
+ * Collapsible terminal-style presentation of the verbose compile log. Collapsed by default
+ * because the per-dex cards above already surface the meaningful fields; expanded, it shows the
+ * cleaned log in a dark, horizontally-scrollable mono block with a copy action.
+ */
+@Composable
+private fun RawOutputSection(raw: String) {
+    val text = remember(raw) { cleanRaw(raw).ifBlank { "—" } }
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = !expanded },
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Default.Terminal, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.art_raw_output), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.art_raw_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = stringResource(if (expanded) R.string.art_hide_raw else R.string.art_show_raw),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (expanded) {
+            val clipboard = LocalClipboardManager.current
+            var copied by remember { mutableStateOf(false) }
+            Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("compile -v", style = MonoStyle, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            clipboard.setText(AnnotatedString(text))
+                            copied = true
+                        }) {
+                            Icon(if (copied) Icons.Default.Check else Icons.Default.ContentCopy, contentDescription = null, tint = MaterialTheme.colorScheme.inversePrimary, modifier = Modifier.size(16.dp))
+                            Text(
+                                stringResource(if (copied) R.string.art_copied else R.string.art_copy),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.inversePrimary,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                        Text(
+                            text,
+                            style = MonoStyle,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
