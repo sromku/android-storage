@@ -343,6 +343,7 @@ private fun ConnectionCard(conn: Connection, host: String?, org: String?) {
             }
             AnimatedVisibility(visible = expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (org != null) Line(stringResource(R.string.net_owner), org)
                     Line(stringResource(R.string.net_protocol), "${conn.protocol}${if (conn.ipv6) "6" else ""}")
                     Line(stringResource(R.string.net_local), endpoint(conn.localAddress, conn.localPort, conn.ipv6))
                     Line(stringResource(R.string.net_remote), endpoint(conn.remoteAddress, conn.remotePort, conn.ipv6))

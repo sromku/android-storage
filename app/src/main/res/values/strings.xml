@@ -237,6 +237,7 @@
     <string name="net_live_none_body">Open connections are momentary. Reading another app\'s live sockets needs root — enable it from the Storage tab. The usage history above is always available.</string>
     <string name="net_local">Local</string>
     <string name="net_remote">Remote</string>
+    <string name="net_owner">Owner</string>
     <string name="net_protocol">Protocol</string>
     <string name="net_state">State</string>
     <string name="net_retransmits">Retransmits</string>
