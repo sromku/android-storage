@@ -1,5 +1,13 @@
 package com.snatik.storage.app.feature.disk
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import com.snatik.storage.core.fs.FileKind
+import com.snatik.storage.app.ui.components.icon
+import com.snatik.storage.app.ui.components.tint
+import kotlin.math.roundToInt
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -115,11 +123,22 @@ fun DiskUsageScreen(
                                 selected = state.view == view,
                                 onClick = { viewModel.setView(view) },
                                 shape = SegmentedButtonDefaults.itemShape(i, DiskView.entries.size),
-                            ) { Text(stringResource(if (view == DiskView.TREE) R.string.tree else R.string.largest_files)) }
+                            ) {
+                                Text(
+                                    stringResource(
+                                        when (view) {
+                                            DiskView.TREE -> R.string.tree
+                                            DiskView.TYPES -> R.string.by_type
+                                            DiskView.LARGEST -> R.string.largest_files
+                                        },
+                                    ),
+                                )
+                            }
                         }
                     }
                     when (state.view) {
                         DiskView.TREE -> TreeView(route, state, viewModel, onBrowse)
+                        DiskView.TYPES -> TypesView(state.types)
                         DiskView.LARGEST -> LargestView(state.largest, onBrowse)
                     }
                 }
@@ -217,6 +236,60 @@ private fun LargestView(largest: List<LargeFile>, onBrowse: (String) -> Unit) {
         }
     }
 }
+
+@Composable
+private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>) {
+    val total = types.sumOf { it.bytes }.coerceAtLeast(1)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        items(types, key = { it.kind }) { t ->
+            val frac = t.bytes.toFloat() / total
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(t.kind.icon(), contentDescription = null, tint = t.kind.tint(), modifier = Modifier.size(22.dp))
+                    Text(typeLabel(t.kind), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(t.bytes.readableSize(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                }
+                LinearProgressIndicator(
+                    progress = { frac },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = t.kind.tint(),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {},
+                )
+                Text(
+                    stringResource(R.string.type_share, (frac * 100).roundToInt(), t.count),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun typeLabel(kind: FileKind): String = stringResource(
+    when (kind) {
+        FileKind.DIRECTORY -> R.string.kind_directory
+        FileKind.IMAGE -> R.string.kind_image
+        FileKind.VIDEO -> R.string.kind_video
+        FileKind.AUDIO -> R.string.kind_audio
+        FileKind.TEXT -> R.string.kind_text
+        FileKind.CODE -> R.string.kind_code
+        FileKind.JSON -> R.string.kind_json
+        FileKind.XML -> R.string.kind_xml
+        FileKind.PDF -> R.string.kind_pdf
+        FileKind.ARCHIVE -> R.string.kind_archive
+        FileKind.APK -> R.string.kind_apk
+        FileKind.DATABASE -> R.string.kind_database
+        FileKind.FONT -> R.string.kind_font
+        FileKind.OTHER -> R.string.kind_other
+    },
+)
 
 @Composable
 private fun Treemap(children: List<DirNode>, filesHere: Long, onEnter: (DirNode) -> Unit, modifier: Modifier = Modifier) {

@@ -21,11 +21,14 @@ class DirNode(val path: String, val name: String) {
 
 data class LargeFile(val path: String, val size: Long)
 
+/** Total bytes and file count for one file category, for the "by type" breakdown. */
+data class TypeStat(val kind: FileKind, val bytes: Long, val count: Int)
+
 data class ScanProgress(val filesSeen: Int, val bytesSeen: Long, val currentPath: String)
 
 sealed interface ScanEvent {
     data class Progress(val progress: ScanProgress) : ScanEvent
-    data class Done(val root: DirNode, val largest: List<LargeFile>) : ScanEvent
+    data class Done(val root: DirNode, val largest: List<LargeFile>, val types: List<TypeStat>) : ScanEvent
 }
 
 /** Walks a tree adding up file sizes. Works on the local file system or through a shell. */
@@ -34,6 +37,8 @@ class DiskScanner(private val fs: FileSystem) {
     fun scan(path: String, largestCount: Int = 100): Flow<ScanEvent> = flow {
         val root = DirNode(path.trimEnd('/').ifEmpty { "/" }, path.trimEnd('/').substringAfterLast('/').ifEmpty { "/" })
         val largest = ArrayList<LargeFile>(largestCount + 1)
+        val typeBytes = HashMap<FileKind, Long>()
+        val typeCount = HashMap<FileKind, Int>()
         var files = 0
         var bytes = 0L
         var lastEmit = 0L
@@ -45,13 +50,17 @@ class DiskScanner(private val fs: FileSystem) {
             bytes += size
             addFile(root, filePath, size)
             track(largest, filePath, size, largestCount)
+            val kind = FileKind.of(filePath.substringAfterLast('/'), isDirectory = false)
+            typeBytes[kind] = (typeBytes[kind] ?: 0L) + size
+            typeCount[kind] = (typeCount[kind] ?: 0) + 1
             val now = System.currentTimeMillis()
             if (now - lastEmit > 200) {
                 lastEmit = now
                 emit(ScanEvent.Progress(ScanProgress(files, bytes, filePath)))
             }
         }
-        emit(ScanEvent.Done(root, largest.sortedByDescending { it.size }))
+        val types = typeBytes.map { (kind, b) -> TypeStat(kind, b, typeCount[kind] ?: 0) }.sortedByDescending { it.bytes }
+        emit(ScanEvent.Done(root, largest.sortedByDescending { it.size }, types))
     }.flowOn(Dispatchers.Default)
 
     private fun addFile(root: DirNode, filePath: String, size: Long) {

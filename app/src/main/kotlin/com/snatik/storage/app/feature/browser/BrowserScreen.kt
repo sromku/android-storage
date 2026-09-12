@@ -53,7 +53,6 @@ import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
@@ -73,6 +72,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -233,17 +233,21 @@ fun BrowserScreen(
                         listState = listState,
                         onOpen = { entry -> if (entry.isDirectory) onOpenDirectory(entry.path) else onOpenFile(entry) },
                         onToggle = viewModel::toggleSelected,
-                        onOpenWith = { Intents.openWith(context, it.path) },
-                        onShare = { Intents.share(context, listOf(it.path)) },
-                        onRename = { viewModel.showDialog(BrowserDialog.Rename(it)) },
-                        onDetails = viewModel::showDetails,
-                        onCopy = { viewModel.copyToClipboard(listOf(it.path)) },
-                        onCut = { viewModel.cutToClipboard(listOf(it.path)) },
-                        onDelete = { viewModel.requestDelete(listOf(it.path)) },
-                        onViewAsText = onViewAsText,
-                        onViewAsHex = onViewAsHex,
-                        onOpenAsDatabase = onOpenAsDatabase,
-                        onOpenAsPrefs = onOpenAsPrefs,
+                        onAction = { action, entry ->
+                            when (action) {
+                                FileAction.OPEN_WITH -> Intents.openWith(context, entry.path)
+                                FileAction.SHARE -> Intents.share(context, listOf(entry.path))
+                                FileAction.VIEW_TEXT -> onViewAsText(entry)
+                                FileAction.VIEW_HEX -> onViewAsHex(entry)
+                                FileAction.OPEN_DB -> onOpenAsDatabase(entry)
+                                FileAction.OPEN_PREFS -> onOpenAsPrefs(entry)
+                                FileAction.COPY -> viewModel.copyToClipboard(listOf(entry.path))
+                                FileAction.CUT -> viewModel.cutToClipboard(listOf(entry.path))
+                                FileAction.RENAME -> viewModel.showDialog(BrowserDialog.Rename(entry))
+                                FileAction.DETAILS -> viewModel.showDetails(entry)
+                                FileAction.DELETE -> viewModel.requestDelete(listOf(entry.path))
+                            }
+                        },
                     )
                 }
             }
@@ -530,17 +534,7 @@ private fun EntryList(
     listState: LazyListState,
     onOpen: (FsEntry) -> Unit,
     onToggle: (String) -> Unit,
-    onOpenWith: (FsEntry) -> Unit,
-    onShare: (FsEntry) -> Unit,
-    onRename: (FsEntry) -> Unit,
-    onDetails: (FsEntry) -> Unit,
-    onCopy: (FsEntry) -> Unit,
-    onCut: (FsEntry) -> Unit,
-    onDelete: (FsEntry) -> Unit,
-    onViewAsText: (FsEntry) -> Unit,
-    onViewAsHex: (FsEntry) -> Unit,
-    onOpenAsDatabase: (FsEntry) -> Unit,
-    onOpenAsPrefs: (FsEntry) -> Unit,
+    onAction: (FileAction, FsEntry) -> Unit,
 ) {
     LazyColumn(
         state = listState,
@@ -561,25 +555,17 @@ private fun EntryList(
                 onClick = { if (state.selectionMode) onToggle(entry.path) else onOpen(entry) },
                 onLongClick = { onToggle(entry.path) },
                 menu = { dismiss ->
-                    if (!entry.isDirectory) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.open_with)) }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) }, onClick = { dismiss(); onOpenWith(entry) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.share)) }, leadingIcon = { Icon(Icons.Default.Share, null) }, onClick = { dismiss(); onShare(entry) })
-                        if (!entry.kind.isTextLike) DropdownMenuItem(text = { Text(stringResource(R.string.view_as_text)) }, onClick = { dismiss(); onViewAsText(entry) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.view_as_hex)) }, onClick = { dismiss(); onViewAsHex(entry) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.open_as_database)) }, onClick = { dismiss(); onOpenAsDatabase(entry) })
-                        if (entry.kind == FileKind.XML) DropdownMenuItem(text = { Text(stringResource(R.string.open_as_prefs)) }, onClick = { dismiss(); onOpenAsPrefs(entry) })
-                        HorizontalDivider()
+                    fileMenu(entry).forEachIndexed { group, actions ->
+                        if (group > 0) HorizontalDivider()
+                        actions.forEach { action ->
+                            val tint = if (action.destructive) MaterialTheme.colorScheme.error else null
+                            DropdownMenuItem(
+                                text = { Text(stringResource(action.label), color = tint ?: Color.Unspecified) },
+                                leadingIcon = { Icon(action.icon, contentDescription = null, tint = tint ?: LocalContentColor.current) },
+                                onClick = { dismiss(); onAction(action, entry) },
+                            )
+                        }
                     }
-                    DropdownMenuItem(text = { Text(stringResource(R.string.copy)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) }, onClick = { dismiss(); onCopy(entry) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.cut)) }, leadingIcon = { Icon(Icons.Default.ContentCut, null) }, onClick = { dismiss(); onCut(entry) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, null) }, onClick = { dismiss(); onRename(entry) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.details)) }, leadingIcon = { Icon(Icons.Default.Info, null) }, onClick = { dismiss(); onDetails(entry) })
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { dismiss(); onDelete(entry) },
-                    )
                 },
                 modifier = Modifier.animateItem(),
             )

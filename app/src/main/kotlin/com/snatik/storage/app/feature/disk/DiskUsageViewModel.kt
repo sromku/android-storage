@@ -7,13 +7,14 @@ import com.snatik.storage.core.fs.DiskScanner
 import com.snatik.storage.core.fs.LargeFile
 import com.snatik.storage.core.fs.ScanEvent
 import com.snatik.storage.core.fs.ScanProgress
+import com.snatik.storage.core.fs.TypeStat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class DiskView { TREE, LARGEST }
+enum class DiskView { TREE, TYPES, LARGEST }
 
 data class DiskUsageUiState(
     val scanning: Boolean = true,
@@ -23,6 +24,7 @@ data class DiskUsageUiState(
     /** Path from the root to the node being shown. */
     val trail: List<DirNode> = emptyList(),
     val largest: List<LargeFile> = emptyList(),
+    val types: List<TypeStat> = emptyList(),
     val view: DiskView = DiskView.TREE,
 ) {
     val current: DirNode? get() = trail.lastOrNull() ?: root
@@ -44,7 +46,7 @@ class DiskUsageViewModel(private val path: String, private val scanner: DiskScan
                 scanner.scan(path).collect { event ->
                     when (event) {
                         is ScanEvent.Progress -> _state.update { it.copy(progress = event.progress) }
-                        is ScanEvent.Done -> _state.update { it.copy(scanning = false, root = event.root, trail = listOf(event.root), largest = event.largest) }
+                        is ScanEvent.Done -> _state.update { it.copy(scanning = false, root = event.root, trail = listOf(event.root), largest = event.largest, types = event.types) }
                     }
                 }
             } catch (e: Exception) {
