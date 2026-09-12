@@ -232,6 +232,7 @@
     <string name="net_no_history_body">netstats has not recorded any traffic for this app.</string>
     <string name="net_live">Live connections</string>
     <string name="net_live_count">%1$d open right now</string>
+    <string name="net_live_badge">Live</string>
     <string name="net_live_none">No live sockets</string>
     <string name="net_live_none_body">Open connections are momentary. Reading another app\'s live sockets needs root — enable it from the Storage tab. The usage history above is always available.</string>
     <string name="net_local">Local</string>

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.DropdownMenu
@@ -96,6 +97,7 @@ fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery:
                     if (searchOpen) {
                         IconButton(onClick = { searchOpen = false; viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
                     } else {
+                        IconButton(onClick = viewModel::refresh) { Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh)) }
                         IconButton(onClick = { searchOpen = true }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
                         Box {
                             IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.net_sort)) }
@@ -162,7 +164,7 @@ private fun AppRow(app: AppNetworkUsage, onClick: () -> Unit) {
             )
         }
         if (app.connections.any { it.state == "ESTABLISHED" }) {
-            Tag(stringResource(R.string.net_live_count, app.connections.size), MaterialTheme.colorScheme.primary)
+            Tag(stringResource(R.string.net_live_badge), MaterialTheme.colorScheme.primary)
         } else {
             Text(app.totalBytes.readableSize(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         }
