@@ -62,6 +62,9 @@ sealed interface Route : NavKey {
     data class ProviderQuery(val uri: String, val title: String) : Route
 
     @Serializable
+    data class ProviderUris(val packageName: String, val className: String, val authority: String, val label: String) : Route
+
+    @Serializable
     data class Database(val path: String) : Route
 
     @Serializable

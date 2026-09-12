@@ -20,6 +20,7 @@ import com.snatik.storage.app.feature.data.DatabaseScreen
 import com.snatik.storage.app.feature.data.DbTableScreen
 import com.snatik.storage.app.feature.data.PrefsScreen
 import com.snatik.storage.app.feature.data.ProviderQueryScreen
+import com.snatik.storage.app.feature.data.ProviderUrisScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
 import com.snatik.storage.app.feature.tools.ToolsScreen
@@ -219,10 +220,17 @@ fun AppNavigation() {
                 )
             }
             entry<Route.Data> {
-                DataScreen(onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) }, onSwitchTab = ::switchTab)
+                DataScreen(
+                    onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) },
+                    onDiscoverUris = { pkg, className, authority, label -> push(Route.ProviderUris(pkg, className, authority, label)) },
+                    onSwitchTab = ::switchTab,
+                )
             }
             entry<Route.ProviderQuery> { route ->
                 ProviderQueryScreen(route = route, onBack = ::pop)
+            }
+            entry<Route.ProviderUris> { route ->
+                ProviderUrisScreen(route = route, onBack = ::pop, onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) })
             }
             entry<Route.Database> { route ->
                 DatabaseScreen(path = route.path, onBack = ::pop, onOpenTable = { table -> push(Route.DbTable(route.path, table)) })

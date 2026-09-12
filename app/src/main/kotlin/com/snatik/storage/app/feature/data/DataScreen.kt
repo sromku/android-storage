@@ -65,7 +65,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
+fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverUris: (pkg: String, className: String, authority: String, label: String) -> Unit = { _, _, _, _ -> }, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
@@ -157,6 +157,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
                 related = related,
                 onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null },
                 onOpenShortcut = { title, uri -> onOpenProvider(title, uri); selected = null },
+                onDiscover = { onDiscoverUris(provider.packageName, provider.className, provider.authority, provider.appLabel); selected = null },
             )
         }
     }
@@ -238,6 +239,7 @@ private fun ProviderDetail(
     related: List<com.snatik.storage.core.data.ProviderShortcut>,
     onQuery: () -> Unit,
     onOpenShortcut: (String, String) -> Unit,
+    onDiscover: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -264,6 +266,10 @@ private fun ProviderDetail(
         androidx.compose.material3.Button(onClick = onQuery, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.prov_query), modifier = Modifier.padding(start = 8.dp))
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onDiscover, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.uri_discover), modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
