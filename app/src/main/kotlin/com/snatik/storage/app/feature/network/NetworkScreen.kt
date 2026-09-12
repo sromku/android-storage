@@ -1,6 +1,5 @@
 package com.snatik.storage.app.feature.network
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,12 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,15 +43,13 @@ import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.Tag
-import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.readableSize
-import com.snatik.storage.core.apps.AppConnections
-import com.snatik.storage.core.apps.Connection
+import com.snatik.storage.core.apps.AppNetworkUsage
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NetworkScreen(onBack: () -> Unit, initialQuery: String = "", viewModel: NetworkViewModel = koinViewModel()) {
+fun NetworkScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, initialQuery: String = "", viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     remember(initialQuery) { if (initialQuery.isNotEmpty()) { viewModel.setQuery(initialQuery); searchOpen = true }; 0 }
@@ -87,7 +82,7 @@ fun NetworkScreen(onBack: () -> Unit, initialQuery: String = "", viewModel: Netw
                         EmptyState(Icons.Default.Lan, stringResource(R.string.net_none), stringResource(R.string.net_none_body))
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                            items(visible, key = { it.uid }) { app -> AppRow(app, state.hostNames) }
+                            items(visible, key = { it.uid }) { app -> AppRow(app, onClick = { onOpenApp(app.packageName) }) }
                         }
                     }
                 }
@@ -97,39 +92,24 @@ fun NetworkScreen(onBack: () -> Unit, initialQuery: String = "", viewModel: Netw
 }
 
 @Composable
-private fun AppRow(app: AppConnections, hosts: Map<String, String>) {
-    var expanded by rememberSaveable(app.uid) { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppIcon(app.packageName, size = 36.dp)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    buildString {
-                        append(app.connections.size).append(" live")
-                        if (app.totalBytes > 0) append("  ·  ").append(app.totalBytes.readableSize())
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (app.connections.any { it.state == "ESTABLISHED" }) Tag("active", MaterialTheme.colorScheme.primary)
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.padding(start = 48.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                app.connections.forEach { conn -> ConnectionRow(conn, hosts[conn.remoteAddress]) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConnectionRow(conn: Connection, host: String?) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun AppRow(app: AppNetworkUsage, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AppIcon(app.packageName, size = 40.dp)
         Column(modifier = Modifier.weight(1f)) {
-            val display = host ?: if (conn.ipv6) "[${conn.remoteAddress}]" else conn.remoteAddress
-            Text("$display:${conn.remotePort}", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-            if (host != null) Text(conn.remoteAddress, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "↓ ${app.rxBytes.readableSize()}   ↑ ${app.txBytes.readableSize()}",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+            )
         }
-        Text(conn.state.lowercase(), style = MaterialTheme.typography.bodySmall, color = if (conn.state == "ESTABLISHED") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        if (app.connections.any { it.state == "ESTABLISHED" }) {
+            Tag(stringResource(R.string.net_live_count, app.connections.size), MaterialTheme.colorScheme.primary)
+        } else {
+            Text(app.totalBytes.readableSize(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        }
     }
 }

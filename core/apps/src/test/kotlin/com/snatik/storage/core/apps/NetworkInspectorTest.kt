@@ -53,4 +53,44 @@ class NetworkInspectorTest {
         assertEquals(11798L, usage[10155]!!.first)
         assertTrue(usage.containsKey(1000))
     }
+
+    @Test
+    fun parsesNetstatsUsageHistory() {
+        val text = """
+            UID stats:
+              ident=[{type=1, ratType=COMBINED, wifiNetworkKey="home"wpa2-psk, metered=false, defaultNetwork=true, oemManaged=OEM_NONE, subId=-1, transports={1}}] uid=10306 set=DEFAULT tag=0x0
+                NetworkStatsHistory: bucketDuration=3600
+                  st=1788955200 rb=1000 rp=10 tb=200 tp=4 op=0
+              ident=[{type=1, ratType=COMBINED, wifiNetworkKey="home"wpa2-psk, metered=false, defaultNetwork=true, oemManaged=OEM_NONE, subId=-1, transports={1}}] uid=10306 set=FOREGROUND tag=0x0
+                NetworkStatsHistory: bucketDuration=3600
+                  st=1788958800 rb=500 rp=5 tb=100 tp=2 op=0
+              ident=[{type=0, ratType=COMBINED, metered=true, defaultNetwork=true, oemManaged=OEM_NONE, subId=1, transports={0}}] uid=10306 set=DEFAULT tag=0x0
+                NetworkStatsHistory: bucketDuration=3600
+                  st=1788955200 rb=300 rp=3 tb=60 tp=1 op=0
+              ident=[{type=1, ratType=COMBINED, wifiNetworkKey="home"wpa2-psk, metered=false, defaultNetwork=true, oemManaged=OEM_NONE, subId=-1, transports={1}}] uid=10306 set=DEFAULT tag=0x1234
+                NetworkStatsHistory: bucketDuration=3600
+                  st=1788955200 rb=9999 rp=99 tb=9999 tp=99 op=0
+              ident=[{type=1, ratType=COMBINED, transports={1}}] uid=1000 set=DEFAULT tag=0x0
+                NetworkStatsHistory: bucketDuration=3600
+                  st=1788955200 rb=7777 rp=7 tb=7777 tp=7 op=0
+        """.trimIndent()
+        val aggs = NetworkInspector.parseUsage(text)
+        // uid 1000 is a system uid and must be dropped
+        assertTrue(1000 !in aggs)
+        val a = aggs.getValue(10306)
+        // tagged (tag=0x1234) block excluded; wifi DEFAULT+FOREGROUND + mobile DEFAULT summed
+        assertEquals(1000L + 500L + 300L, a.rxBytes)
+        assertEquals(200L + 100L + 60L, a.txBytes)
+        assertEquals(10L + 5L + 3L, a.rxPackets)
+        // wifi = 1000+200 (default) + 500+100 (fg); mobile = 300+60
+        assertEquals(1800L, a.wifiBytes)
+        assertEquals(360L, a.mobileBytes)
+        // foreground = 500+100
+        assertEquals(600L, a.foregroundBytes)
+        // background(default) = 1000+200 + 300+60
+        assertEquals(1560L, a.backgroundBytes)
+        // two distinct bucket start times (st=...200 and st=...800)
+        assertEquals(2, a.buckets().size)
+    }
+
 }

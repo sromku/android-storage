@@ -119,6 +119,9 @@ sealed interface Route : NavKey {
     data class Network(val query: String = "") : Route
 
     @Serializable
+    data class NetworkApp(val packageName: String) : Route
+
+    @Serializable
     data object Dashboard : Route
 
     @Serializable

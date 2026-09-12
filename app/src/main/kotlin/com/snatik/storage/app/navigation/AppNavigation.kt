@@ -23,6 +23,7 @@ import com.snatik.storage.app.feature.data.ProviderQueryScreen
 import com.snatik.storage.app.feature.disk.DiskUsageScreen
 import com.snatik.storage.app.feature.home.HomeScreen
 import com.snatik.storage.app.feature.tools.ToolsScreen
+import com.snatik.storage.app.feature.network.NetworkAppScreen
 import com.snatik.storage.app.feature.network.NetworkScreen
 import com.snatik.storage.app.feature.dashboard.DashboardScreen
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixScreen
@@ -177,7 +178,7 @@ fun AppNavigation() {
                     onBack = ::pop,
                     onBrowse = ::openBrowser,
                     onDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
-                    onNetwork = { pkg -> push(Route.Network(pkg)) },
+                    onNetwork = { pkg -> push(Route.NetworkApp(pkg)) },
                     onStorage = { pkg -> push(Route.AppStorage(pkg)) },
                     onArt = { label, pkg, dbg -> push(Route.Art(pkg, label, dbg)) },
                 )
@@ -255,7 +256,8 @@ fun AppNavigation() {
                     onOpenPalette = { push(Route.CommandPalette) },
                 )
             }
-            entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, initialQuery = route.query) }
+            entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, onOpenApp = { push(Route.NetworkApp(it)) }, initialQuery = route.query) }
+            entry<Route.NetworkApp> { route -> NetworkAppScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
