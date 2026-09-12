@@ -1,5 +1,6 @@
 package com.snatik.storage.app.feature.apps
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -172,9 +173,15 @@ fun ArtScreen(
             Text(stringResource(R.string.art_explainer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Text(stringResource(R.string.art_optimizations), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+            val currentMode = modeForStatus(state.status)
             MODES.forEach { info ->
                 // Debuggable apps can't be AOT-compiled, so the actions are inert — disable them.
-                ModeCard(info, running = state.runningMode == info.mode, enabled = !state.busy && !debuggable) { viewModel.run(info.mode) }
+                ModeCard(
+                    info,
+                    running = state.runningMode == info.mode,
+                    enabled = !state.busy && !debuggable,
+                    current = info.mode == currentMode,
+                ) { viewModel.run(info.mode) }
             }
 
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -230,23 +237,46 @@ private fun NoteCard(text: String) {
 }
 
 @Composable
-private fun ModeCard(info: ModeInfo, running: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun ModeCard(info: ModeInfo, running: Boolean, enabled: Boolean, current: Boolean, onClick: () -> Unit) {
+    val iconBg = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+    val iconTint = if (current) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier).alpha(if (enabled) 1f else 0.45f),
+        border = if (current) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier).alpha(if (enabled || current) 1f else 0.45f),
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
-                if (running) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                else Icon(info.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
+            Box(modifier = Modifier.size(42.dp).background(iconBg, CircleShape), contentAlignment = Alignment.Center) {
+                if (running) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = iconTint)
+                else Icon(info.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(info.title), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 Text(stringResource(info.desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (current) {
+                Surface(color = MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small) {
+                    Text(
+                        stringResource(R.string.art_current_badge),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+            }
         }
     }
+}
+
+/** Which optimization card matches the app's current compilation filter, so it can be badged. */
+private fun modeForStatus(status: String?): CompileMode? = when (status) {
+    "speed" -> CompileMode.SPEED
+    "speed-profile" -> CompileMode.SPEED_PROFILE
+    "everything", "everything-profile" -> CompileMode.EVERYTHING
+    "verify" -> CompileMode.VERIFY
+    else -> null
 }
 
 @Composable

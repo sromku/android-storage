@@ -744,6 +744,7 @@
     <string name="art_code">Code (APK + OAT + libs)</string>
     <string name="art_app_total">App total</string>
     <string name="art_view_all">View all (%1$d)</string>
+    <string name="art_current_badge">Current</string>
     <string name="art_debuggable_note">This app is debuggable, so Android keeps it at “verify” and won\'t ahead-of-time compile it — these actions won\'t change the state or size. Try a normal (release) app to see them take effect.</string>
     <string name="art_optimizations">Optimizations</string>
     <string name="art_recent">Recent operations</string>
