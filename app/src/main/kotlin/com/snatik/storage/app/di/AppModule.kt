@@ -129,6 +129,7 @@ val appModule = module {
     single { AppActions(get()) }
     single { AppWatchRepository(androidContext(), get(), get()) }
     single { NetworkInspector(androidContext(), get()) }
+    single { com.snatik.storage.core.apps.AsnDb(androidContext()) }
     single { DeviceStatsRepository(androidContext(), get()) }
     single { AppOpsTimeline(androidContext(), get()) }
     single { PermissionMatrixRepository(androidContext()) }

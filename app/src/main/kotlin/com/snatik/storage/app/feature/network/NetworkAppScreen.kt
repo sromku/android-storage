@@ -113,7 +113,7 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () ->
                     Text(stringResource(R.string.net_no_history), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.net_no_history_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                else -> Detail(app, state.hostNames, scroll, fraction, onOpenGraph) { headerHeightPx = it }
+                else -> Detail(app, state.hostNames, state.orgNames, scroll, fraction, onOpenGraph) { headerHeightPx = it }
             }
         }
     }
@@ -123,6 +123,7 @@ fun NetworkAppScreen(packageName: String, onBack: () -> Unit, onOpenGraph: () ->
 private fun Detail(
     app: AppNetworkUsage,
     hosts: Map<String, String>,
+    orgs: Map<String, String>,
     scroll: androidx.compose.foundation.ScrollState,
     headerFraction: Float,
     onOpenGraph: () -> Unit,
@@ -219,7 +220,7 @@ private fun Detail(
                 }
             }
         } else {
-            app.connections.forEach { conn -> ConnectionCard(conn, hosts[conn.remoteAddress]) }
+            app.connections.forEach { conn -> ConnectionCard(conn, hosts[conn.remoteAddress], orgs[conn.remoteAddress]) }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -320,7 +321,7 @@ private fun SplitLegend(color: Color, label: String, bytes: Long) {
 }
 
 @Composable
-private fun ConnectionCard(conn: Connection, host: String?) {
+private fun ConnectionCard(conn: Connection, host: String?, org: String?) {
     var expanded by rememberSaveable(conn.inode, conn.remoteAddress, conn.remotePort) { mutableStateOf(false) }
     Surface(
         onClick = { expanded = !expanded },
@@ -331,9 +332,10 @@ private fun ConnectionCard(conn: Connection, host: String?) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
+                    if (org != null) Text(org, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val display = host ?: if (conn.ipv6) "[${conn.remoteAddress}]" else conn.remoteAddress
-                    Text("$display:${conn.remotePort}", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1)
-                    if (host != null) Text(conn.remoteAddress, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text("$display:${conn.remotePort}", style = MonoStyle.copy(color = if (org != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                    if (host != null && org != null) Text(conn.remoteAddress, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
                 Tag(serviceType(conn.remotePort, conn.protocol), MaterialTheme.colorScheme.tertiary)
                 val established = conn.state == "ESTABLISHED"
