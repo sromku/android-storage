@@ -211,8 +211,8 @@
     <string name="net_range_3d">3D</string>
     <string name="net_range_all">All</string>
     <string name="net_metric_total">Total</string>
-    <string name="net_metric_down">Down</string>
-    <string name="net_metric_up">Up</string>
+    <string name="net_metric_down">Received</string>
+    <string name="net_metric_up">Sent</string>
     <string name="net_metric_split">Fg / Bg</string>
     <string name="net_split_off">Any</string>
     <string name="net_split_dir">Rx / Tx</string>
@@ -221,7 +221,7 @@
     <string name="net_window_total">Total this range</string>
     <string name="net_peak">Peak</string>
     <string name="net_average">Average / 2h</string>
-    <string name="net_ratio">Down : Up</string>
+    <string name="net_ratio">Recv : Sent</string>
     <string name="net_avg_packet">Avg packet</string>
     <string name="net_by_hour">Activity by hour of day</string>
     <string name="net_composition">Composition this range</string>

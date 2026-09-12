@@ -68,7 +68,7 @@ import java.util.Calendar
 import kotlin.math.roundToInt
 
 private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total), RX(R.string.net_metric_down), TX(R.string.net_metric_up) }
-private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), DIR(R.string.net_split_dir), STATE(R.string.net_metric_split) }
+private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), STATE(R.string.net_metric_split) }
 private enum class ChartType { AREA, BARS }
 private enum class Measure(val labelRes: Int) { DATA(R.string.net_unit_data), PACKETS(R.string.net_unit_packets) }
 private enum class Range(val labelRes: Int, val ms: Long) {
@@ -123,9 +123,9 @@ fun NetworkGraphScreen(packageName: String, onBack: () -> Unit, viewModel: Netwo
 private fun Graph(app: AppNetworkUsage) {
     val ctx = LocalContext.current
     var range by remember { mutableStateOf(Range.D1) }
+    // Total + no split renders stacked received+sent, matching the mini "Data over time" chart.
     var metric by remember { mutableStateOf(Metric.TOTAL) }
-    // Open stacked received+sent, matching the mini "Data over time" chart the user tapped.
-    var split by remember { mutableStateOf(Split.DIR) }
+    var split by remember { mutableStateOf(Split.OFF) }
     var unit by remember { mutableStateOf(Measure.DATA) }
     // Open as bars, matching the mini "Data over time" chart the user tapped.
     var chartType by remember { mutableStateOf(ChartType.BARS) }
@@ -140,7 +140,8 @@ private fun Graph(app: AppNetworkUsage) {
         buildList { var t = startAligned; while (t < now && size < 512) { add(t); t += SLOT_MS } }
     }
     val stackedState = split == Split.STATE
-    val stackedDir = split == Split.DIR
+    // "Total" with no state split decomposes into received + sent (the mini chart's view).
+    val stackedDir = split == Split.OFF && metric == Metric.TOTAL
     val stacked = stackedState || stackedDir
     val cells = slots.map { byStart[it] }
     // Foreground / background value of the chosen direction and unit — every combination is valid.
@@ -215,7 +216,6 @@ private fun Graph(app: AppNetworkUsage) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             Metric.entries.forEachIndexed { i, m ->
                 SegmentedButton(
-                    enabled = !stackedDir,
                     selected = metric == m,
                     onClick = { metric = m; scrub = null },
                     shape = SegmentedButtonDefaults.itemShape(i, Metric.entries.size),
@@ -224,7 +224,7 @@ private fun Graph(app: AppNetworkUsage) {
         }
         // Split (state) and unit share a row — both are independent of the direction above.
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1.35f)) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
                 Split.entries.forEachIndexed { i, sp ->
                     SegmentedButton(
                         selected = split == sp,
