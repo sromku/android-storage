@@ -30,6 +30,8 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -68,7 +70,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
     var filtersOpen by remember { mutableStateOf(false) }
-    var shortcutsExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -77,23 +79,13 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
     ) { padding ->
         val visible = state.visible
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "shortcuts") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { shortcutsExpanded = !shortcutsExpanded }.padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.section_shortcuts), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                    Icon(if (shortcutsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (shortcutsExpanded) {
-                    state.shortcuts.groupBy { it.group }.forEach { (group, items) ->
-                        Text(group, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, top = 8.dp))
-                        FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items.forEach { s -> AssistChip(onClick = { onOpenProvider(s.title, s.uri) }, label = { Text(s.title) }) }
-                        }
-                    }
+            item(key = "tabs") {
+                PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.prov_tab_providers)) })
+                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.prov_tab_quick)) })
                 }
             }
+            if (tab == 0) {
             item(key = "controls") {
                 Text(
                     stringResource(R.string.section_all_providers) + " · " + stringResource(R.string.providers_count, visible.size),
@@ -141,6 +133,16 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
             } else {
                 items(visible, key = { it.packageName + "/" + it.className + "/" + it.authority }) { provider ->
                     ProviderRow(provider, grouped = false, onClick = { selected = provider })
+                }
+            }
+            } else {
+                state.shortcuts.groupBy { it.group }.forEach { (group, chips) ->
+                    item(key = "qq/$group") {
+                        Text(group, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 14.dp))
+                        FlowRow(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            chips.forEach { s -> AssistChip(onClick = { onOpenProvider(s.title, s.uri) }, label = { Text(s.title) }) }
+                        }
+                    }
                 }
             }
         }
