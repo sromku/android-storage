@@ -91,7 +91,8 @@ class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: Prov
                 val result = query.query(request)
                 _state.update { it.copy(loading = false, result = result, page = page, mime = mime, columns = result.columns.ifEmpty { it.columns }) }
             } catch (e: ProviderQuery.QueryException) {
-                _state.update { it.copy(loading = false, result = null, error = e.message, permissionDenied = e.permissionDenied, mime = mime) }
+                // Surface the builder so the user can fix the URI (e.g. add a table path).
+                _state.update { it.copy(loading = false, result = null, error = e.message, permissionDenied = e.permissionDenied, mime = mime, editing = true) }
             }
         }
     }

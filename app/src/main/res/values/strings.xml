@@ -320,6 +320,7 @@
     <string name="query_args">Selection args (comma separated)</string>
     <string name="query_sort">Sort order</string>
     <string name="query_limit">Limit</string>
+    <string name="query_no_cursor_hint">This provider did not return data for the bare authority. Add a table path to the URI above, e.g. content://authority/table.</string>
     <string name="query_columns">Columns</string>
     <string name="query_all_columns">All columns</string>
     <string name="query_filter">Filter</string>

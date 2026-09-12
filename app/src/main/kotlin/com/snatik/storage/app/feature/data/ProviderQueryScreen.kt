@@ -111,7 +111,11 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
                     state.error != null -> EmptyState(
                         icon = if (state.permissionDenied) Icons.Default.Lock else Icons.Default.Block,
                         title = stringResource(if (state.permissionDenied) R.string.query_permission_denied else R.string.query_failed),
-                        body = listOfNotNull(if (state.permissionDenied) stringResource(R.string.query_permission_hint) else null, state.error).joinToString("\n\n"),
+                        body = listOfNotNull(
+                            if (state.permissionDenied) stringResource(R.string.query_permission_hint) else null,
+                            if (state.error?.contains("no cursor", true) == true) stringResource(R.string.query_no_cursor_hint) else null,
+                            state.error,
+                        ).joinToString("\n\n"),
                     )
                     result == null -> Unit
                     result.isEmpty -> EmptyState(Icons.Default.TableRows, stringResource(R.string.query_no_rows), state.mime?.let { stringResource(R.string.query_mime, it) })
