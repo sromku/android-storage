@@ -5,6 +5,13 @@ import com.snatik.storage.app.feature.viewer.AndroidJadxSecurity
 import com.snatik.storage.core.apps.AppRepository
 import jadx.api.JadxArgs
 import jadx.api.JadxDecompiler
+import jadx.api.JavaClass
+import jadx.api.impl.NoOpCodeCache
+import jadx.api.plugins.input.data.IFieldData
+import jadx.api.plugins.input.data.IMethodData
+import jadx.api.plugins.input.data.ISeqConsumer
+import jadx.api.plugins.input.insns.InsnIndexType
+import jadx.api.plugins.input.insns.Opcode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -16,13 +23,16 @@ import java.nio.file.Files
 import java.util.zip.ZipFile
 
 /**
- * Recovers a provider's real content:// paths by decompiling its base APK and scraping
- * `UriMatcher.addURI(...)` calls. Obfuscation-safe: `addURI` is an SDK method (never renamed) and
- * string literals survive R8, so we take the 2nd argument (the path) and pair it with the known
- * authority. Code lives in base.apk, so splits are ignored. Best-effort.
+ * Recovers a provider's real content:// paths from its base APK by scanning `UriMatcher.addURI(...)`
+ * calls directly in the dex bytecode — no decompilation. For each method we track which register each
+ * `const-string` loads, and when an `invoke …addURI(String, String, int)` appears we read the path
+ * from argument register 2 (arg 0 is the matcher, arg 1 the authority). Obfuscation-safe: `addURI` is
+ * an SDK method (never renamed) and string literals survive R8. Bytecode scanning uses a tiny
+ * fraction of the memory that full decompilation does, so even a 50k-class app fits the 512MB heap.
+ * Code lives in base.apk, so splits are ignored. Best-effort.
  *
- * By default only the app's own packages are decompiled (huge apps bundle tens of thousands of
- * library classes); [scanAll] widens to every class.
+ * By default only the app's own packages are scanned; [scanAll] widens to every class (a provider can
+ * inherit its `UriMatcher` setup from a bundled library base class).
  */
 class UriDiscovery(private val context: Context, private val apps: AppRepository) {
 
@@ -47,8 +57,8 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
         val found = LinkedHashSet<String>()
         var lastEmit = 0L
 
-        // Decompile one dex at a time and close it before the next, so peak memory stays bounded to a
-        // single dex — loading a huge app's whole dex set at once OOMs the 512MB heap.
+        // Load one dex at a time and close it before the next, so peak memory stays bounded to a
+        // single dex — loading a huge app's whole dex set at once is wasteful.
         dexes.forEachIndexed { di, dex ->
             currentCoroutineContext().ensureActive()
             emit(Event.Status(Phase.LOADING, dexIndex = di + 1, dexCount = dexes.size))
@@ -56,9 +66,10 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 inputFiles.add(dex)
                 security = AndroidJadxSecurity()
                 setSkipResources(true)
-                isShowInconsistentCode = true
-                setDebugInfo(false)
                 threadsCount = 1
+                // We never call getCode(), but keep the code cache disabled defensively so nothing
+                // is ever retained across classes.
+                setCodeCache(NoOpCodeCache())
             }
             val jadx = JadxDecompiler(args)
             runCatching { Files.createDirectories(args.filesGetter.tempDir) }
@@ -67,13 +78,12 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 val target = if (scanAll) jadx.classes
                 else jadx.classes.filter { c -> prefixes.any { c.fullName == it || c.fullName.startsWith("$it.") } }
                 val total = target.size
+                // Resolving a method ref (to read its name) isn't free, so remember per dex which
+                // method-table indices are UriMatcher.addURI — a scan-all touches millions of invokes.
+                val addUriRefs = HashMap<Int, Boolean>()
                 target.forEachIndexed { i, cls ->
                     currentCoroutineContext().ensureActive()
-                    val code = runCatching { cls.code }.getOrNull()
-                    if (code != null && code.contains("addURI")) {
-                        extractPaths(code, authority).forEach { found.add(it) }
-                    }
-                    runCatching { cls.unload() } // free the decompiled AST immediately
+                    scanClass(cls, authority, found, addUriRefs)
                     val now = System.currentTimeMillis()
                     if (now - lastEmit > 150 || i == total - 1) {
                         lastEmit = now
@@ -89,6 +99,49 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
         emit(Event.Done(found.sorted(), scopedOnly = !scanAll))
     }.flowOn(Dispatchers.IO)
 
+    /**
+     * Walk one class's methods at the bytecode level (no decompilation). For each method we track the
+     * string most recently loaded into each register, and on every `addURI` invoke read the path from
+     * argument register 2 (0 = matcher, 1 = authority, 2 = path).
+     */
+    private fun scanClass(cls: JavaClass, authority: String, found: MutableSet<String>, addUriRefs: HashMap<Int, Boolean>) {
+        val data = runCatching { cls.classNode.clsData }.getOrNull() ?: return
+        val fields = ISeqConsumer<IFieldData> { /* ignored */ }
+        val methods = ISeqConsumer<IMethodData> { method ->
+            val reader = runCatching { method.codeReader }.getOrNull() ?: return@ISeqConsumer
+            val regString = HashMap<Int, String>()
+            runCatching {
+                reader.visitInstructions { insn ->
+                    runCatching {
+                        insn.decode()
+                        when {
+                            insn.opcode == Opcode.CONST_STRING && insn.indexType == InsnIndexType.STRING_REF -> {
+                                val dest = insn.resultReg.takeIf { it >= 0 } ?: insn.getReg(0)
+                                regString[dest] = insn.indexAsString
+                            }
+                            insn.indexType == InsnIndexType.METHOD_REF -> {
+                                // Only real UriMatcher.addURI calls — some apps have unrelated methods
+                                // named addURI with a different argument order. Resolving the ref is
+                                // costly, so cache the verdict per method-table index.
+                                val isAddUri = addUriRefs.getOrPut(insn.index) {
+                                    val m = insn.indexAsMethod ?: return@getOrPut false
+                                    runCatching { m.load() } // name/parent are empty until resolved
+                                    m.name == "addURI" && m.parentClassType == URI_MATCHER
+                                }
+                                if (isAddUri && insn.regsCount >= 3) {
+                                    // addURI(authority, path, code): invoke args are
+                                    // [matcher, authority, path, code] → path is register 2.
+                                    regString[insn.getReg(2)]?.let { addPath(it, authority, found) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        runCatching { data.visitFieldsAndMethods(fields, methods) }
+    }
+
     private fun extractDexes(apk: File): List<File> {
         val out = File(context.cacheDir, "uridisc").apply { deleteRecursively(); mkdirs() }
         ZipFile(apk).use { zip ->
@@ -101,6 +154,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
     }
 
     companion object {
+        private const val URI_MATCHER = "Landroid/content/UriMatcher;"
         private val STRING = Regex(""""((?:\\.|[^"\\])*)"""")
 
         /** From decompiled code, take the 2nd argument of each addURI(...) call as the path. */
@@ -116,10 +170,15 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 val args = splitTopLevel(code.substring(open + 1, close))
                 val pathArg = args.getOrNull(1) ?: continue
                 val lit = STRING.find(pathArg)?.groupValues?.get(1) ?: continue
-                val path = lit.trim().trimStart('/')
-                if (path.isNotEmpty() && path != authority) out.add(path)
+                addPath(lit, authority, out)
             }
             return out
+        }
+
+        /** Normalise a raw path literal and add it (skipping the authority itself and dupes). */
+        fun addPath(raw: String, authority: String, into: MutableCollection<String>) {
+            val path = raw.trim().trimStart('/')
+            if (path.isNotEmpty() && path != authority && path !in into) into.add(path)
         }
 
         private fun matchingParen(s: String, open: Int): Int? {
