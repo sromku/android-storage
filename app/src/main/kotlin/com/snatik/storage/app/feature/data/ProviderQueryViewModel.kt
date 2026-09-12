@@ -15,27 +15,44 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class QueryOp(val sql: String, val hasValue: Boolean) {
+    EQ("=", true), NE("!=", true), GT(">", true), LT("<", true), GE(">=", true), LE("<=", true),
+    LIKE("LIKE", true), NULL("IS NULL", false), NOT_NULL("IS NOT NULL", false);
+}
+
+data class Condition(val column: String = "", val op: QueryOp = QueryOp.EQ, val value: String = "")
+
 data class QueryForm(
     val uri: String,
-    val projection: String = "",
-    val selection: String = "",
-    val args: String = "",
-    val sort: String = "",
+    /** Empty = all columns. */
+    val projection: Set<String> = emptySet(),
+    val conditions: List<Condition> = emptyList(),
+    val sortColumn: String = "",
+    val sortDesc: Boolean = false,
     val limit: String = "100",
 ) {
-    fun toRequest(offset: Int) = QueryRequest(
-        uri = uri.trim(),
-        projection = projection.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-        selection = selection.trim().ifEmpty { null },
-        selectionArgs = args.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-        sortOrder = sort.trim().ifEmpty { null },
-        limit = limit.trim().toIntOrNull()?.coerceIn(1, 5000) ?: 100,
-        offset = offset,
-    )
+    fun toRequest(offset: Int): QueryRequest {
+        val active = conditions.filter { it.column.isNotBlank() }
+        val where = active.joinToString(" AND ") { c ->
+            if (c.op.hasValue) "${c.column} ${c.op.sql} ?" else "${c.column} ${c.op.sql}"
+        }.ifEmpty { null }
+        val args = active.filter { it.op.hasValue }.map { it.value }
+        return QueryRequest(
+            uri = uri.trim(),
+            projection = projection.toList(),
+            selection = where,
+            selectionArgs = args,
+            sortOrder = sortColumn.trim().ifEmpty { null }?.let { "$it ${if (sortDesc) "DESC" else "ASC"}" },
+            limit = limit.trim().toIntOrNull()?.coerceIn(1, 5000) ?: 100,
+            offset = offset,
+        )
+    }
 }
 
 data class ProviderQueryUiState(
     val form: QueryForm,
+    /** Columns discovered from the last successful result, to drive the builder. */
+    val columns: List<String> = emptyList(),
     val editing: Boolean = true,
     val loading: Boolean = false,
     val result: Tabular? = null,
@@ -72,7 +89,7 @@ class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: Prov
             val mime = query.type(request.uri)
             try {
                 val result = query.query(request)
-                _state.update { it.copy(loading = false, result = result, page = page, mime = mime) }
+                _state.update { it.copy(loading = false, result = result, page = page, mime = mime, columns = result.columns.ifEmpty { it.columns }) }
             } catch (e: ProviderQuery.QueryException) {
                 _state.update { it.copy(loading = false, result = null, error = e.message, permissionDenied = e.permissionDenied, mime = mime) }
             }

@@ -7,12 +7,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
@@ -23,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -94,7 +102,7 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             AnimatedVisibility(visible = state.editing) {
-                QueryForm(form = state.form, onChange = viewModel::updateForm, onRun = { viewModel.run() })
+                QueryForm(form = state.form, columns = state.columns, onChange = viewModel::updateForm, onRun = { viewModel.run() })
             }
             val result = state.result
             Box(modifier = Modifier.fillMaxSize()) {
@@ -124,21 +132,74 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
 }
 
 @Composable
-private fun QueryForm(form: QueryForm, onChange: (QueryForm) -> Unit, onRun: () -> Unit) {
+private fun QueryForm(form: QueryForm, columns: List<String>, onChange: (QueryForm) -> Unit, onRun: () -> Unit) {
     Surface(tonalElevation = 1.dp) {
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(value = form.uri, onValueChange = { onChange(form.copy(uri = it)) }, label = { Text(stringResource(R.string.query_uri)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = form.projection, onValueChange = { onChange(form.copy(projection = it)) }, label = { Text(stringResource(R.string.query_projection)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = form.selection, onValueChange = { onChange(form.copy(selection = it)) }, label = { Text(stringResource(R.string.query_selection)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = form.args, onValueChange = { onChange(form.copy(args = it)) }, label = { Text(stringResource(R.string.query_args)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = form.sort, onValueChange = { onChange(form.copy(sort = it)) }, label = { Text(stringResource(R.string.query_sort)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(2f))
-                OutlinedTextField(value = form.limit, onValueChange = { onChange(form.copy(limit = it)) }, label = { Text(stringResource(R.string.query_limit)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1f))
+
+            if (columns.isNotEmpty()) {
+                BuilderLabel(stringResource(R.string.query_columns))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(form.projection.isEmpty(), onClick = { onChange(form.copy(projection = emptySet())) }, label = { Text(stringResource(R.string.query_all_columns)) })
+                    columns.forEach { col ->
+                        FilterChip(col in form.projection, onClick = {
+                            onChange(form.copy(projection = if (col in form.projection) form.projection - col else form.projection + col))
+                        }, label = { Text(col) })
+                    }
+                }
             }
+
+            BuilderLabel(stringResource(R.string.query_filter))
+            form.conditions.forEachIndexed { i, cond ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Picker(cond.column, stringResource(R.string.query_column), columns, Modifier.weight(1.2f)) { onChange(form.copy(conditions = form.conditions.replaceAt(i, cond.copy(column = it)))) }
+                    Picker(cond.op.sql, "=", QueryOp.entries.map { it.sql }, Modifier.weight(1f)) { sql -> onChange(form.copy(conditions = form.conditions.replaceAt(i, cond.copy(op = QueryOp.entries.first { o -> o.sql == sql })))) }
+                    IconButton(onClick = { onChange(form.copy(conditions = form.conditions.filterIndexed { j, _ -> j != i })) }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
+                }
+                if (cond.op.hasValue) {
+                    OutlinedTextField(value = cond.value, onValueChange = { onChange(form.copy(conditions = form.conditions.replaceAt(i, cond.copy(value = it)))) }, label = { Text(stringResource(R.string.query_value)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            TextButton(onClick = { onChange(form.copy(conditions = form.conditions + Condition())) }) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Text(stringResource(R.string.query_add_condition), modifier = Modifier.padding(start = 4.dp))
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Picker(form.sortColumn, stringResource(R.string.query_sort_by), columns, Modifier.weight(1f)) { onChange(form.copy(sortColumn = it)) }
+                if (form.sortColumn.isNotEmpty()) {
+                    IconButton(onClick = { onChange(form.copy(sortDesc = !form.sortDesc)) }) {
+                        Icon(if (form.sortDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward, contentDescription = null)
+                    }
+                }
+                OutlinedTextField(value = form.limit, onValueChange = { onChange(form.copy(limit = it.filter { c -> c.isDigit() })) }, label = { Text(stringResource(R.string.query_limit)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.width(96.dp))
+            }
+
             Button(onClick = onRun, modifier = Modifier.align(Alignment.End)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Text(stringResource(R.string.query_run), modifier = Modifier.padding(start = 6.dp))
             }
+        }
+    }
+}
+
+private fun <T> List<T>.replaceAt(index: Int, value: T): List<T> = toMutableList().also { it[index] = value }
+
+@Composable
+private fun BuilderLabel(text: String) {
+    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+}
+
+@Composable
+private fun Picker(value: String, placeholder: String, options: List<String>, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        androidx.compose.material3.OutlinedButton(onClick = { open = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp), modifier = Modifier.fillMaxWidth()) {
+            Text(value.ifEmpty { placeholder }, style = MonoStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { opt -> DropdownMenuItem(text = { Text(opt, style = MonoStyle) }, onClick = { onSelect(opt); open = false }) }
         }
     }
 }

@@ -320,6 +320,13 @@
     <string name="query_args">Selection args (comma separated)</string>
     <string name="query_sort">Sort order</string>
     <string name="query_limit">Limit</string>
+    <string name="query_columns">Columns</string>
+    <string name="query_all_columns">All columns</string>
+    <string name="query_filter">Filter</string>
+    <string name="query_add_condition">Add condition</string>
+    <string name="query_sort_by">Sort by</string>
+    <string name="query_value">Value</string>
+    <string name="query_column">Column</string>
     <string name="query_run">Run</string>
     <string name="query_edit">Edit query</string>
     <string name="query_results">%1$d rows · page %2$d</string>
