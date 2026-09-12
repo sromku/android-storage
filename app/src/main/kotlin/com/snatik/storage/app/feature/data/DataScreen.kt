@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
@@ -66,6 +68,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
     var filtersOpen by remember { mutableStateOf(false) }
+    var shortcutsExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -75,16 +78,19 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
         val visible = state.visible
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "shortcuts") {
-                Text(
-                    stringResource(R.string.section_shortcuts),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp),
-                )
-                state.shortcuts.groupBy { it.group }.forEach { (group, items) ->
-                    Text(group, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, top = 8.dp))
-                    FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items.forEach { s -> AssistChip(onClick = { onOpenProvider(s.title, s.uri) }, label = { Text(s.title) }) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { shortcutsExpanded = !shortcutsExpanded }.padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.section_shortcuts), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    Icon(if (shortcutsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (shortcutsExpanded) {
+                    state.shortcuts.groupBy { it.group }.forEach { (group, items) ->
+                        Text(group, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, top = 8.dp))
+                        FlowRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items.forEach { s -> AssistChip(onClick = { onOpenProvider(s.title, s.uri) }, label = { Text(s.title) }) }
+                        }
                     }
                 }
             }

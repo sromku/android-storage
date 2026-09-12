@@ -276,7 +276,7 @@
 
     <!-- Data tab -->
     <string name="data_title">Data</string>
-    <string name="section_shortcuts">System providers</string>
+    <string name="section_shortcuts">Quick queries</string>
     <string name="section_all_providers">All providers</string>
     <string name="prov_filters_title">Filters</string>
     <string name="prov_filters_button">Filters</string>
