@@ -123,6 +123,7 @@ val appModule = module {
     single { OperationRunner(get()) }
     single { FileClipboard() }
     single { BrowserPreferences(androidContext()) }
+    single { com.snatik.storage.app.ui.theme.ThemePreferences(androidContext()) }
     single { AppRepository(androidContext()) }
     single { ManifestDecoder(androidContext()) }
     single { AppActions(get()) }

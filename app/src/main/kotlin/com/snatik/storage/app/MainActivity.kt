@@ -5,9 +5,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import com.snatik.storage.app.navigation.AppNavigation
 import com.snatik.storage.app.ui.theme.StorageTheme
+import com.snatik.storage.app.ui.theme.ThemePreferences
 import com.snatik.storage.app.R
+import org.koin.compose.koinInject
 
 class MainActivity : ComponentActivity() {
 
@@ -21,7 +25,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            StorageTheme {
+            val themePrefs = koinInject<ThemePreferences>()
+            val settings by themePrefs.state.collectAsStateWithLifecycle()
+            StorageTheme(settings) {
                 AppNavigation()
             }
         }

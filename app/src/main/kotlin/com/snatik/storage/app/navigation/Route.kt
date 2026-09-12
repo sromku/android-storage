@@ -168,6 +168,9 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object AppHistory : Route
+
+    @Serializable
+    data object Settings : Route
 }
 
 /** The destinations reachable from the bottom bar. */

@@ -165,6 +165,7 @@ fun AppNavigation() {
                     onOpenVolume = ::openBrowser,
                     onOpenDiskUsage = { label, path -> push(Route.DiskUsage(label, path)) },
                     onSwitchTab = ::switchTab,
+                    onOpenSettings = { push(Route.Settings) },
                 )
             }
             entry<Route.Apps> {
@@ -253,6 +254,7 @@ fun AppNavigation() {
             entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
             entry<Route.PermissionFootprint> { PermissionFootprintScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppHistory> { AppHistoryScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
+            entry<Route.Settings> { com.snatik.storage.app.feature.settings.SettingsScreen(onBack = ::pop) }
             entry<Route.CommandPalette> {
                 val open: (Route) -> Unit = { r -> pop(); push(r) }
                 val commands = listOf(

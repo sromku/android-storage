@@ -1,5 +1,16 @@
 <resources>
     <string name="app_name">Storage</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_color">Color</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="color_colorful">Colorful</string>
+    <string name="color_colorful_sub">The app\'s own palette</string>
+    <string name="color_dynamic">Dynamic (Material You)</string>
+    <string name="color_dynamic_sub">Match your wallpaper</string>
+    <string name="color_dynamic_unavailable">Needs Android 12+</string>
 
     <!-- Home -->
     <string name="section_volumes">Volumes</string>
