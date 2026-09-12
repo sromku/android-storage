@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -172,7 +173,8 @@ fun ArtScreen(
 
             Text(stringResource(R.string.art_optimizations), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
             MODES.forEach { info ->
-                ModeCard(info, running = state.runningMode == info.mode, enabled = !state.busy) { viewModel.run(info.mode) }
+                // Debuggable apps can't be AOT-compiled, so the actions are inert — disable them.
+                ModeCard(info, running = state.runningMode == info.mode, enabled = !state.busy && !debuggable) { viewModel.run(info.mode) }
             }
 
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -232,7 +234,7 @@ private fun ModeCard(info: ModeInfo, running: Boolean, enabled: Boolean, onClick
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier).alpha(if (enabled) 1f else 0.45f),
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(modifier = Modifier.size(42.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
