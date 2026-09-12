@@ -149,7 +149,13 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onSwitchTab
     selected?.let { provider ->
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(onDismissRequest = { selected = null }, sheetState = sheetState) {
-            ProviderDetail(provider, onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null })
+            val related = state.shortcuts.filter { shortcutAuthority(it.uri) == provider.authority }
+            ProviderDetail(
+                provider,
+                related = related,
+                onQuery = { onOpenProvider(provider.authority, provider.uri); selected = null },
+                onOpenShortcut = { title, uri -> onOpenProvider(title, uri); selected = null },
+            )
         }
     }
 
@@ -221,8 +227,16 @@ private fun ProviderRow(provider: ProviderEntry, grouped: Boolean, onClick: () -
     }
 }
 
+/** The authority segment of a content:// shortcut URI. */
+private fun shortcutAuthority(uri: String): String = uri.removePrefix("content://").substringBefore('/')
+
 @Composable
-private fun ProviderDetail(provider: ProviderEntry, onQuery: () -> Unit) {
+private fun ProviderDetail(
+    provider: ProviderEntry,
+    related: List<com.snatik.storage.core.data.ProviderShortcut>,
+    onQuery: () -> Unit,
+    onOpenShortcut: (String, String) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppIcon(provider.packageName, size = 40.dp)
@@ -239,6 +253,12 @@ private fun ProviderDetail(provider: ProviderEntry, onQuery: () -> Unit) {
         DetailLine(stringResource(R.string.prov_detail_write), provider.writePermission ?: stringResource(R.string.prov_detail_none))
         DetailLine(stringResource(R.string.prov_detail_grant), stringResource(if (provider.grantUriPermissions) R.string.prov_detail_yes else R.string.prov_detail_no))
         if (provider.pathPermissions.isNotEmpty()) DetailLine(stringResource(R.string.prov_detail_paths), provider.pathPermissions.joinToString("\n"))
+        if (related.isNotEmpty()) {
+            Text(stringResource(R.string.prov_detail_tables), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                related.forEach { s -> AssistChip(onClick = { onOpenShortcut(s.title, s.uri) }, label = { Text(s.title) }) }
+            }
+        }
         androidx.compose.material3.Button(onClick = onQuery, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.prov_query), modifier = Modifier.padding(start = 8.dp))

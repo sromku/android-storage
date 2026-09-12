@@ -302,6 +302,7 @@
     <string name="prov_detail_none">None</string>
     <string name="prov_detail_yes">Yes</string>
     <string name="prov_detail_no">No</string>
+    <string name="prov_detail_tables">Common tables</string>
     <string name="prov_query">Query</string>
     <string name="prov_tag_system">System</string>
     <string name="providers_search">Search authority or app</string>
