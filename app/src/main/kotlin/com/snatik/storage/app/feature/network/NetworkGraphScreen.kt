@@ -122,7 +122,8 @@ private fun Graph(app: AppNetworkUsage) {
     var metric by remember { mutableStateOf(Metric.TOTAL) }
     var split by remember { mutableStateOf(Split.OFF) }
     var unit by remember { mutableStateOf(Measure.DATA) }
-    var chartType by remember { mutableStateOf(ChartType.AREA) }
+    // Open as bars, matching the mini "Data over time" chart the user tapped.
+    var chartType by remember { mutableStateOf(ChartType.BARS) }
     var scrub by remember { mutableStateOf<Int?>(null) }
 
     val now = remember { System.currentTimeMillis() }
@@ -134,18 +135,22 @@ private fun Graph(app: AppNetworkUsage) {
         buildList { var t = startAligned; while (t < now && size < 512) { add(t); t += SLOT_MS } }
     }
     val stacked = split == Split.STATE
-    // Fg/Bg is only recorded as bytes, so the split view is always in Data.
-    val effUnit = if (stacked) Measure.DATA else unit
     val cells = slots.map { byStart[it] }
-    // Foreground / background value of the chosen direction (Total / Down / Up).
-    fun UsageBucket.fgVal(m: Metric) = when (m) { Metric.RX -> fgRxBytes; Metric.TX -> fgTxBytes; else -> foregroundBytes }
-    fun UsageBucket.bgVal(m: Metric) = when (m) { Metric.RX -> bgRxBytes; Metric.TX -> bgTxBytes; else -> backgroundBytes }
-    val fgSeries = cells.map { it?.fgVal(metric) ?: 0L }
-    val bgSeries = cells.map { it?.bgVal(metric) ?: 0L }
-    val values = if (stacked) fgSeries.indices.map { fgSeries[it] + bgSeries[it] } else cells.map { it?.value(metric, effUnit) ?: 0L }
+    // Foreground / background value of the chosen direction and unit — every combination is valid.
+    fun UsageBucket.fgVal(m: Metric, u: Measure) = when (u) {
+        Measure.DATA -> when (m) { Metric.RX -> fgRxBytes; Metric.TX -> fgTxBytes; else -> foregroundBytes }
+        Measure.PACKETS -> when (m) { Metric.RX -> fgRxPackets; Metric.TX -> fgTxPackets; else -> foregroundPackets }
+    }
+    fun UsageBucket.bgVal(m: Metric, u: Measure) = when (u) {
+        Measure.DATA -> when (m) { Metric.RX -> bgRxBytes; Metric.TX -> bgTxBytes; else -> backgroundBytes }
+        Measure.PACKETS -> when (m) { Metric.RX -> bgRxPackets; Metric.TX -> bgTxPackets; else -> backgroundPackets }
+    }
+    val fgSeries = cells.map { it?.fgVal(metric, unit) ?: 0L }
+    val bgSeries = cells.map { it?.bgVal(metric, unit) ?: 0L }
+    val values = if (stacked) fgSeries.indices.map { fgSeries[it] + bgSeries[it] } else cells.map { it?.value(metric, unit) ?: 0L }
     val inRange = app.buckets.filter { it.startMs >= startAligned }
 
-    val windowTotal = if (stacked) inRange.sumOf { it.fgVal(metric) + it.bgVal(metric) } else inRange.sumOf { it.value(metric, effUnit) }
+    val windowTotal = if (stacked) inRange.sumOf { it.fgVal(metric, unit) + it.bgVal(metric, unit) } else inRange.sumOf { it.value(metric, unit) }
     val peakIdx = values.indices.maxByOrNull { values[it] }?.takeIf { values.isNotEmpty() && values[it] > 0 }
 
     Column(
@@ -160,13 +165,13 @@ private fun Graph(app: AppNetworkUsage) {
                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                fmt(scrubbed?.second ?: windowTotal, effUnit),
+                fmt(scrubbed?.second ?: windowTotal, unit),
                 style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold,
             )
             Text(
                 scrubbed?.let { s ->
                     val base = slotLabel(slots[s.first], ctx)
-                    if (stacked) "$base · ${stringResource(R.string.net_foreground)} ${fgSeries[s.first].readableSize()} · ${stringResource(R.string.net_background)} ${bgSeries[s.first].readableSize()}" else base
+                    if (stacked) "$base · ${stringResource(R.string.net_foreground)} ${fmt(fgSeries[s.first], unit)} · ${stringResource(R.string.net_background)} ${fmt(bgSeries[s.first], unit)}" else base
                 } ?: rangeSubtitle(range, startAligned, ctx),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -200,25 +205,24 @@ private fun Graph(app: AppNetworkUsage) {
                 ) { Text(stringResource(m.labelRes)) }
             }
         }
-        // Split by app state — orthogonal to the direction above.
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            Split.entries.forEachIndexed { i, sp ->
-                SegmentedButton(
-                    selected = split == sp,
-                    onClick = { split = sp; scrub = null },
-                    shape = SegmentedButtonDefaults.itemShape(i, Split.entries.size),
-                ) { Text(stringResource(sp.labelRes)) }
+        // Split (state) and unit share a row — both are independent of the direction above.
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+                Split.entries.forEachIndexed { i, sp ->
+                    SegmentedButton(
+                        selected = split == sp,
+                        onClick = { split = sp; scrub = null },
+                        shape = SegmentedButtonDefaults.itemShape(i, Split.entries.size),
+                    ) { Text(stringResource(sp.labelRes), maxLines = 1) }
+                }
             }
-        }
-        // Unit — packets aren't tracked per fg/bg, so hide when viewing the state split.
-        if (!stacked) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
                 Measure.entries.forEachIndexed { i, u ->
                     SegmentedButton(
                         selected = unit == u,
                         onClick = { unit = u; scrub = null },
                         shape = SegmentedButtonDefaults.itemShape(i, Measure.entries.size),
-                    ) { Text(stringResource(u.labelRes)) }
+                    ) { Text(stringResource(u.labelRes), maxLines = 1) }
                 }
             }
         }
@@ -230,9 +234,9 @@ private fun Graph(app: AppNetworkUsage) {
 
         // Window stats
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(stringResource(R.string.net_peak), peakIdx?.let { fmt(values[it], effUnit) } ?: "—", peakIdx?.let { slots[it].relativeTime(ctx) }, Modifier.weight(1f))
+            StatCard(stringResource(R.string.net_peak), peakIdx?.let { fmt(values[it], unit) } ?: "—", peakIdx?.let { slots[it].relativeTime(ctx) }, Modifier.weight(1f))
             val avg = if (slots.isNotEmpty()) windowTotal / slots.size else 0L
-            StatCard(stringResource(R.string.net_average), fmt(avg, effUnit), null, Modifier.weight(1f))
+            StatCard(stringResource(R.string.net_average), fmt(avg, unit), null, Modifier.weight(1f))
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val rx = inRange.sumOf { it.rxBytes }; val tx = inRange.sumOf { it.txBytes }

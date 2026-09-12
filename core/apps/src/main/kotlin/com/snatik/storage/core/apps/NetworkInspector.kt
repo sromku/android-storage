@@ -37,25 +37,35 @@ data class AppConnections(
     val remoteHosts: List<String> get() = connections.map { it.remoteAddress }.filter { it.isNotEmpty() }.distinct()
 }
 
-/** One time slice of an app's data usage, as recorded by netstats. */
+/**
+ * One time slice of an app's data usage, as recorded by netstats. Stored fully decomposed by
+ * state (foreground/background) × direction (rx/tx) for both bytes and packets, so any combination
+ * of direction/unit/state can be derived.
+ */
 data class UsageBucket(
     val startMs: Long,
     val durationMs: Long,
-    val rxBytes: Long,
-    val txBytes: Long,
-    val rxPackets: Long = 0,
-    val txPackets: Long = 0,
-    val wifiBytes: Long = 0,
-    val mobileBytes: Long = 0,
     val fgRxBytes: Long = 0,
     val fgTxBytes: Long = 0,
     val bgRxBytes: Long = 0,
     val bgTxBytes: Long = 0,
+    val fgRxPackets: Long = 0,
+    val fgTxPackets: Long = 0,
+    val bgRxPackets: Long = 0,
+    val bgTxPackets: Long = 0,
+    val wifiBytes: Long = 0,
+    val mobileBytes: Long = 0,
 ) {
+    val rxBytes: Long get() = fgRxBytes + bgRxBytes
+    val txBytes: Long get() = fgTxBytes + bgTxBytes
+    val rxPackets: Long get() = fgRxPackets + bgRxPackets
+    val txPackets: Long get() = fgTxPackets + bgTxPackets
     val totalBytes: Long get() = rxBytes + txBytes
     val totalPackets: Long get() = rxPackets + txPackets
     val foregroundBytes: Long get() = fgRxBytes + fgTxBytes
     val backgroundBytes: Long get() = bgRxBytes + bgTxBytes
+    val foregroundPackets: Long get() = fgRxPackets + fgTxPackets
+    val backgroundPackets: Long get() = bgRxPackets + bgTxPackets
 }
 
 /**
@@ -170,7 +180,7 @@ class NetworkInspector(private val context: Context, private val privilege: Priv
         var wifiBytes = 0L; var mobileBytes = 0L
         var foregroundBytes = 0L; var backgroundBytes = 0L
         var firstMs = Long.MAX_VALUE; var lastMs = 0L
-        // startMs -> [rx, tx, rxPkts, txPkts, wifi, mobile, fgRx, fgTx, bgRx, bgTx, durationMs]
+        // startMs -> [fgRxB, fgTxB, bgRxB, bgTxB, fgRxP, fgTxP, bgRxP, bgTxP, wifi, mobile, durationMs]
         val byBucket = HashMap<Long, LongArray>()
 
         fun buckets(): List<UsageBucket> = byBucket.entries
@@ -318,9 +328,9 @@ class NetworkInspector(private val context: Context, private val privilege: Priv
                 if (st < agg.firstMs) agg.firstMs = st
                 if (st + durationMs > agg.lastMs) agg.lastMs = st + durationMs
                 val slot = agg.byBucket.getOrPut(st) { longArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, durationMs) }
-                slot[0] += rb; slot[1] += tb; slot[2] += rp; slot[3] += tp
-                if (wifi) slot[4] += rb + tb else slot[5] += rb + tb
-                if (foreground) { slot[6] += rb; slot[7] += tb } else { slot[8] += rb; slot[9] += tb }
+                if (foreground) { slot[0] += rb; slot[1] += tb; slot[4] += rp; slot[5] += tp }
+                else { slot[2] += rb; slot[3] += tb; slot[6] += rp; slot[7] += tp }
+                if (wifi) slot[8] += rb + tb else slot[9] += rb + tb
             }
             return out
         }
