@@ -150,7 +150,9 @@ fun AppDetailScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(state.details?.summary?.label ?: packageName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                // The app's name, icon and badges live in the body Header (always visible above the
+                // tabs), so the bar keeps only the back button and actions to avoid showing it twice.
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
                 },
