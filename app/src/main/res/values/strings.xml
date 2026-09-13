@@ -625,6 +625,7 @@
     <string name="broadcast_monitor_role_app">app</string>
     <string name="broadcast_monitor_sender_note">Android doesn\'t reveal which app fired a broadcast — only that it happened.</string>
     <string name="broadcast_monitor_no_extras">No extras were attached to this broadcast.</string>
+    <string name="intent_details_extras">Extras</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>
