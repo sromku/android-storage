@@ -227,7 +227,7 @@ fun AppNavigation() {
                 )
             }
             entry<Route.ProviderQuery> { route ->
-                ProviderQueryScreen(route = route, onBack = ::pop)
+                ProviderQueryScreen(route = route, onBack = ::pop, onOpenFolder = { folder -> openBrowser("Download", folder) })
             }
             entry<Route.ProviderUris> { route ->
                 ProviderUrisScreen(route = route, onBack = ::pop, onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) })

@@ -67,6 +67,18 @@ data class ProviderQueryUiState(
     val savedUris: Set<String> = emptySet(),
     /** Non-null while the URI-details sheet is open. */
     val details: UriDetails? = null,
+    /** Non-null right after an export, for the result sheet. */
+    val exportResult: ExportResult? = null,
+)
+
+/** A finished CSV/JSON export, shown in a sheet with open-folder and share actions. */
+data class ExportResult(
+    val path: String,
+    val name: String,
+    val folder: String,
+    val sizeBytes: Long,
+    val rows: Int,
+    val isJson: Boolean,
 )
 
 /** Everything we can say about the URI being queried and the provider that serves it. */
@@ -151,13 +163,19 @@ class ProviderQueryViewModel(
         val result = _state.value.result ?: return
         viewModelScope.launch {
             val name = title.replace(Regex("[^A-Za-z0-9._-]"), "_") + if (asJson) ".json" else ".csv"
-            val path = "/storage/emulated/0/Download/$name"
+            val folder = "/storage/emulated/0/Download"
+            val path = "$folder/$name"
+            val content = if (asJson) result.toJson() else result.toCsv()
             try {
-                fs.writeText(path, if (asJson) result.toJson() else result.toCsv())
-                _messages.send("saved:$path")
+                fs.writeText(path, content)
+                _state.update {
+                    it.copy(exportResult = ExportResult(path, name, folder, content.encodeToByteArray().size.toLong(), result.rows.size, asJson))
+                }
             } catch (e: Exception) {
                 _messages.send(e.message ?: e.toString())
             }
         }
     }
+
+    fun dismissExport() = _state.update { it.copy(exportResult = null) }
 }

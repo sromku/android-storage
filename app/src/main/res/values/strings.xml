@@ -396,6 +396,11 @@
     <string name="export_csv">Export CSV</string>
     <string name="export_json">Export JSON</string>
     <string name="exported_to">Saved to %1$s</string>
+    <string name="export_done_title">Exported</string>
+    <string name="export_rows">rows</string>
+    <string name="export_size">size</string>
+    <string name="export_location">Location</string>
+    <string name="export_open_folder">Open folder</string>
     <string name="page_prev">Previous</string>
     <string name="page_next">Next</string>
     <string name="row_detail">Row</string>

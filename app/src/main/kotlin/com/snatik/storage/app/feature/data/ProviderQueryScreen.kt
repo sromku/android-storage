@@ -22,11 +22,16 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TableRows
@@ -58,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,9 +86,10 @@ import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewModel: ProviderQueryViewModel = koinViewModel(parameters = { parametersOf(route) })) {
+fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, onOpenFolder: (String) -> Unit = {}, viewModel: ProviderQueryViewModel = koinViewModel(parameters = { parametersOf(route) })) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resources = LocalResources.current
+    val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { m ->
@@ -117,8 +124,8 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
                             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
                             onClick = { more = false; viewModel.openDetails() },
                         )
-                        DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = false) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = true) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = false) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, leadingIcon = { Icon(Icons.Default.DataObject, contentDescription = null) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = true) })
                     }
                 },
             )
@@ -163,6 +170,57 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
         ModalBottomSheet(onDismissRequest = viewModel::closeDetails, sheetState = sheetState) {
             UriDetailsSheet(details)
         }
+    }
+
+    state.exportResult?.let { export ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(onDismissRequest = viewModel::dismissExport, sheetState = sheetState) {
+            ExportSheet(
+                export = export,
+                onOpenFolder = { viewModel.dismissExport(); onOpenFolder(export.folder) },
+                onShare = { com.snatik.storage.app.util.Intents.share(context, listOf(export.path)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExportSheet(export: ExportResult, onOpenFolder: () -> Unit, onShare: () -> Unit) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.export_done_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        }
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(if (export.isJson) Icons.Default.DataObject else Icons.Default.TableChart, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(export.name, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            StatCell(export.rows.toString(), stringResource(R.string.export_rows))
+            StatCell(android.text.format.Formatter.formatShortFileSize(context, export.sizeBytes), stringResource(R.string.export_size))
+        }
+        DetailRow(stringResource(R.string.export_location), export.folder)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.material3.OutlinedButton(onClick = onOpenFolder, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.export_open_folder), modifier = Modifier.padding(start = 8.dp))
+            }
+            Button(onClick = onShare, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.share), modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCell(value: String, label: String) {
+    Column {
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
