@@ -112,7 +112,7 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
                         icon = if (state.permissionDenied) Icons.Default.Lock else Icons.Default.Block,
                         title = stringResource(if (state.permissionDenied) R.string.query_permission_denied else R.string.query_failed),
                         body = listOfNotNull(
-                            if (state.permissionDenied) stringResource(R.string.query_permission_hint) else null,
+                            if (state.permissionDenied) stringResource(if (state.shellDenied) R.string.query_permission_shell_hint else R.string.query_permission_hint) else null,
                             if (state.error?.contains("no cursor", true) == true) stringResource(R.string.query_no_cursor_hint) else null,
                             state.error,
                         ).joinToString("\n\n"),

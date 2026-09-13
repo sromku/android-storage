@@ -382,7 +382,8 @@
     <string name="query_via_shell">Fetched through the shell because the app has no permission; values with commas may be split.</string>
     <string name="query_no_rows">No rows</string>
     <string name="query_permission_denied">Permission denied</string>
-    <string name="query_permission_hint">This provider needs a permission the app does not hold. Connect Shizuku to query it as the shell user.</string>
+    <string name="query_permission_hint">This provider needs a permission the app does not hold. Connect Shizuku or root to query it as the shell user.</string>
+    <string name="query_permission_shell_hint">Even the privileged shell (Shizuku/root, uid 2000) was refused — this provider needs a signature or privileged permission only platform-signed apps can hold, so it can\'t be read here.</string>
     <string name="query_failed">Query failed</string>
     <string name="query_mime">MIME %1$s</string>
     <string name="export_csv">Export CSV</string>

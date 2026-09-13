@@ -28,7 +28,8 @@ data class QueryRequest(
  */
 class ProviderQuery(private val context: Context, private val privilege: PrivilegeManager) {
 
-    class QueryException(message: String, val permissionDenied: Boolean) : Exception(message)
+    /** [shellDenied] = the privileged shell was available and it, too, was refused (uid 2000/root). */
+    class QueryException(message: String, val permissionDenied: Boolean, val shellDenied: Boolean = false) : Exception(message)
 
     suspend fun query(request: QueryRequest): Tabular = withContext(Dispatchers.IO) {
         try {
@@ -119,7 +120,7 @@ class ProviderQuery(private val context: Context, private val privilege: Privile
             it.contains("Error while accessing provider") || it.contains("IllegalArgumentException") || it.contains("Exception")
         }
         if (!result.ok || errLine != null) {
-            throw QueryException(errLine ?: "content query failed (${result.exitCode})", permissionDenied = permLine != null)
+            throw QueryException(errLine ?: "content query failed (${result.exitCode})", permissionDenied = permLine != null, shellDenied = true)
         }
         val parsed = parseContentOutput(result.out)
         val page = parsed.rows.drop(request.offset)

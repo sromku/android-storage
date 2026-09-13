@@ -59,6 +59,8 @@ data class ProviderQueryUiState(
     val page: Int = 0,
     val error: String? = null,
     val permissionDenied: Boolean = false,
+    /** True when even the privileged shell was refused — so "connect Shizuku" is not the fix. */
+    val shellDenied: Boolean = false,
     val mime: String? = null,
     val selectedRow: Int? = null,
 )
@@ -92,7 +94,7 @@ class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: Prov
                 _state.update { it.copy(loading = false, result = result, page = page, mime = mime, columns = result.columns.ifEmpty { it.columns }) }
             } catch (e: ProviderQuery.QueryException) {
                 // Surface the builder so the user can fix the URI (e.g. add a table path).
-                _state.update { it.copy(loading = false, result = null, error = e.message, permissionDenied = e.permissionDenied, mime = mime, editing = true) }
+                _state.update { it.copy(loading = false, result = null, error = e.message, permissionDenied = e.permissionDenied, shellDenied = e.shellDenied, mime = mime, editing = true) }
             }
         }
     }
