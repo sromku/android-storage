@@ -23,6 +23,13 @@ object IntentExamples {
             ),
         ),
         Example(
+            "Share an image", "ACTION_SEND · image/*",
+            IntentSpec(
+                action = "android.intent.action.SEND", type = "image/*",
+                extras = listOf(Extra("android.intent.extra.STREAM", ExtraType.URI, "content://media/external/images/media/1")),
+            ),
+        ),
+        Example(
             "Web search", "ACTION_WEB_SEARCH",
             IntentSpec(
                 action = "android.intent.action.WEB_SEARCH",
@@ -48,6 +55,29 @@ object IntentExamples {
             IntentSpec(action = "android.intent.action.VIEW", data = "geo:0,0?q=Golden Gate Bridge"),
         ),
         Example(
+            "Navigate to", "ACTION_VIEW · google.navigation:",
+            IntentSpec(action = "android.intent.action.VIEW", data = "google.navigation:q=Central+Park"),
+        ),
+        Example(
+            "Pick a contact", "ACTION_PICK · contacts",
+            IntentSpec(action = "android.intent.action.PICK", data = "content://com.android.contacts/contacts"),
+        ),
+        Example(
+            "Pick an image", "ACTION_GET_CONTENT · image/*",
+            IntentSpec(action = "android.intent.action.GET_CONTENT", type = "image/*", categories = listOf("android.intent.category.OPENABLE")),
+        ),
+        Example(
+            "Open a document", "ACTION_OPEN_DOCUMENT · */*",
+            IntentSpec(action = "android.intent.action.OPEN_DOCUMENT", type = "*/*", categories = listOf("android.intent.category.OPENABLE")),
+        ),
+        Example(
+            "Create a document", "ACTION_CREATE_DOCUMENT",
+            IntentSpec(
+                action = "android.intent.action.CREATE_DOCUMENT", type = "text/plain", categories = listOf("android.intent.category.OPENABLE"),
+                extras = listOf(Extra("android.intent.extra.TITLE", ExtraType.STRING, "note.txt")),
+            ),
+        ),
+        Example(
             "Set an alarm", "ACTION_SET_ALARM",
             IntentSpec(
                 action = "android.intent.action.SET_ALARM",
@@ -59,8 +89,41 @@ object IntentExamples {
             ),
         ),
         Example(
+            "Set a timer", "ACTION_SET_TIMER",
+            IntentSpec(
+                action = "android.intent.action.SET_TIMER",
+                extras = listOf(
+                    Extra("android.intent.extra.alarm.LENGTH", ExtraType.INT, "300"),
+                    Extra("android.intent.extra.alarm.MESSAGE", ExtraType.STRING, "Tea"),
+                    Extra("android.intent.extra.alarm.SKIP_UI", ExtraType.BOOLEAN, "true"),
+                ),
+            ),
+        ),
+        Example(
+            "Add a calendar event", "ACTION_INSERT · events",
+            IntentSpec(
+                action = "android.intent.action.INSERT", data = "content://com.android.calendar/events",
+                extras = listOf(
+                    Extra("title", ExtraType.STRING, "Lunch"),
+                    Extra("eventLocation", ExtraType.STRING, "Cafe"),
+                ),
+            ),
+        ),
+        Example(
             "Capture a photo", "ACTION_IMAGE_CAPTURE",
             IntentSpec(action = "android.media.action.IMAGE_CAPTURE"),
+        ),
+        Example(
+            "Record a video", "ACTION_VIDEO_CAPTURE",
+            IntentSpec(action = "android.media.action.VIDEO_CAPTURE"),
+        ),
+        Example(
+            "Play Store page", "market://details",
+            IntentSpec(action = "android.intent.action.VIEW", data = "market://details?id=com.android.chrome"),
+        ),
+        Example(
+            "App details settings", "APPLICATION_DETAILS_SETTINGS",
+            IntentSpec(action = "android.settings.APPLICATION_DETAILS_SETTINGS", data = "package:com.android.chrome"),
         ),
         Example(
             "Open Wi-Fi settings", "android.settings.WIFI_SETTINGS",
