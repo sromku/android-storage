@@ -518,8 +518,6 @@
     <string name="intents_monitor_body">Subscribe to system broadcasts and capture them in the background — with their full extras.</string>
     <string name="broadcast_monitor_card_actions">%1$d actions subscribed</string>
     <string name="intents_monitor_status">%1$d actions on · %2$d events</string>
-    <string name="intents_history_title">Recent broadcasts</string>
-    <string name="intents_history_body">What the system dispatched lately, from dumpsys. Needs shell access.</string>
     <string name="intents_deeplink_title">Deep link tester</string>
     <string name="intents_deeplink_body">Paste a URL, see which apps claim it and launch one directly.</string>
     <string name="open">Open</string>
@@ -626,9 +624,11 @@
     <string name="broadcast_monitor_sender_note">Android doesn\'t reveal which app fired a broadcast — only that it happened.</string>
     <string name="broadcast_monitor_no_extras">No extras were attached to this broadcast.</string>
     <string name="intent_details_extras">Extras</string>
+    <string name="broadcast_monitor_mode_live">Live</string>
+    <string name="broadcast_monitor_mode_recent">Recent</string>
+    <string name="broadcast_monitor_recent_hint">A one-shot snapshot of broadcasts the system still has buffered, device-wide. No extras values — start Live capture for full detail.</string>
 
     <!-- History -->
-    <string name="history_title">Recent broadcasts</string>
     <string name="history_needs_shell">Shell access is needed to read dumpsys.</string>
     <string name="history_parsed">Parsed</string>
     <string name="history_raw">Raw</string>

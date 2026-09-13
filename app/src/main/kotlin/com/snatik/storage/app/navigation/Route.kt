@@ -92,9 +92,6 @@ sealed interface Route : NavKey {
     data object BroadcastMonitor : Route
 
     @Serializable
-    data object BroadcastHistory : Route
-
-    @Serializable
     data object DeepLink : Route
 
     @Serializable

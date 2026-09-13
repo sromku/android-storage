@@ -65,7 +65,6 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import com.snatik.storage.app.feature.api.ApiScreen
 import com.snatik.storage.app.feature.transfer.ReceiveScreen
 import com.snatik.storage.app.feature.transfer.SendToScreen
-import com.snatik.storage.app.feature.intents.BroadcastHistoryScreen
 import com.snatik.storage.app.feature.intents.BroadcastMonitorScreen
 import com.snatik.storage.app.feature.intents.DeepLinkScreen
 import com.snatik.storage.app.feature.intents.IntentBuilderScreen
@@ -343,7 +342,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenDiscover = { push(Route.IntentDiscover) },
                     onOpenIntentMonitor = { push(Route.IntentMonitor) },
                     onOpenMonitor = { push(Route.BroadcastMonitor) },
-                    onOpenHistory = { push(Route.BroadcastHistory) },
                     onOpenDeepLink = { push(Route.DeepLink) },
                 )
             }
@@ -358,7 +356,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                 com.snatik.storage.app.feature.intents.IntentMonitorScreen(onBack = ::pop, onRerun = { json -> push(Route.IntentBuilder(specJson = json)) })
             }
             entry<Route.BroadcastMonitor> { BroadcastMonitorScreen(onBack = ::pop) }
-            entry<Route.BroadcastHistory> { BroadcastHistoryScreen(onBack = ::pop) }
             entry<Route.DeepLink> { DeepLinkScreen(onBack = ::pop) }
             entry<Route.Capture> { route ->
                 CaptureScreen(

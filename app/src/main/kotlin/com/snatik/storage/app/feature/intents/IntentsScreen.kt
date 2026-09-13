@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Sensors
@@ -58,7 +57,6 @@ fun IntentsScreen(
     onOpenDiscover: () -> Unit,
     onOpenIntentMonitor: () -> Unit,
     onOpenMonitor: () -> Unit,
-    onOpenHistory: () -> Unit,
     onOpenDeepLink: () -> Unit,
     viewModel: IntentsViewModel = koinViewModel(),
 ) {
@@ -147,13 +145,6 @@ fun IntentsScreen(
                 ) {
                     Text(stringResource(R.string.broadcast_monitor_card_actions, state.broadcastActive), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenMonitor) { Text(stringResource(R.string.open)) }
-                }
-            }
-            item(key = "history") {
-                FeatureCard(Icons.Default.History, stringResource(R.string.intents_history_title), stringResource(R.string.intents_history_body), onClick = onOpenHistory) {
-                    if (!state.shellAvailable) Text(stringResource(R.string.history_needs_shell), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.weight(1f))
-                    else Text("", modifier = Modifier.weight(1f))
-                    TextButton(onClick = onOpenHistory, enabled = state.shellAvailable) { Text(stringResource(R.string.open)) }
                 }
             }
             item(key = "deeplink") {
