@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -61,10 +63,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.snatik.storage.app.R
+import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.fullDateTime
+import com.snatik.storage.app.util.relativeTime
 import com.snatik.storage.core.intents.BroadcastCatalog
 import com.snatik.storage.core.intents.BroadcastEvent
 import com.snatik.storage.core.intents.BroadcastStore
@@ -272,12 +276,71 @@ fun BroadcastMonitorScreen(onBack: () -> Unit, viewModel: BroadcastMonitorViewMo
     }
 
     selected?.let { event ->
+        val catalogEntry = remember(event.spec.action) { event.spec.action?.let { a -> BroadcastCatalog.actions.find { it.action == a } } }
+        val app = remember(event.spec) { broadcastApp(event.spec) }
         ModalBottomSheet(onDismissRequest = { selected = null }) {
-            Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(event.time.fullDateTime(context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(catalogEntry?.label ?: shortAction(event.spec.action ?: stringResource(R.string.intent_no_action)), style = MaterialTheme.typography.titleLarge)
+                    event.spec.action?.let { Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
+                }
+                catalogEntry?.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(event.time.relativeTime(context), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(event.time.fullDateTime(context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                HorizontalDivider()
+
+                app?.let { (role, pkg) -> AppLine(stringResource(role), pkg) }
+                Text(stringResource(R.string.broadcast_monitor_sender_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                HorizontalDivider()
+
                 IntentDetails(event.spec)
-                Text(stringResource(R.string.broadcast_monitor_full_payload), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                if (event.spec.extras.isEmpty()) {
+                    Text(stringResource(R.string.broadcast_monitor_no_extras), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(stringResource(R.string.broadcast_monitor_full_payload), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                }
             }
+        }
+    }
+}
+
+/** The app a broadcast concerns, when derivable: the affected package (package: data) or an explicit target. */
+private fun broadcastApp(spec: com.snatik.storage.core.intents.IntentSpec): Pair<Int, String>? {
+    spec.data?.takeIf { it.startsWith("package:") }?.let {
+        val pkg = it.removePrefix("package:").substringBefore('/').trim()
+        if (pkg.isNotEmpty()) return R.string.broadcast_monitor_role_app to pkg
+    }
+    spec.packageName?.takeIf { it.isNotBlank() }?.let { return R.string.intent_monitor_role_to to it }
+    return null
+}
+
+/** A role tag with the resolved app icon and label, for the affected/target app of a broadcast. */
+@Composable
+private fun AppLine(role: String, packageName: String) {
+    val context = LocalContext.current
+    val label = remember(packageName) {
+        runCatching {
+            val pm = context.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+        }.getOrDefault(packageName.substringAfterLast('.'))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppIcon(packageName, size = 36.dp)
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Tag(role, MaterialTheme.colorScheme.primary)
+                Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         }
     }
 }

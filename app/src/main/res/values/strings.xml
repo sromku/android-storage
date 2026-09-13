@@ -622,6 +622,9 @@
     <string name="broadcast_monitor_custom_label">Custom action</string>
     <string name="broadcast_monitor_select_all">Select all</string>
     <string name="broadcast_monitor_deselect_all">Deselect all</string>
+    <string name="broadcast_monitor_role_app">app</string>
+    <string name="broadcast_monitor_sender_note">Android doesn\'t reveal which app fired a broadcast — only that it happened.</string>
+    <string name="broadcast_monitor_no_extras">No extras were attached to this broadcast.</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>
