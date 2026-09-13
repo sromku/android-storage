@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 data class MonitorUiState(
     val shellAvailable: Boolean = false,
     val running: Boolean = false,
-    val hideSelf: Boolean = true,
+    val hideSelf: Boolean = false,
     val query: String = "",
     val intents: List<MonitoredIntent> = emptyList(),
     val count: Int = 0,
@@ -38,7 +38,6 @@ class IntentMonitorViewModel(
     private val store: IntentMonitorStore,
 ) : ViewModel() {
 
-    private val hideSelf = MutableStateFlow(true)
     private val query = MutableStateFlow("")
     private val refreshTrigger = MutableStateFlow(0)
     private val resolver = IntentDataResolver()
@@ -48,7 +47,7 @@ class IntentMonitorViewModel(
             Monitor(intents, count, running, capacity)
         }
     }
-    private val filters = combine(hideSelf, query, privilege.executor) { hide, q, exec ->
+    private val filters = combine(store.hideSelf, query, privilege.executor) { hide, q, exec ->
         Filters(hide, q, exec != null)
     }
 
@@ -76,7 +75,7 @@ class IntentMonitorViewModel(
 
     fun refresh() { refreshTrigger.value++ }
     fun clear() { viewModelScope.launch { store.clear() } }
-    fun setHideSelf(on: Boolean) { hideSelf.value = on }
+    fun setHideSelf(on: Boolean) = store.setHideSelf(on)
     fun setQuery(q: String) { query.value = q }
 
     private data class Monitor(val intents: List<MonitoredIntent>, val count: Int, val running: Boolean, val capacity: Int)

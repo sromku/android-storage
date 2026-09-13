@@ -23,6 +23,9 @@ class IntentMonitorStore(context: Context) {
     private val _capacity = MutableStateFlow(prefs.getInt(KEY_CAPACITY, DEFAULT_CAPACITY))
     val capacity: StateFlow<Int> = _capacity.asStateFlow()
 
+    private val _hideSelf = MutableStateFlow(prefs.getBoolean(KEY_HIDE_SELF, false))
+    val hideSelf: StateFlow<Boolean> = _hideSelf.asStateFlow()
+
     /** Newest [DISPLAY_MAX] intents, live. */
     val recent: Flow<List<MonitoredIntent>> = dao.recent(DISPLAY_MAX).map { rows -> rows.map { it.toModel() } }
 
@@ -42,6 +45,11 @@ class IntentMonitorStore(context: Context) {
     fun setCapacity(value: Int) {
         _capacity.value = value
         prefs.edit().putInt(KEY_CAPACITY, value).apply()
+    }
+
+    fun setHideSelf(value: Boolean) {
+        _hideSelf.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SELF, value).apply()
     }
 
     /** Enforce the current capacity immediately (e.g. after the user lowered it). */
@@ -69,5 +77,6 @@ class IntentMonitorStore(context: Context) {
         private const val DISPLAY_MAX = 2_000
         private const val TRIM_EVERY = 200
         private const val KEY_CAPACITY = "capacity"
+        private const val KEY_HIDE_SELF = "hide_self"
     }
 }
