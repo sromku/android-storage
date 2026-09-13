@@ -88,6 +88,15 @@
                 android:value="Developer tooling: records logcat, broadcasts and file changes on request" />
         </service>
 
+        <service
+            android:name=".feature.intents.IntentMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: monitors activity intents from the system log" />
+        </service>
+
         <receiver
             android:name=".feature.history.PackageEventReceiver"
             android:exported="false">

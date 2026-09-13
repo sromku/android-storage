@@ -66,7 +66,9 @@ object IntentMonitorParser {
             packageName = pkg,
             className = cls,
             callerUid = callerMatch?.groupValues?.get(1)?.toIntOrNull(),
-            callerPackage = callerMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() },
+            // The token right after the uid is the caller package on most lines, but some carry a
+            // BAL reason there instead; only trust it when it looks like a package name.
+            callerPackage = callerMatch?.groupValues?.get(2)?.takeIf { it.contains('.') && !it.contains('=') },
             hasExtras = line.contains("(has extras)"),
         )
     }
