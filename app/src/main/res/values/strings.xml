@@ -478,8 +478,10 @@
     <string name="intents_presets">Saved intents</string>
     <string name="intents_new">New intent</string>
     <string name="intents_sink_title">Intent sink</string>
-    <string name="intents_sink_body">Appear in share sheets and link choosers. Every intent picked up is logged with all its extras and can be forwarded on.</string>
+    <string name="intents_sink_body">See what other apps send. When on, Storage shows up in Share and “Open with” menus as “Storage · inspect intent” — pick it to capture the full intent (action, data, extras, sender) and log it here. Tap Try it to test now.</string>
     <string name="intents_sink_count">%1$d captured</string>
+    <string name="intents_sink_try">Try it</string>
+    <string name="intents_sink_try_text">Test payload from Storage</string>
     <string name="intents_open_log">Open log</string>
     <string name="intents_monitor_title">Broadcast monitor</string>
     <string name="intents_monitor_body">Listen to system broadcasts live while the app runs.</string>
@@ -572,7 +574,7 @@
     <string name="sink_copied">Copied</string>
     <string name="log_title">Captured intents</string>
     <string name="log_empty">Nothing captured yet</string>
-    <string name="log_empty_hint">Turn the sink on, then share something or open a link and pick Storage.</string>
+    <string name="log_empty_hint">Turn the sink on, then Share or Open-with something in any app and pick “Storage · inspect intent”.</string>
     <string name="log_clear">Clear</string>
     <string name="log_resend">Open in builder</string>
     <string name="intent_no_action">(no action)</string>
