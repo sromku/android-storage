@@ -118,7 +118,7 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
                 FilterChip(selected = state.hideSelf, onClick = { viewModel.setHideSelf(!state.hideSelf) }, label = { Text(stringResource(R.string.intent_monitor_hide_self)) })
                 val status = if (state.running) R.string.intent_monitor_listening else R.string.intent_monitor_paused
                 Text(
-                    stringResource(status, "%,d".format(visible.size), "%,d".format(state.capacity)),
+                    stringResource(status, "%,d".format(visible.size), "%,d".format(state.count), "%,d".format(state.capacity)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -484,8 +484,8 @@
     <string name="intent_monitor_needs_shell">Needs Shizuku</string>
     <string name="intent_monitor_needs_shell_hint">Connect Shizuku so the app can read the system\'s activity log.</string>
     <string name="intent_monitor_hide_self">Hide this app</string>
-    <string name="intent_monitor_listening">Listening · %1$s / %2$s</string>
-    <string name="intent_monitor_paused">Stopped · %1$s / %2$s</string>
+    <string name="intent_monitor_listening">Listening · %1$s of %2$s · %3$s max</string>
+    <string name="intent_monitor_paused">Stopped · %1$s of %2$s · %3$s max</string>
     <string name="intent_monitor_empty">No intents yet</string>
     <string name="intent_monitor_empty_hint">Press play to start monitoring. It keeps running in the background — even when the app is closed — until you stop it.</string>
     <string name="intent_monitor_start_title">Start intent monitor</string>
