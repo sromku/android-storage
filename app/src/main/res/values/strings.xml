@@ -627,6 +627,9 @@
     <string name="broadcast_monitor_mode_live">Live</string>
     <string name="broadcast_monitor_mode_recent">Recent</string>
     <string name="broadcast_monitor_recent_hint">A one-shot snapshot of broadcasts the system still has buffered, device-wide. No extras values — start Live capture for full detail.</string>
+    <string name="broadcast_monitor_recent_no_values">This snapshot shows what fired, not the extras values. Capture the action Live for full detail.</string>
+    <string name="broadcast_monitor_raw_intent">raw intent</string>
+    <string name="broadcast_monitor_queue">queue</string>
 
     <!-- History -->
     <string name="history_needs_shell">Shell access is needed to read dumpsys.</string>

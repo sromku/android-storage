@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -206,6 +207,7 @@ fun BroadcastMonitorScreen(
     var historyLoaded by remember { mutableStateOf(false) }
     var custom by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<BroadcastEvent?>(null) }
+    var selectedHistory by remember { mutableStateOf<HistoricalBroadcast?>(null) }
     var showActions by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
@@ -299,24 +301,14 @@ fun BroadcastMonitorScreen(
                     }
                     if (visible.isEmpty()) {
                         item { EmptyState(Icons.Default.Sensors, stringResource(R.string.broadcast_monitor_empty), stringResource(R.string.broadcast_monitor_empty_hint), modifier = Modifier.padding(top = 16.dp)) }
+                    } else {
+                        item(key = "top-gap") { Spacer(Modifier.padding(top = 8.dp)) }
                     }
                     items(visible, key = { it.id }) { event ->
-                        Column(modifier = Modifier.fillMaxWidth().clickable { selected = event }.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(shortAction(event.spec.action ?: stringResource(R.string.intent_no_action)), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (event.spec.extras.isNotEmpty()) Tag(stringResource(R.string.intent_monitor_extras_tag), MaterialTheme.colorScheme.tertiary)
-                            }
-                            Text(
-                                listOfNotNull(event.time.fullDateTime(context), event.spec.data).joinToString("  ·  "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        LiveRow(event, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { selected = event }
                     }
                 }
-                BroadcastMode.RECENT -> RecentBroadcasts(historyState, historyViewModel)
+                BroadcastMode.RECENT -> RecentBroadcasts(historyState, historyViewModel) { selectedHistory = it }
             }
         }
     }
@@ -392,11 +384,49 @@ fun BroadcastMonitorScreen(
             }
         }
     }
+
+    selectedHistory?.let { b ->
+        val catalogEntry = remember(b.action) { b.action?.let { a -> BroadcastCatalog.actions.find { it.action == a } } }
+        val data = remember(b.intent) { HISTORY_DATA.find(b.intent)?.groupValues?.get(1) }
+        val hasExtras = remember(b.intent) { b.intent.contains("has extras") }
+        val appPkg = remember(data) { data?.takeIf { it.startsWith("package:") }?.removePrefix("package:")?.substringBefore('/')?.trim()?.ifBlank { null } }
+        ModalBottomSheet(onDismissRequest = { selectedHistory = null }) {
+            Column(
+                modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(catalogEntry?.label ?: shortAction(b.action ?: stringResource(R.string.intent_no_action)), style = MaterialTheme.typography.titleLarge)
+                    b.action?.let { Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
+                }
+                catalogEntry?.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (b.queue != "?") QueueChip(b.queue)
+                    if (hasExtras) Tag(stringResource(R.string.intent_monitor_extras_tag), MaterialTheme.colorScheme.tertiary)
+                    b.enqueued?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+
+                HorizontalDivider()
+
+                appPkg?.let { AppLine(stringResource(R.string.broadcast_monitor_role_app), it) }
+                Text(stringResource(R.string.broadcast_monitor_sender_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                HorizontalDivider()
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.broadcast_monitor_raw_intent).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.8.sp)
+                    SelectionContainer { Text(b.intent, style = MonoStyle, color = MaterialTheme.colorScheme.onSurface) }
+                }
+                Text(stringResource(R.string.broadcast_monitor_recent_no_values), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+    }
 }
 
 /** "Recent" mode body: a device-wide `dumpsys` snapshot, parsed or raw, with a search filter. */
 @Composable
-private fun RecentBroadcasts(state: HistoryUiState, viewModel: BroadcastHistoryViewModel) {
+private fun RecentBroadcasts(state: HistoryUiState, viewModel: BroadcastHistoryViewModel, onSelect: (HistoricalBroadcast) -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -439,7 +469,7 @@ private fun RecentBroadcasts(state: HistoryUiState, viewModel: BroadcastHistoryV
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(items) { b -> HistoryRow(b) }
+                        items(items) { b -> HistoryRow(b) { onSelect(b) } }
                     }
                 }
             }
@@ -449,12 +479,31 @@ private fun RecentBroadcasts(state: HistoryUiState, viewModel: BroadcastHistoryV
 
 private val HISTORY_DATA = Regex("""dat=([^\s}]+)""")
 
+/** A captured Live broadcast as a card, matching the Recent snapshot rows. */
+@Composable
+private fun LiveRow(event: BroadcastEvent, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val context = LocalContext.current
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(shortAction(event.spec.action ?: stringResource(R.string.intent_no_action)), style = MaterialTheme.typography.titleSmall)
+                    event.spec.action?.let { Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
+                }
+                if (event.spec.extras.isNotEmpty()) Tag(stringResource(R.string.intent_monitor_extras_tag), MaterialTheme.colorScheme.tertiary)
+            }
+            event.spec.data?.let { DataLine(it) }
+            Text(event.time.fullDateTime(context), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 /** One parsed row from the device-wide snapshot: friendly action, queue, data and enqueue time. */
 @Composable
-private fun HistoryRow(b: HistoricalBroadcast) {
+private fun HistoryRow(b: HistoricalBroadcast, onClick: () -> Unit) {
     val data = remember(b.intent) { HISTORY_DATA.find(b.intent)?.groupValues?.get(1) }
     val hasExtras = remember(b.intent) { b.intent.contains("has extras") }
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -466,14 +515,18 @@ private fun HistoryRow(b: HistoricalBroadcast) {
                     if (hasExtras) Tag(stringResource(R.string.intent_monitor_extras_tag), MaterialTheme.colorScheme.tertiary)
                 }
             }
-            data?.let {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("DATA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.8.sp)
-                    Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                }
-            }
+            data?.let { DataLine(it) }
             b.enqueued?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+    }
+}
+
+/** A labelled `DATA` line shared by the Live and Recent cards. */
+@Composable
+private fun DataLine(value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("DATA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.8.sp)
+        Text(value, style = MonoStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
     }
 }
 
