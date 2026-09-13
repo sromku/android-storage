@@ -620,6 +620,8 @@
     <string name="broadcast_monitor_choose">Choose actions</string>
     <string name="broadcast_monitor_none_subscribed">No actions yet — choose what to capture.</string>
     <string name="broadcast_monitor_custom_label">Custom action</string>
+    <string name="broadcast_monitor_select_all">Select all</string>
+    <string name="broadcast_monitor_deselect_all">Deselect all</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>

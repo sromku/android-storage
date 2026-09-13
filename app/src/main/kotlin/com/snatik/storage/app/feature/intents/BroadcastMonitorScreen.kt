@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +29,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,6 +112,15 @@ class BroadcastMonitorViewModel(private val context: Context, private val store:
         store.setActive(action, on, scheme)
     }
 
+    val allCatalogueSelected: Boolean get() = catalogue.all { a -> store.active.value.any { it.action == a.action } }
+
+    fun selectAll() {
+        val custom = store.active.value.filter { a -> catalogue.none { it.action == a.action } }
+        store.setActiveList(catalogue.map { com.snatik.storage.core.intents.ActiveBroadcast(it.action, it.dataScheme) } + custom)
+    }
+
+    fun clearAllActions() = store.setActiveList(emptyList())
+
     fun start(capacity: Int) {
         store.setCapacity(capacity)
         viewModelScope.launch { store.applyCapacity() }
@@ -182,16 +189,18 @@ fun BroadcastMonitorScreen(onBack: () -> Unit, viewModel: BroadcastMonitorViewMo
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "actions") {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.broadcast_monitor_subscribed, state.active.size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { showActions = true }) { Text(stringResource(R.string.broadcast_monitor_choose)) }
-                    }
-                    if (state.active.isEmpty()) {
-                        Text(stringResource(R.string.broadcast_monitor_none_subscribed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-                    } else {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 4.dp)) {
-                            state.active.sorted().forEach { a -> FilterChip(selected = true, onClick = { viewModel.toggle(a) }, label = { Text(shortAction(a), style = MaterialTheme.typography.labelMedium) }) }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { showActions = true }.padding(vertical = 10.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.broadcast_monitor_subscribed, state.active.size), style = MaterialTheme.typography.titleSmall)
+                            if (state.active.isEmpty()) {
+                                Text(stringResource(R.string.broadcast_monitor_none_subscribed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
+                        Text(stringResource(R.string.broadcast_monitor_choose), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                     val status = if (state.running) R.string.intent_monitor_listening else R.string.intent_monitor_paused
                     Text(
@@ -242,9 +251,12 @@ fun BroadcastMonitorScreen(onBack: () -> Unit, viewModel: BroadcastMonitorViewMo
             catalogue = viewModel.catalogue,
             active = state.active,
             custom = custom,
+            allSelected = viewModel.allCatalogueSelected,
             onCustomChange = { custom = it },
             onToggle = { action, scheme -> viewModel.toggle(action, scheme) },
             onAddCustom = { if (custom.isNotBlank()) { viewModel.toggle(custom.trim()); custom = "" } },
+            onSelectAll = viewModel::selectAll,
+            onClearAll = viewModel::clearAllActions,
             onDismiss = { showActions = false },
         )
     }
@@ -304,16 +316,24 @@ private fun BroadcastActionsSheet(
     catalogue: List<com.snatik.storage.core.intents.BroadcastAction>,
     active: Set<String>,
     custom: String,
+    allSelected: Boolean,
     onCustomChange: (String) -> Unit,
     onToggle: (String, String?) -> Unit,
     onAddCustom: () -> Unit,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         LazyColumn(modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
-                Text(stringResource(R.string.broadcast_monitor_choose), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
+                    Text(stringResource(R.string.broadcast_monitor_choose), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    TextButton(onClick = if (allSelected) onClearAll else onSelectAll) {
+                        Text(stringResource(if (allSelected) R.string.broadcast_monitor_deselect_all else R.string.broadcast_monitor_select_all))
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 24.dp)) {
                     OutlinedTextField(value = custom, onValueChange = onCustomChange, label = { Text(stringResource(R.string.monitor_custom)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1f))
                     TextButton(onClick = onAddCustom, enabled = custom.isNotBlank()) { Text(stringResource(R.string.monitor_add)) }

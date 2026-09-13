@@ -108,8 +108,13 @@ class BroadcastStore(context: Context) {
     fun setActive(action: String, on: Boolean, dataScheme: String? = null) {
         val next = _active.value.filterNot { it.action == action }.toMutableList()
         if (on) next.add(ActiveBroadcast(action, dataScheme))
-        _active.value = next
-        prefs.edit().putString(KEY_ACTIVE, json.encodeToString(ListSerializer(ActiveBroadcast.serializer()), next)).apply()
+        setActiveList(next)
+    }
+
+    /** Replace the whole subscription set in one write (for select-all / clear-all). */
+    fun setActiveList(list: List<ActiveBroadcast>) {
+        _active.value = list
+        prefs.edit().putString(KEY_ACTIVE, json.encodeToString(ListSerializer(ActiveBroadcast.serializer()), list)).apply()
     }
 
     private fun loadActive(): List<ActiveBroadcast> {
