@@ -325,6 +325,7 @@ fun AppNavigation() {
                     onOpenExamples = { push(Route.IntentExamples) },
                     onOpenDiscover = { push(Route.IntentDiscover) },
                     onOpenLog = { push(Route.IntentLog) },
+                    onOpenIntentMonitor = { push(Route.IntentMonitor) },
                     onOpenMonitor = { push(Route.BroadcastMonitor) },
                     onOpenHistory = { push(Route.BroadcastHistory) },
                     onOpenDeepLink = { push(Route.DeepLink) },
@@ -336,6 +337,9 @@ fun AppNavigation() {
             }
             entry<Route.IntentExamples> {
                 com.snatik.storage.app.feature.intents.IntentExamplesScreen(onBack = ::pop, onOpenExample = { json -> push(Route.IntentBuilder(specJson = json)) })
+            }
+            entry<Route.IntentMonitor> {
+                com.snatik.storage.app.feature.intents.IntentMonitorScreen(onBack = ::pop)
             }
             entry<Route.IntentLog> {
                 IntentLogScreen(onBack = ::pop, onResend = { json -> push(Route.IntentBuilder(specJson = json)) })

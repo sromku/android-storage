@@ -194,6 +194,7 @@ val appModule = module {
     viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentExamplesViewModel(get()) }
+    viewModel { com.snatik.storage.app.feature.intents.IntentMonitorViewModel(get()) }
     viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get(), get()) }
     viewModelOf(::IntentLogViewModel)
     viewModelOf(::BroadcastMonitorViewModel)

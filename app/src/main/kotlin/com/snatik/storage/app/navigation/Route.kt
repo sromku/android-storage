@@ -89,6 +89,9 @@ sealed interface Route : NavKey {
     data object IntentLog : Route
 
     @Serializable
+    data object IntentMonitor : Route
+
+    @Serializable
     data object BroadcastMonitor : Route
 
     @Serializable
