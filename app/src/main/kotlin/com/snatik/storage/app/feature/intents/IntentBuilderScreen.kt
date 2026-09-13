@@ -1,31 +1,31 @@
 package com.snatik.storage.app.feature.intents
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -33,6 +33,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -58,18 +59,19 @@ import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.core.intents.ACTION_OPTIONS
 import com.snatik.storage.core.intents.CATEGORY_OPTIONS
 import com.snatik.storage.core.intents.Extra
-import com.snatik.storage.core.intents.ExtraType
 import com.snatik.storage.core.intents.FLAG_CATALOG
 import com.snatik.storage.core.intents.MIME_OPTIONS
 import com.snatik.storage.core.intents.ResolvedTarget
 import com.snatik.storage.core.intents.SCHEME_OPTIONS
 import com.snatik.storage.core.intents.SendAs
-import com.snatik.storage.core.intents.extraTypeInfo
 import com.snatik.storage.core.intents.intentFlagNames
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 private enum class BuilderSheet { ACTION, DATA, TYPE, CATEGORIES, PACKAGE, CLASS, FLAGS }
+
+/** Which extra the editor sheet is working on: index null means a new one. */
+private data class ExtraEdit(val index: Int?, val extra: Extra?)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +83,7 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
     val chooserTitle = stringResource(R.string.builder_chooser)
 
     var sheet by remember { mutableStateOf<BuilderSheet?>(null) }
-    var extraTypeIndex by remember { mutableStateOf<Int?>(null) }
+    var extraEdit by remember { mutableStateOf<ExtraEdit?>(null) }
 
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { m ->
@@ -108,9 +110,26 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
                 actions = {
                     IconButton(onClick = { viewModel.setSaving(true) }) { Icon(Icons.Default.Bookmark, contentDescription = stringResource(R.string.builder_save)) }
-                    IconButton(onClick = viewModel::send) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.builder_send)) }
                 },
             )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(onClick = viewModel::resolve) { Text(stringResource(R.string.builder_resolve)) }
+                    if (form.sendAs == SendAs.ACTIVITY) TextButton(onClick = { context.startActivity(viewModel.chooserIntent(chooserTitle)) }) { Text(stringResource(R.string.builder_chooser_short)) }
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = viewModel::send) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.builder_send))
+                    }
+                }
+            }
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -137,21 +156,18 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.builder_extras), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                    TextButton(onClick = viewModel::addExtra) {
+                    TextButton(onClick = { extraEdit = ExtraEdit(null, null) }) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Text(stringResource(R.string.builder_add_extra))
                     }
                 }
             }
-            itemsIndexed(form.extras) { index, extra -> ExtraRow(extra, onTypeClick = { extraTypeIndex = index }, onChange = { viewModel.updateExtra(index, it) }, onRemove = { viewModel.removeExtra(index) }) }
-            item {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    OutlinedButton(onClick = viewModel::resolve) { Text(stringResource(R.string.builder_resolve)) }
-                    if (form.sendAs == SendAs.ACTIVITY) OutlinedButton(onClick = { context.startActivity(viewModel.chooserIntent(chooserTitle)) }) { Text(stringResource(R.string.builder_chooser)) }
-                    Button(onClick = viewModel::send) { Text(stringResource(R.string.builder_send)) }
-                }
+            itemsIndexed(form.extras, key = { i, _ -> "extra:$i" }) { index, extra ->
+                ExtraDisplayRow(extra, onClick = { extraEdit = ExtraEdit(index, extra) })
             }
-            state.targets?.let { targets ->
+            val hasQuery = form.action.isNotBlank() || form.data.isNotBlank() || form.type.isNotBlank() || form.packageName.isNotBlank() || form.className.isNotBlank()
+            state.targets?.takeIf { hasQuery }?.let { targets ->
+                item { Text(stringResource(R.string.builder_targets), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
                 if (targets.isEmpty()) {
                     item { Text(stringResource(R.string.builder_no_targets), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
@@ -182,6 +198,7 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
             customLabel = stringResource(R.string.builder_pick_custom_category),
             onToggle = { v -> val next = if (v in categorySet) categorySet - v else categorySet + v; viewModel.update(form.copy(categories = next.joinToString(", "))) },
             onAddCustom = { v -> viewModel.update(form.copy(categories = (categorySet + v).joinToString(", "))) },
+            onClearAll = { viewModel.update(form.copy(categories = "")) },
             onDismiss = { sheet = null },
         )
         BuilderSheet.PACKAGE -> AppPickerSheet(
@@ -203,19 +220,18 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
                 onPick = { viewModel.update(form.copy(className = it)); sheet = null }, onDismiss = { sheet = null },
             )
         }
-        BuilderSheet.FLAGS -> FlagsSheet(flags = FLAG_CATALOG, value = form.flags, onToggle = viewModel::toggleFlag, onDismiss = { sheet = null })
+        BuilderSheet.FLAGS -> FlagsSheet(flags = FLAG_CATALOG, value = form.flags, onToggle = viewModel::toggleFlag, onClearAll = viewModel::clearFlags, onDismiss = { sheet = null })
         null -> Unit
     }
 
-    extraTypeIndex?.let { index ->
-        val extra = form.extras.getOrNull(index)
-        if (extra != null) {
-            ExtraTypeSheet(
-                types = extraTypeInfo(), current = extra.type,
-                onPick = { viewModel.updateExtra(index, extra.copy(type = it)); extraTypeIndex = null },
-                onDismiss = { extraTypeIndex = null },
-            )
-        } else extraTypeIndex = null
+    extraEdit?.let { edit ->
+        val idx = edit.index
+        ExtraEditorSheet(
+            initial = edit.extra,
+            onSave = { e -> if (idx == null) viewModel.addExtra(e) else viewModel.updateExtra(idx, e); extraEdit = null },
+            onDelete = if (idx != null) ({ viewModel.removeExtra(idx); extraEdit = null }) else null,
+            onDismiss = { extraEdit = null },
+        )
     }
 
     if (state.saving) {
@@ -230,14 +246,21 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
 }
 
 @Composable
-private fun ExtraRow(extra: Extra, onTypeClick: () -> Unit, onChange: (Extra) -> Unit, onRemove: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(value = extra.key, onValueChange = { onChange(extra.copy(key = it)) }, label = { Text(stringResource(R.string.builder_extra_key)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1.1f))
-        Column(modifier = Modifier.width(88.dp)) {
-            AssistChip(onClick = onTypeClick, label = { Text(extra.type.name.lowercase(), maxLines = 1, style = MaterialTheme.typography.labelSmall) })
+private fun ExtraDisplayRow(extra: Extra, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(extra.key.ifBlank { stringResource(R.string.builder_extra_no_key) }, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(extra.value.ifBlank { "—" }, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        OutlinedTextField(value = extra.value, onValueChange = { onChange(extra.copy(value = it)) }, label = { Text(stringResource(R.string.builder_extra_value)) }, singleLine = extra.type != ExtraType.STRING_ARRAY, textStyle = MonoStyle, modifier = Modifier.weight(1.4f))
-        IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.delete)) }
+        Tag(extra.type.name.lowercase())
     }
 }
 

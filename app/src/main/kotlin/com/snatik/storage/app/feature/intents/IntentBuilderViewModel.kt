@@ -8,7 +8,6 @@ import com.snatik.storage.core.apps.AppRepository
 import com.snatik.storage.core.apps.AppSummary
 import com.snatik.storage.core.intents.ACTION_OPTIONS
 import com.snatik.storage.core.intents.Extra
-import com.snatik.storage.core.intents.ExtraType
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.intents.IntentSender
 import com.snatik.storage.core.intents.IntentSpec
@@ -123,7 +122,8 @@ class IntentBuilderViewModel(
         }
     }
     fun toggleFlag(bit: Int) = update(_state.value.form.let { it.copy(flags = it.flags xor bit) })
-    fun addExtra() = update(_state.value.form.let { it.copy(extras = it.extras + Extra("", ExtraType.STRING, "")) })
+    fun clearFlags() = update(_state.value.form.copy(flags = 0))
+    fun addExtra(extra: Extra) = update(_state.value.form.let { it.copy(extras = it.extras + extra) })
     fun updateExtra(index: Int, extra: Extra) = update(_state.value.form.let { f -> f.copy(extras = f.extras.mapIndexed { i, e -> if (i == index) extra else e }) })
     fun removeExtra(index: Int) = update(_state.value.form.let { f -> f.copy(extras = f.extras.filterIndexed { i, _ -> i != index }) })
 

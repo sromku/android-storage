@@ -537,6 +537,16 @@
     <string name="builder_pick_class_services">Services</string>
     <string name="builder_pick_class_pick_package">Pick a package first, or type a class name.</string>
     <string name="builder_pick_class_none">No matching components. Type a class name to target one directly.</string>
+    <string name="builder_pick_options">Options</string>
+    <string name="builder_pick_enter_custom">Enter custom value</string>
+    <string name="builder_pick_clear">Clear selection</string>
+    <string name="builder_pick_clear_all">Clear all</string>
+    <string name="builder_chooser_short">Chooser</string>
+    <string name="builder_targets">Receivers</string>
+    <string name="builder_extra_type">Type</string>
+    <string name="builder_extra_no_key">(no key)</string>
+    <string name="builder_extra_add_title">Add extra</string>
+    <string name="builder_extra_edit_title">Edit extra</string>
     <plurals name="builder_pick_apps">
         <item quantity="one">%1$d app</item>
         <item quantity="other">%1$d apps</item>
