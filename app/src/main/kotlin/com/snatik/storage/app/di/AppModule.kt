@@ -59,11 +59,9 @@ import com.snatik.storage.app.feature.intents.BroadcastHistoryViewModel
 import com.snatik.storage.app.feature.intents.BroadcastMonitorViewModel
 import com.snatik.storage.app.feature.intents.DeepLinkViewModel
 import com.snatik.storage.app.feature.intents.IntentBuilderViewModel
-import com.snatik.storage.app.feature.intents.IntentLogViewModel
 import com.snatik.storage.app.feature.intents.IntentsViewModel
 import com.snatik.storage.core.intents.BroadcastHistory
 import com.snatik.storage.core.intents.BroadcastMonitor
-import com.snatik.storage.core.intents.IntentLog
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.intents.IntentSender
 import com.snatik.storage.core.capture.CaptureDatabase
@@ -156,7 +154,6 @@ val appModule = module {
     single { SqliteInspector(androidContext(), get()) }
     single { DatabaseSessions(get()) }
     single { IntentSender(androidContext()) }
-    single { IntentLog(androidContext()) }
     single { IntentPresets(androidContext()) }
     single { BroadcastMonitor(androidContext()) }
     single { BroadcastHistory() }
@@ -191,13 +188,12 @@ val appModule = module {
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
-    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get(), get()) }
+    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentExamplesViewModel(get()) }
     single { com.snatik.storage.core.intents.IntentMonitorStore(androidContext()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentMonitorViewModel(androidContext(), get(), get()) }
     viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get(), get()) }
-    viewModelOf(::IntentLogViewModel)
     viewModelOf(::BroadcastMonitorViewModel)
     viewModel { BroadcastHistoryViewModel(get(), get()) }
     viewModelOf(::DeepLinkViewModel)

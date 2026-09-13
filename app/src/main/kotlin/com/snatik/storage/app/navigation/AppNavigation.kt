@@ -69,7 +69,6 @@ import com.snatik.storage.app.feature.intents.BroadcastHistoryScreen
 import com.snatik.storage.app.feature.intents.BroadcastMonitorScreen
 import com.snatik.storage.app.feature.intents.DeepLinkScreen
 import com.snatik.storage.app.feature.intents.IntentBuilderScreen
-import com.snatik.storage.app.feature.intents.IntentLogScreen
 import com.snatik.storage.app.feature.intents.IntentsScreen
 import com.snatik.storage.app.feature.viewer.HexViewerScreen
 import com.snatik.storage.app.feature.viewer.ImageViewerScreen
@@ -336,7 +335,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenPreset = { id -> push(Route.IntentBuilder(presetId = id)) },
                     onOpenExamples = { push(Route.IntentExamples) },
                     onOpenDiscover = { push(Route.IntentDiscover) },
-                    onOpenLog = { push(Route.IntentLog) },
                     onOpenIntentMonitor = { push(Route.IntentMonitor) },
                     onOpenMonitor = { push(Route.BroadcastMonitor) },
                     onOpenHistory = { push(Route.BroadcastHistory) },
@@ -352,9 +350,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             }
             entry<Route.IntentMonitor> {
                 com.snatik.storage.app.feature.intents.IntentMonitorScreen(onBack = ::pop, onRerun = { json -> push(Route.IntentBuilder(specJson = json)) })
-            }
-            entry<Route.IntentLog> {
-                IntentLogScreen(onBack = ::pop, onResend = { json -> push(Route.IntentBuilder(specJson = json)) })
             }
             entry<Route.BroadcastMonitor> { BroadcastMonitorScreen(onBack = ::pop) }
             entry<Route.BroadcastHistory> { BroadcastHistoryScreen(onBack = ::pop) }

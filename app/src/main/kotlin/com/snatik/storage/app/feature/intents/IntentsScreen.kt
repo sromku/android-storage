@@ -1,7 +1,5 @@
 package com.snatik.storage.app.feature.intents
 
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +18,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Visibility
@@ -31,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +56,6 @@ fun IntentsScreen(
     onOpenPreset: (Long) -> Unit,
     onOpenExamples: () -> Unit,
     onOpenDiscover: () -> Unit,
-    onOpenLog: () -> Unit,
     onOpenIntentMonitor: () -> Unit,
     onOpenMonitor: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -70,7 +64,6 @@ fun IntentsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val context = LocalContext.current
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -139,15 +132,6 @@ fun IntentsScreen(
                     TextButton(onClick = onOpenIntentMonitor) { Text(stringResource(R.string.open)) }
                 }
             }
-            item(key = "sink") {
-                FeatureCard(Icons.Default.Radar, stringResource(R.string.intents_sink_title), stringResource(R.string.intents_sink_body), onClick = onOpenLog, trailing = {
-                    Switch(checked = state.sinkEnabled, onCheckedChange = viewModel::setSinkEnabled)
-                }) {
-                    Text(stringResource(R.string.intents_sink_count, state.captured), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    if (state.sinkEnabled) TextButton(onClick = { context.startActivity(sinkTestIntent(context)) }) { Text(stringResource(R.string.intents_sink_try)) }
-                    TextButton(onClick = onOpenLog) { Text(stringResource(R.string.intents_open_log)) }
-                }
-            }
             item(key = "monitor") {
                 FeatureCard(Icons.Default.Sensors, stringResource(R.string.intents_monitor_title), stringResource(R.string.intents_monitor_body), onClick = onOpenMonitor) {
                     Text(stringResource(R.string.intents_monitor_status, state.monitorActive, state.monitorEvents), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -193,11 +177,3 @@ private fun FeatureCard(
     }
 }
 
-/** A sample SEND aimed straight at the sink, so one tap shows it capturing and logging an intent. */
-private fun sinkTestIntent(context: Context): Intent =
-    Intent(Intent.ACTION_SEND).apply {
-        component = android.content.ComponentName(context, IntentSinkActivity::class.java)
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, context.getString(R.string.intents_sink_try_text))
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
