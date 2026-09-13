@@ -2,6 +2,7 @@ package com.snatik.storage.app.feature.intents
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,12 +20,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -74,6 +80,9 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
     val self = context.packageName
     var selected by remember { mutableStateOf<MonitoredIntent?>(null) }
     var showStart by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -97,7 +106,22 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
                             else Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.intent_monitor_resume))
                         }
                     }
-                    IconButton(onClick = viewModel::clear, enabled = state.count > 0) { Icon(Icons.Default.DeleteSweep, contentDescription = stringResource(R.string.log_clear)) }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.monitor_more)) }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.monitor_filter)) },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                onClick = { showSearch = !showSearch; if (!showSearch) viewModel.setQuery(""); menuOpen = false },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.log_clear)) },
+                                leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null) },
+                                enabled = state.count > 0,
+                                onClick = { confirmClear = true; menuOpen = false },
+                            )
+                        }
+                    }
                 },
             )
         },
@@ -107,13 +131,15 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
             return@Scaffold
         }
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::setQuery,
-                label = { Text(stringResource(R.string.search)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            if (showSearch) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = viewModel::setQuery,
+                    label = { Text(stringResource(R.string.search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(selected = state.hideSelf, onClick = { viewModel.setHideSelf(!state.hideSelf) }, label = { Text(stringResource(R.string.intent_monitor_hide_self)) })
                 val status = if (state.running) R.string.intent_monitor_listening else R.string.intent_monitor_paused
@@ -140,6 +166,16 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
             capacities = viewModel.capacities,
             onStart = { cap -> viewModel.start(cap); showStart = false },
             onDismiss = { showStart = false },
+        )
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.monitor_clear_title)) },
+            text = { Text(stringResource(R.string.monitor_clear_body)) },
+            confirmButton = { TextButton(onClick = { viewModel.clear(); confirmClear = false }) { Text(stringResource(R.string.log_clear)) } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 

@@ -493,6 +493,10 @@
     <string name="intent_monitor_capacity_note">When the limit is reached, the oldest events are deleted. Events are stored on-device in a database.</string>
     <string name="intent_monitor_start_action">Start</string>
     <string name="intent_monitor_refresh">Refresh</string>
+    <string name="monitor_more">More</string>
+    <string name="monitor_filter">Filter</string>
+    <string name="monitor_clear_title">Clear captured events?</string>
+    <string name="monitor_clear_body">This permanently deletes everything captured so far. This can\'t be undone.</string>
     <string name="intent_monitor_tag_running">running</string>
     <string name="intent_monitor_tag_paused">paused</string>
     <string name="intent_monitor_role_from">from</string>
