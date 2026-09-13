@@ -80,6 +80,9 @@ sealed interface Route : NavKey {
     data class IntentBuilder(val presetId: Long? = null, val specJson: String? = null) : Route
 
     @Serializable
+    data object IntentDiscover : Route
+
+    @Serializable
     data object IntentLog : Route
 
     @Serializable

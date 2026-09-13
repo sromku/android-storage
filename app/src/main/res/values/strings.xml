@@ -453,6 +453,15 @@
 
     <!-- Intents tab -->
     <string name="intents_title">Intents</string>
+    <string name="intent_examples">Examples · tap to load</string>
+    <string name="intent_discover_title">Discover receivable intents</string>
+    <string name="intent_discover_card_body">Pick an app to see which intents its components accept — actions, categories and the data they expect — then build one to try.</string>
+    <string name="intent_discover_sub">Pick an app</string>
+    <string name="intent_discover_search">Search apps</string>
+    <string name="intent_discover_count">%1$d receivable intents</string>
+    <string name="intent_discover_build">Build</string>
+    <string name="intent_discover_none">No receivable intents</string>
+    <string name="intent_discover_none_body">This app declares no exported components with intent-filters, or its manifest couldn\'t be read.</string>
     <string name="intents_send_title">Send an intent</string>
     <string name="intents_send_body">Build any activity, broadcast or service intent with typed extras, see who would receive it, then send.</string>
     <string name="intents_presets">Saved intents</string>

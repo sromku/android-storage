@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -52,6 +53,8 @@ fun IntentsScreen(
     onBack: () -> Unit,
     onOpenBuilder: () -> Unit,
     onOpenPreset: (Long) -> Unit,
+    onOpenExample: (String) -> Unit,
+    onOpenDiscover: () -> Unit,
     onOpenLog: () -> Unit,
     onOpenMonitor: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -73,6 +76,26 @@ fun IntentsScreen(
             item(key = "send") {
                 FeatureCard(Icons.AutoMirrored.Filled.Send, stringResource(R.string.intents_send_title), stringResource(R.string.intents_send_body), onClick = onOpenBuilder) {
                     FilledTonalButton(onClick = onOpenBuilder) { Text(stringResource(R.string.intents_new)) }
+                }
+            }
+            item(key = "discover") {
+                FeatureCard(Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover) {
+                    Text("", modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenDiscover) { Text(stringResource(R.string.open)) }
+                }
+            }
+            item(key = "examples-header") { Text(stringResource(R.string.intent_examples), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp)) }
+            items(IntentExamples.list, key = { "ex:" + it.name }) { ex ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenExample(ex.spec.toJson()) }.padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(ex.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(ex.summary, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
             if (state.presets.isNotEmpty()) {

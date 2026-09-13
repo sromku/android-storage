@@ -322,6 +322,8 @@ fun AppNavigation() {
                     onBack = ::pop,
                     onOpenBuilder = { push(Route.IntentBuilder()) },
                     onOpenPreset = { id -> push(Route.IntentBuilder(presetId = id)) },
+                    onOpenExample = { json -> push(Route.IntentBuilder(specJson = json)) },
+                    onOpenDiscover = { push(Route.IntentDiscover) },
                     onOpenLog = { push(Route.IntentLog) },
                     onOpenMonitor = { push(Route.BroadcastMonitor) },
                     onOpenHistory = { push(Route.BroadcastHistory) },
@@ -329,6 +331,9 @@ fun AppNavigation() {
                 )
             }
             entry<Route.IntentBuilder> { route -> IntentBuilderScreen(route = route, onBack = ::pop) }
+            entry<Route.IntentDiscover> {
+                com.snatik.storage.app.feature.intents.IntentDiscoverScreen(onBack = ::pop, onBuild = { json -> push(Route.IntentBuilder(specJson = json)) })
+            }
             entry<Route.IntentLog> {
                 IntentLogScreen(onBack = ::pop, onResend = { json -> push(Route.IntentBuilder(specJson = json)) })
             }

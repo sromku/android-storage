@@ -126,6 +126,7 @@ val appModule = module {
     single { com.snatik.storage.app.ui.theme.ThemePreferences(androidContext()) }
     single { AppRepository(androidContext()) }
     single { ManifestDecoder(androidContext()) }
+    single { com.snatik.storage.core.apps.IntentFilterInspector(androidContext(), get()) }
     single { AppActions(get()) }
     single { AppWatchRepository(androidContext(), get(), get()) }
     single { NetworkInspector(androidContext(), get()) }
@@ -191,6 +192,7 @@ val appModule = module {
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
     viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
+    viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
     viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get()) }
     viewModelOf(::IntentLogViewModel)
     viewModelOf(::BroadcastMonitorViewModel)
