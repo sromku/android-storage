@@ -87,13 +87,25 @@ import com.snatik.storage.core.fs.FsEntry
 import androidx.compose.ui.res.stringResource
 import com.snatik.storage.app.R
 
+const val NAV_TARGET_EXTRA = "nav_target"
+const val NAV_INTENT_MONITOR = "intent_monitor"
+
 @Composable
-fun AppNavigation() {
+fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
     val backStack = rememberNavBackStack(Route.Home)
     val systemRootLabel = stringResource(R.string.volume_root)
 
     fun push(route: NavKey) = backStack.add(route)
     fun pop() { backStack.removeLastOrNull() }
+
+    androidx.compose.runtime.LaunchedEffect(navTarget) {
+        if (navTarget == NAV_INTENT_MONITOR) {
+            // Deep link from the monitor notification: give it a real back stack so Back walks out.
+            backStack.clear()
+            backStack.addAll(listOf(Route.Tools, Route.Intents, Route.IntentMonitor))
+            onNavConsumed()
+        }
+    }
 
     fun switchTab(tab: TopLevel) {
         val root: Route = when (tab) {
@@ -339,7 +351,7 @@ fun AppNavigation() {
                 com.snatik.storage.app.feature.intents.IntentExamplesScreen(onBack = ::pop, onOpenExample = { json -> push(Route.IntentBuilder(specJson = json)) })
             }
             entry<Route.IntentMonitor> {
-                com.snatik.storage.app.feature.intents.IntentMonitorScreen(onBack = ::pop)
+                com.snatik.storage.app.feature.intents.IntentMonitorScreen(onBack = ::pop, onRerun = { json -> push(Route.IntentBuilder(specJson = json)) })
             }
             entry<Route.IntentLog> {
                 IntentLogScreen(onBack = ::pop, onResend = { json -> push(Route.IntentBuilder(specJson = json)) })

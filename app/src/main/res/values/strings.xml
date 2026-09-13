@@ -493,6 +493,11 @@
     <string name="intent_monitor_capacity_label">Keep at most</string>
     <string name="intent_monitor_capacity_note">When the limit is reached, the oldest events are deleted. Events are stored on-device in a database.</string>
     <string name="intent_monitor_start_action">Start</string>
+    <string name="intent_monitor_refresh">Refresh</string>
+    <string name="intent_monitor_role_from">from</string>
+    <string name="intent_monitor_role_to">to</string>
+    <string name="intent_monitor_caller_uid">caller uid %1$d</string>
+    <string name="intent_monitor_rerun">Open in builder</string>
     <string name="intent_monitor_from">from %1$s</string>
     <string name="intent_monitor_has_extras">Carries extras — the system doesn\'t log their values.</string>
     <string name="intent_monitor_extras_tag">extras</string>
