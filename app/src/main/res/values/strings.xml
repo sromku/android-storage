@@ -220,6 +220,10 @@
     <string name="net_range_1d">1D</string>
     <string name="net_range_3d">3D</string>
     <string name="net_range_all">All</string>
+    <string name="net_range_last_6h">Last 6 hours · 2-hour steps</string>
+    <string name="net_range_last_1d">Last 24 hours · 2-hour steps</string>
+    <string name="net_range_last_3d">Last 3 days · 2-hour steps</string>
+    <string name="net_range_last_all">All time · 2-hour steps</string>
     <string name="net_metric_total">Total</string>
     <string name="net_metric_down">Received</string>
     <string name="net_metric_up">Sent</string>

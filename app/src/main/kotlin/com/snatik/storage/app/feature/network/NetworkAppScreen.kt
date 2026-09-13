@@ -167,12 +167,19 @@ private fun Detail(
         // shell usually sees just the current "since boot" bucket, which is not a series.
         val chartBuckets = app.buckets.filter { it.totalBytes > 0 }
         if (chartBuckets.size >= 4) {
+            // Show the same window (and linear scale) the full graph opens with, so the preview and the
+            // expanded chart match — and label the time span so it's clear what's plotted.
+            val range = defaultRange(app)
+            val (rx, tx) = rangeSeries(app, range)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                SectionTitle(stringResource(R.string.net_over_time))
+                Column {
+                    SectionTitle(stringResource(R.string.net_over_time))
+                    Text(stringResource(range.captionRes), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(stringResource(R.string.net_tap_expand), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
             Box(modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable(onClick = onOpenGraph)) {
-                UsageChart(chartBuckets)
+                UsageChart(rx, tx)
             }
         }
 
@@ -246,33 +253,28 @@ private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 }
 
-/** Stacked rx/tx bars over the most recent buckets. */
+/** Stacked received/sent bars over a fixed time window, zero-filled and at linear scale — a
+ *  thumbnail of the full "Data over time" graph. */
 @Composable
-private fun UsageChart(all: List<com.snatik.storage.core.apps.UsageBucket>) {
-    val buckets = all.takeLast(48)
-    // Clamp the scale to the 90th percentile so one initial-sync spike doesn't flatten the rest.
-    val sorted = buckets.map { it.totalBytes }.sorted()
-    val max = sorted[(sorted.size * 0.9f).toInt().coerceIn(0, sorted.lastIndex)].coerceAtLeast(1L)
+private fun UsageChart(rxSeries: List<Long>, txSeries: List<Long>) {
+    val n = rxSeries.size
+    val max = (0 until n).maxOfOrNull { rxSeries[it] + txSeries[it] }?.coerceAtLeast(1L) ?: 1L
     val rx = MaterialTheme.colorScheme.primary
     val tx = MaterialTheme.colorScheme.tertiary
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Canvas(modifier = Modifier.fillMaxWidth().height(96.dp)) {
-                val n = buckets.size
                 if (n == 0) return@Canvas
-                val gap = 2.dp.toPx()
+                val gap = (size.width / n * 0.2f).coerceIn(1f, 3.dp.toPx())
                 val bw = ((size.width - gap * (n - 1)) / n).coerceAtLeast(1f)
-                buckets.forEachIndexed { i, b ->
+                for (i in 0 until n) {
                     val x = i * (bw + gap)
-                    // faint track for empty buckets
                     drawRoundRect(color = track, topLeft = androidx.compose.ui.geometry.Offset(x, size.height - 2f), size = androidx.compose.ui.geometry.Size(bw, 2f))
-                    // Scale rx+tx together, clamped to the drawing height (spikes above the cap clip flat).
-                    val scale = (size.height * (b.totalBytes.toFloat() / max)).coerceAtMost(size.height) / b.totalBytes.coerceAtLeast(1L)
-                    val rxH = b.rxBytes * scale
-                    val txH = b.txBytes * scale
-                    if (txH > 0f) drawRect(color = tx, topLeft = androidx.compose.ui.geometry.Offset(x, size.height - txH - rxH), size = androidx.compose.ui.geometry.Size(bw, txH))
+                    val rxH = size.height * (rxSeries[i].toFloat() / max)
+                    val txH = size.height * (txSeries[i].toFloat() / max)
                     if (rxH > 0f) drawRect(color = rx, topLeft = androidx.compose.ui.geometry.Offset(x, size.height - rxH), size = androidx.compose.ui.geometry.Size(bw, rxH))
+                    if (txH > 0f) drawRect(color = tx, topLeft = androidx.compose.ui.geometry.Offset(x, size.height - rxH - txH), size = androidx.compose.ui.geometry.Size(bw, txH))
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

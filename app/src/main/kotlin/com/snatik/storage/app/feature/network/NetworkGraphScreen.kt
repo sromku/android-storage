@@ -72,14 +72,37 @@ private enum class Metric(val labelRes: Int) { TOTAL(R.string.net_metric_total),
 private enum class Split(val labelRes: Int) { OFF(R.string.net_split_off), STATE(R.string.net_metric_split) }
 private enum class ChartType { AREA, BARS }
 private enum class Measure(val labelRes: Int) { DATA(R.string.net_unit_data), PACKETS(R.string.net_unit_packets) }
-private enum class Range(val labelRes: Int, val ms: Long) {
-    H6(R.string.net_range_6h, 6 * 3_600_000L),
-    D1(R.string.net_range_1d, 24 * 3_600_000L),
-    D3(R.string.net_range_3d, 72 * 3_600_000L),
-    ALL(R.string.net_range_all, Long.MAX_VALUE),
+internal enum class Range(val labelRes: Int, val ms: Long, val captionRes: Int) {
+    H6(R.string.net_range_6h, 6 * 3_600_000L, R.string.net_range_last_6h),
+    D1(R.string.net_range_1d, 24 * 3_600_000L, R.string.net_range_last_1d),
+    D3(R.string.net_range_3d, 72 * 3_600_000L, R.string.net_range_last_3d),
+    ALL(R.string.net_range_all, Long.MAX_VALUE, R.string.net_range_last_all),
 }
 
 private const val SLOT_MS = 7_200_000L // netstats records uid history in 2-hour buckets
+
+/** The smallest range whose window still contains the app's most recent activity, so the default
+ *  view (and the mini chart) always frame real data rather than a mostly-empty recent window. */
+internal fun defaultRange(app: AppNetworkUsage): Range {
+    val last = app.buckets.filter { it.totalBytes > 0 }.maxOfOrNull { it.startMs } ?: return Range.D1
+    val age = System.currentTimeMillis() - last
+    return when {
+        age <= Range.D1.ms -> Range.D1
+        age <= Range.D3.ms -> Range.D3
+        else -> Range.ALL
+    }
+}
+
+/** rx/tx bytes per 2-hour slot across [range], zero-filled — the exact series the full graph plots,
+ *  so the mini chart is a true thumbnail of it. */
+internal fun rangeSeries(app: AppNetworkUsage, range: Range): Pair<List<Long>, List<Long>> {
+    val now = System.currentTimeMillis()
+    val span = if (range == Range.ALL) (now - app.firstMs).coerceAtLeast(SLOT_MS) else range.ms
+    val startAligned = ((now - span) / SLOT_MS) * SLOT_MS
+    val byStart = app.buckets.associateBy { it.startMs }
+    val slots = buildList { var t = startAligned; while (t < now && size < 512) { add(t); t += SLOT_MS } }
+    return slots.map { byStart[it]?.rxBytes ?: 0L } to slots.map { byStart[it]?.txBytes ?: 0L }
+}
 
 private fun UsageBucket.value(m: Metric, u: Measure): Long = when (u) {
     Measure.DATA -> when (m) { Metric.RX -> rxBytes; Metric.TX -> txBytes; else -> totalBytes }
@@ -123,7 +146,8 @@ fun NetworkGraphScreen(packageName: String, onBack: () -> Unit, viewModel: Netwo
 @Composable
 private fun Graph(app: AppNetworkUsage) {
     val ctx = LocalContext.current
-    var range by remember { mutableStateOf(Range.D1) }
+    // Open on the window that actually frames this app's data (same default the mini chart shows).
+    var range by remember { mutableStateOf(defaultRange(app)) }
     // Total + no split renders stacked received+sent, matching the mini "Data over time" chart.
     var metric by remember { mutableStateOf(Metric.TOTAL) }
     var split by remember { mutableStateOf(Split.OFF) }
