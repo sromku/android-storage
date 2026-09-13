@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -113,6 +114,7 @@ fun AppDetailScreen(
     onNetwork: (String) -> Unit,
     onStorage: (String) -> Unit,
     onArt: (label: String, packageName: String, debuggable: Boolean) -> Unit,
+    onOpenPrefs: (String) -> Unit = {},
     viewModel: AppDetailViewModel = koinViewModel(parameters = { parametersOf(packageName) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -181,6 +183,7 @@ fun AppDetailScreen(
                             val label = when (tab) {
                                 DetailTab.OVERVIEW -> R.string.tab_overview
                                 DetailTab.BEHAVIOR -> R.string.tab_behavior
+                                DetailTab.PREFERENCES -> R.string.tab_preferences
                                 DetailTab.MANIFEST -> R.string.tab_manifest
                                 DetailTab.COMPONENTS -> R.string.tab_components
                                 DetailTab.PERMISSIONS -> R.string.tab_permissions
@@ -200,6 +203,7 @@ fun AppDetailScreen(
                             onDiskUsage = onDiskUsage,
                         )
                         DetailTab.BEHAVIOR -> BehaviorTab(state.watch, state.watchLoading)
+                        DetailTab.PREFERENCES -> PreferencesTab(state, viewModel.prefsDir, onOpenPrefs)
                         DetailTab.MANIFEST -> ManifestTab(state, onQuery = viewModel::setManifestQuery)
                         DetailTab.COMPONENTS -> ComponentsTab(details)
                         DetailTab.PERMISSIONS -> PermissionsTab(details, state.shellAvailable, onToggle = viewModel::setPermission)
@@ -457,6 +461,40 @@ private fun PathRow(label: String, path: String, onBrowse: () -> Unit, onAnalyze
         if (onAnalyze != null) {
             FilledTonalIconButton(onClick = onAnalyze, modifier = Modifier.size(34.dp), colors = tonal) {
                 Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze), modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreferencesTab(state: AppDetailUiState, prefsDir: String?, onOpenPrefs: (String) -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        item {
+            Text(stringResource(R.string.prefs_tab_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            prefsDir?.let {
+                Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+            }
+        }
+        val files = state.prefsFiles
+        when {
+            files == null -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            files.isEmpty() -> item {
+                EmptyState(
+                    Icons.Default.Tune,
+                    stringResource(R.string.prefs_none),
+                    if (state.prefsError != null) stringResource(R.string.prefs_none_hint) else null,
+                )
+            }
+            else -> items(files, key = { it.path }) { f ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenPrefs(f.path) }.padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(f.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(f.size.readableSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

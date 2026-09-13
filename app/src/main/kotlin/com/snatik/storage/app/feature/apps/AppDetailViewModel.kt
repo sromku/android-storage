@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
-enum class DetailTab { OVERVIEW, BEHAVIOR, MANIFEST, COMPONENTS, PERMISSIONS }
+enum class DetailTab { OVERVIEW, BEHAVIOR, PREFERENCES, MANIFEST, COMPONENTS, PERMISSIONS }
 
 sealed interface DetailDialog {
     data object ConfirmClearData : DetailDialog
@@ -37,6 +37,9 @@ data class AppDetailUiState(
     val dialog: DetailDialog? = null,
     val watch: com.snatik.storage.core.apps.AppWatch? = null,
     val watchLoading: Boolean = false,
+    /** shared_prefs XML files; null until the Preferences tab is opened. */
+    val prefsFiles: List<com.snatik.storage.core.fs.FsEntry>? = null,
+    val prefsError: String? = null,
 )
 
 class AppDetailViewModel(
@@ -70,6 +73,24 @@ class AppDetailViewModel(
         _state.update { it.copy(tab = tab) }
         if (tab == DetailTab.MANIFEST && _state.value.manifest == null && _state.value.manifestError == null) loadManifest()
         if (tab == DetailTab.BEHAVIOR && _state.value.watch == null) loadWatch()
+        if (tab == DetailTab.PREFERENCES && _state.value.prefsFiles == null && _state.value.prefsError == null) loadPrefs()
+    }
+
+    val prefsDir: String? get() = _state.value.details?.dataDir?.let { "$it/shared_prefs" }
+
+    private fun loadPrefs() {
+        val dir = prefsDir ?: return
+        viewModelScope.launch {
+            try {
+                val files = fs.list(dir)
+                    .filter { !it.isDirectory && it.name.endsWith(".xml", ignoreCase = true) }
+                    .sortedBy { it.name.lowercase() }
+                _state.update { it.copy(prefsFiles = files) }
+            } catch (e: Exception) {
+                // No shared_prefs dir yet, or no access without a privileged shell.
+                _state.update { it.copy(prefsFiles = emptyList(), prefsError = e.message ?: e.toString()) }
+            }
+        }
     }
 
     fun loadWatch() {

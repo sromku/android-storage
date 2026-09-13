@@ -185,6 +185,7 @@ fun AppNavigation() {
                     onNetwork = { pkg -> push(Route.NetworkApp(pkg)) },
                     onStorage = { pkg -> push(Route.AppStorage(pkg)) },
                     onArt = { label, pkg, dbg -> push(Route.Art(pkg, label, dbg)) },
+                    onOpenPrefs = { path -> push(Route.Prefs(path)) },
                 )
             }
             entry<Route.Art> { route ->

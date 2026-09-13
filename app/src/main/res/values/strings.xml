@@ -85,6 +85,10 @@
     <!-- App detail -->
     <string name="tab_overview">Overview</string>
     <string name="tab_behavior">Behavior</string>
+    <string name="tab_preferences">Preferences</string>
+    <string name="prefs_tab_hint">SharedPreferences XML files in this app\'s data. Tap one to view and edit its keys.</string>
+    <string name="prefs_none">No shared preferences</string>
+    <string name="prefs_none_hint">This app has no shared_prefs folder, or it can\'t be read — connect Shizuku or root for another app\'s private data.</string>
     <string name="watch_needs_shell">Shell access needed</string>
     <string name="watch_needs_shell_body">Connect Shizuku or root to inspect what this app does.</string>
     <string name="watch_signals">Signals</string>
