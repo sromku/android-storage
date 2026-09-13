@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
@@ -91,10 +93,16 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
                 actions = {
                     IconButton(onClick = { viewModel.setEditing(!state.editing) }) { Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.query_edit)) }
                     var more by remember { mutableStateOf(false) }
-                    IconButton(onClick = { more = true }, enabled = state.result != null) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
+                    IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
+                    val saved = state.form.uri.trim() in state.savedUris
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, onClick = { more = false; viewModel.export(asJson = false) })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, onClick = { more = false; viewModel.export(asJson = true) })
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (saved) R.string.uri_action_unsave else R.string.uri_action_save)) },
+                            leadingIcon = { Icon(if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, contentDescription = null) },
+                            onClick = { more = false; viewModel.toggleSave() },
+                        )
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = false) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = true) })
                     }
                 },
             )

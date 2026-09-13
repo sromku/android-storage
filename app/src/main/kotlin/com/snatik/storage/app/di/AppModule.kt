@@ -185,7 +185,7 @@ val appModule = module {
     viewModel { (packageName: String) -> AppDetailViewModel(packageName, get(), get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DiskUsageViewModel(path, get()) }
     viewModel { DataViewModel(get(), get()) }
-    viewModel { (route: Route.ProviderQuery) -> ProviderQueryViewModel(route, get(), get()) }
+    viewModel { (route: Route.ProviderQuery) -> ProviderQueryViewModel(route, get(), get(), get()) }
     viewModel { (route: Route.ProviderUris) -> com.snatik.storage.app.feature.data.ProviderUrisViewModel(route, androidContext(), get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }

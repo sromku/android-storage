@@ -63,9 +63,11 @@ data class ProviderQueryUiState(
     val shellDenied: Boolean = false,
     val mime: String? = null,
     val selectedRow: Int? = null,
+    /** URIs currently in Quick queries, so the menu can show Save vs Remove. */
+    val savedUris: Set<String> = emptySet(),
 )
 
-class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: ProviderQuery, private val fs: FileSystem) : ViewModel() {
+class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: ProviderQuery, private val fs: FileSystem, private val savedStore: SavedQueryStore) : ViewModel() {
 
     val title: String = route.title
 
@@ -77,6 +79,17 @@ class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: Prov
 
     init {
         run()
+        viewModelScope.launch {
+            savedStore.saved.collect { saved -> _state.update { it.copy(savedUris = saved.map { s -> s.uri }.toSet()) } }
+        }
+    }
+
+    /** Save (or un-save) the current URI to Quick queries so it can be reopened without rebuilding. */
+    fun toggleSave() {
+        val uri = _state.value.form.uri.trim()
+        if (uri.isEmpty()) return
+        if (savedStore.isSaved(uri)) savedStore.remove(uri)
+        else savedStore.save(title = title.ifBlank { uri.substringAfter("://").substringAfter('/') }, uri = uri)
     }
 
     fun updateForm(form: QueryForm) = _state.update { it.copy(form = form) }
