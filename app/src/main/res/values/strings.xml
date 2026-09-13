@@ -498,6 +498,10 @@
     <string name="intent_monitor_role_to">to</string>
     <string name="intent_monitor_caller_uid">caller uid %1$d</string>
     <string name="intent_monitor_rerun">Open in builder</string>
+    <string name="intent_monitor_resolve">Resolve full data</string>
+    <string name="intent_monitor_resolving">Resolving…</string>
+    <string name="intent_monitor_resolve_ambiguous">Couldn\'t identify a single match — not guessing.</string>
+    <string name="intent_monitor_resolve_none">Full URI is no longer available.</string>
     <string name="intent_monitor_from">from %1$s</string>
     <string name="intent_monitor_has_extras">Carries extras — the system doesn\'t log their values.</string>
     <string name="intent_monitor_extras_tag">extras</string>

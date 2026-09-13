@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +61,7 @@ import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.relativeTime
+import com.snatik.storage.core.intents.FullDataResult
 import com.snatik.storage.core.intents.MonitoredIntent
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -141,24 +144,63 @@ fun IntentMonitorScreen(onBack: () -> Unit, onRerun: (String) -> Unit, viewModel
     }
 
     selected?.let { intent ->
-        DetailSheet(intent, onRerun = { onRerun(intent.toSpec().toJson()); selected = null }, onDismiss = { selected = null })
+        DetailSheet(
+            intent = intent,
+            onResolve = { viewModel.resolveFullData(it) },
+            onRerun = { json -> onRerun(json); selected = null },
+            onDismiss = { selected = null },
+        )
     }
+}
+
+private sealed interface ResolveState {
+    data object Idle : ResolveState
+    data object Loading : ResolveState
+    data class Done(val data: String) : ResolveState
+    data object Ambiguous : ResolveState
+    data object NotFound : ResolveState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailSheet(intent: MonitoredIntent, onRerun: () -> Unit, onDismiss: () -> Unit) {
+private fun DetailSheet(
+    intent: MonitoredIntent,
+    onResolve: suspend (MonitoredIntent) -> FullDataResult,
+    onRerun: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var resolve by remember(intent.id) { mutableStateOf<ResolveState>(ResolveState.Idle) }
+    val effectiveData = (resolve as? ResolveState.Done)?.data ?: intent.data
+    val spec = remember(intent.id, effectiveData) { intent.toSpec().copy(data = effectiveData) }
+    val truncated = intent.data?.endsWith("...") == true
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             intent.callerPackage?.let { AppLine(stringResource(R.string.intent_monitor_role_from), it) }
             intent.packageName?.let { AppLine(stringResource(R.string.intent_monitor_role_to), it) }
             HorizontalDivider()
-            IntentDetails(intent.toSpec())
+            IntentDetails(spec)
+            if (truncated) {
+                when (resolve) {
+                    ResolveState.Idle -> TextButton(onClick = {
+                        resolve = ResolveState.Loading
+                        scope.launch { resolve = onResolve(intent).toState() }
+                    }, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.intent_monitor_resolve)) }
+                    ResolveState.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.intent_monitor_resolving), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    is ResolveState.Done -> Unit // shown in details above
+                    ResolveState.Ambiguous -> Text(stringResource(R.string.intent_monitor_resolve_ambiguous), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                    ResolveState.NotFound -> Text(stringResource(R.string.intent_monitor_resolve_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             intent.callerUid?.let { Text(stringResource(R.string.intent_monitor_caller_uid, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (intent.hasExtras) Text(stringResource(R.string.intent_monitor_has_extras), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
-                Button(onClick = onRerun) {
+                Button(onClick = { onRerun(spec.toJson()) }) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.intent_monitor_rerun))
@@ -166,6 +208,12 @@ private fun DetailSheet(intent: MonitoredIntent, onRerun: () -> Unit, onDismiss:
             }
         }
     }
+}
+
+private fun FullDataResult.toState(): ResolveState = when (this) {
+    is FullDataResult.Resolved -> ResolveState.Done(data)
+    FullDataResult.Ambiguous -> ResolveState.Ambiguous
+    FullDataResult.NotFound -> ResolveState.NotFound
 }
 
 /** A role (From / To) with the resolved app icon and label. */

@@ -3,6 +3,8 @@ package com.snatik.storage.app.feature.intents
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.snatik.storage.core.intents.FullDataResult
+import com.snatik.storage.core.intents.IntentDataResolver
 import com.snatik.storage.core.intents.IntentMonitorStore
 import com.snatik.storage.core.intents.MonitoredIntent
 import com.snatik.storage.core.shell.PrivilegeManager
@@ -32,13 +34,14 @@ data class MonitorUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class IntentMonitorViewModel(
     private val context: Context,
-    privilege: PrivilegeManager,
+    private val privilege: PrivilegeManager,
     private val store: IntentMonitorStore,
 ) : ViewModel() {
 
     private val hideSelf = MutableStateFlow(true)
     private val query = MutableStateFlow("")
     private val refreshTrigger = MutableStateFlow(0)
+    private val resolver = IntentDataResolver()
 
     private val monitor = refreshTrigger.flatMapLatest {
         combine(store.recent, store.count, store.running, store.capacity) { intents, count, running, capacity ->
@@ -65,6 +68,11 @@ class IntentMonitorViewModel(
     }
 
     fun stop() = IntentMonitorService.stop(context)
+
+    suspend fun resolveFullData(intent: MonitoredIntent): FullDataResult {
+        val shell = privilege.executor.value ?: return FullDataResult.NotFound
+        return resolver.resolve(shell, intent)
+    }
 
     fun refresh() { refreshTrigger.value++ }
     fun clear() { viewModelScope.launch { store.clear() } }
