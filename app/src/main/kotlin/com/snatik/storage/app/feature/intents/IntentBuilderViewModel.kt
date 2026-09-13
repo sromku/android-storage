@@ -99,14 +99,18 @@ class IntentBuilderViewModel(
         }
     }
 
-    fun update(form: BuilderForm) = _state.update { it.copy(form = form, targets = null) }
+    /** Any form change re-resolves the receivers list so it always reflects the current intent. */
+    fun update(form: BuilderForm) = _state.update { it.copy(form = form, targets = safeResolve(form)) }
+
+    private fun safeResolve(form: BuilderForm) = runCatching { sender.resolve(form.toSpec()) }.getOrDefault(emptyList())
 
     /** Choose a package; clears the class and cached components if the package changed. */
     fun setPackage(packageName: String) = _state.update {
         val cleared = packageName != it.form.packageName
+        val form = it.form.copy(packageName = packageName, className = if (cleared) "" else it.form.className)
         it.copy(
-            form = it.form.copy(packageName = packageName, className = if (cleared) "" else it.form.className),
-            targets = null,
+            form = form,
+            targets = safeResolve(form),
             components = if (cleared) null else it.components,
             componentsPackage = if (cleared) null else it.componentsPackage,
         )
@@ -127,10 +131,7 @@ class IntentBuilderViewModel(
     fun updateExtra(index: Int, extra: Extra) = update(_state.value.form.let { f -> f.copy(extras = f.extras.mapIndexed { i, e -> if (i == index) extra else e }) })
     fun removeExtra(index: Int) = update(_state.value.form.let { f -> f.copy(extras = f.extras.filterIndexed { i, _ -> i != index }) })
 
-    fun resolve() {
-        val targets = runCatching { sender.resolve(_state.value.form.toSpec()) }.getOrDefault(emptyList())
-        _state.update { it.copy(targets = targets) }
-    }
+    fun resolve() = _state.update { it.copy(targets = safeResolve(it.form)) }
 
     fun send() {
         viewModelScope.launch {

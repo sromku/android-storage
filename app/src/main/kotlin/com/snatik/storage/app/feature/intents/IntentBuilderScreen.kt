@@ -120,7 +120,6 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(onClick = viewModel::resolve) { Text(stringResource(R.string.builder_resolve)) }
                     if (form.sendAs == SendAs.ACTIVITY) TextButton(onClick = { context.startActivity(viewModel.chooserIntent(chooserTitle)) }) { Text(stringResource(R.string.builder_chooser_short)) }
                     Spacer(Modifier.weight(1f))
                     Button(onClick = viewModel::send) {
@@ -167,7 +166,7 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
             }
             val hasQuery = form.action.isNotBlank() || form.data.isNotBlank() || form.type.isNotBlank() || form.packageName.isNotBlank() || form.className.isNotBlank()
             state.targets?.takeIf { hasQuery }?.let { targets ->
-                item { Text(stringResource(R.string.builder_targets), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
+                item { Text(stringResource(R.string.builder_resolve), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp)) }
                 if (targets.isEmpty()) {
                     item { Text(stringResource(R.string.builder_no_targets), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {

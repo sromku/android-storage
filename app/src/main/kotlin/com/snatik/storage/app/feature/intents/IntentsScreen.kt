@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,23 +18,30 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,6 +71,7 @@ fun IntentsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showExamples by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -84,18 +93,10 @@ fun IntentsScreen(
                     TextButton(onClick = onOpenDiscover) { Text(stringResource(R.string.open)) }
                 }
             }
-            item(key = "examples-header") { Text(stringResource(R.string.intent_examples), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp)) }
-            items(IntentExamples.list, key = { "ex:" + it.name }) { ex ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpenExample(ex.spec.toJson()) }.padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(ex.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(ex.summary, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+            item(key = "examples") {
+                FeatureCard(Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = { showExamples = true }) {
+                    Text("", modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showExamples = true }) { Text(stringResource(R.string.open)) }
                 }
             }
             if (state.presets.isNotEmpty()) {
@@ -141,6 +142,51 @@ fun IntentsScreen(
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenDeepLink) { Text(stringResource(R.string.open)) }
                 }
+            }
+        }
+    }
+
+    if (showExamples) {
+        ExamplesSheet(onPick = { json -> showExamples = false; onOpenExample(json) }, onDismiss = { showExamples = false })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExamplesSheet(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val activitiesLabel = stringResource(R.string.builder_activity)
+    val broadcastsLabel = stringResource(R.string.builder_broadcast)
+    val servicesLabel = stringResource(R.string.builder_service)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Text(stringResource(R.string.intent_examples_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+        HorizontalDivider()
+        LazyColumn(modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            exampleGroup(activitiesLabel, IntentExamples.activities, onPick)
+            exampleGroup(broadcastsLabel, IntentExamples.broadcasts, onPick)
+            exampleGroup(servicesLabel, IntentExamples.services, onPick)
+        }
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.exampleGroup(
+    label: String,
+    examples: List<IntentExamples.Example>,
+    onPick: (String) -> Unit,
+) {
+    item(key = "g:$label") {
+        Text(label.uppercase(), style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = androidx.compose.material3.MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 2.dp))
+    }
+    items(examples, key = { "ex:" + it.name }) { ex ->
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { onPick(ex.spec.toJson()) }.padding(horizontal = 24.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(ex.name, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+                Text(ex.summary, style = MonoStyle, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

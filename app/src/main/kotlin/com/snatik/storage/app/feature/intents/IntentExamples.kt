@@ -3,12 +3,14 @@ package com.snatik.storage.app.feature.intents
 import com.snatik.storage.core.intents.Extra
 import com.snatik.storage.core.intents.ExtraType
 import com.snatik.storage.core.intents.IntentSpec
+import com.snatik.storage.core.intents.SendAs
 
 /** Ready-to-run example intents to load into the builder and try. */
 object IntentExamples {
     data class Example(val name: String, val summary: String, val spec: IntentSpec)
 
-    val list: List<Example> = listOf(
+    /** Started as activities — the everyday "open something" intents. */
+    val activities: List<Example> = listOf(
         Example(
             "Open a web page", "ACTION_VIEW · https://",
             IntentSpec(action = "android.intent.action.VIEW", data = "https://example.com"),
@@ -64,9 +66,55 @@ object IntentExamples {
             "Open Wi-Fi settings", "android.settings.WIFI_SETTINGS",
             IntentSpec(action = "android.settings.WIFI_SETTINGS"),
         ),
+    )
+
+    /** Sent as broadcasts. Some need a matching receiver, but they show the shape. */
+    val broadcasts: List<Example> = listOf(
         Example(
-            "Plain-text note to any editor", "ACTION_VIEW · text/plain",
-            IntentSpec(action = "android.intent.action.VIEW", type = "text/plain", data = "content://"),
+            "Scan a media file", "ACTION_MEDIA_SCANNER_SCAN_FILE",
+            IntentSpec(
+                action = "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+                data = "file:///sdcard/Download/",
+                sendAs = SendAs.BROADCAST,
+            ),
+        ),
+        Example(
+            "Custom broadcast", "com.example.action.PING",
+            IntentSpec(
+                action = "com.example.action.PING",
+                extras = listOf(Extra("message", ExtraType.STRING, "hello")),
+                sendAs = SendAs.BROADCAST,
+            ),
+        ),
+        Example(
+            "Broadcast to one app", "package + action",
+            IntentSpec(
+                action = "com.example.action.SYNC",
+                packageName = "com.example.app",
+                sendAs = SendAs.BROADCAST,
+            ),
         ),
     )
+
+    /** Started as services. Component-targeted, so fill in a real package and class. */
+    val services: List<Example> = listOf(
+        Example(
+            "Start a service (component)", "package + class",
+            IntentSpec(
+                packageName = "com.example.app",
+                className = "com.example.app.MyService",
+                sendAs = SendAs.SERVICE,
+            ),
+        ),
+        Example(
+            "Start a service (action)", "com.example.action.SYNC",
+            IntentSpec(
+                action = "com.example.action.SYNC",
+                packageName = "com.example.app",
+                sendAs = SendAs.SERVICE,
+            ),
+        ),
+    )
+
+    val all: List<Example> = activities + broadcasts + services
 }
