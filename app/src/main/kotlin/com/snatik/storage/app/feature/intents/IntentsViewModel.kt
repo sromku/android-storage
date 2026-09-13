@@ -28,6 +28,7 @@ data class IntentsUiState(
     val shellAvailable: Boolean = false,
     val appCount: Int = 0,
     val monitorCaptured: Int = 0,
+    val monitorRunning: Boolean = false,
 )
 
 class IntentsViewModel(
@@ -43,7 +44,7 @@ class IntentsViewModel(
     private val sinkEnabled = MutableStateFlow(isSinkEnabled())
     private val appCount = MutableStateFlow(0)
 
-    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor, appCount, monitorStore.count) { values ->
+    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor, appCount, monitorStore.count, monitorStore.running) { values ->
         @Suppress("UNCHECKED_CAST")
         IntentsUiState(
             sinkEnabled = values[0] as Boolean,
@@ -54,6 +55,7 @@ class IntentsViewModel(
             shellAvailable = values[5] != null,
             appCount = values[6] as Int,
             monitorCaptured = values[7] as Int,
+            monitorRunning = values[8] as Boolean,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IntentsUiState(sinkEnabled = sinkEnabled.value))
 
