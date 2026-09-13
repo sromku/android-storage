@@ -488,9 +488,9 @@
     <string name="builder_action">Action</string>
     <string name="builder_data">Data URI</string>
     <string name="builder_type">MIME type</string>
-    <string name="builder_categories">Categories (comma separated)</string>
+    <string name="builder_categories">Categories</string>
     <string name="builder_package">Package</string>
-    <string name="builder_class">Class (optional, .Relative or full)</string>
+    <string name="builder_class">Class</string>
     <string name="builder_flags">Flags</string>
     <string name="builder_extras">Extras</string>
     <string name="builder_add_extra">Add extra</string>
@@ -508,6 +508,39 @@
     <string name="builder_saved">Preset saved</string>
     <string name="builder_default">default</string>
     <string name="builder_priority">priority %1$d</string>
+
+    <!-- Builder pickers -->
+    <string name="builder_pick_action_hint">Choose or type an action</string>
+    <string name="builder_pick_data_hint">Choose a scheme or type a URI</string>
+    <string name="builder_pick_type_hint">Choose or type a MIME type</string>
+    <string name="builder_pick_categories_hint">Add categories</string>
+    <string name="builder_pick_package_hint">Any app</string>
+    <string name="builder_pick_class_hint">Any component</string>
+    <string name="builder_pick_flags_hint">No flags</string>
+    <string name="builder_pick_action_title">Action</string>
+    <string name="builder_pick_data_title">Data URI</string>
+    <string name="builder_pick_type_mime_title">MIME type</string>
+    <string name="builder_pick_categories_title">Categories</string>
+    <string name="builder_pick_package_title">Package</string>
+    <string name="builder_pick_type_title">Extra type</string>
+    <string name="builder_pick_custom_action">Custom action</string>
+    <string name="builder_pick_custom_data">Data URI</string>
+    <string name="builder_pick_custom_mime">Custom MIME type</string>
+    <string name="builder_pick_custom_category">Add a category</string>
+    <string name="builder_pick_custom_package">Custom package</string>
+    <string name="builder_pick_custom_class">Custom class name</string>
+    <string name="builder_pick_custom_set">Set</string>
+    <string name="builder_pick_custom_group">Custom</string>
+    <string name="builder_pick_not_exported">not exported</string>
+    <string name="builder_pick_class_activities">Activities</string>
+    <string name="builder_pick_class_receivers">Receivers</string>
+    <string name="builder_pick_class_services">Services</string>
+    <string name="builder_pick_class_pick_package">Pick a package first, or type a class name.</string>
+    <string name="builder_pick_class_none">No matching components. Type a class name to target one directly.</string>
+    <plurals name="builder_pick_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
 
     <!-- Sink -->
     <string name="sink_title">Intent received</string>

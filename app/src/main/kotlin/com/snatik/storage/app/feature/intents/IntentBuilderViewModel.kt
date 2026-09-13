@@ -3,6 +3,10 @@ package com.snatik.storage.app.feature.intents
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snatik.storage.app.navigation.Route
+import com.snatik.storage.core.apps.AppComponents
+import com.snatik.storage.core.apps.AppRepository
+import com.snatik.storage.core.apps.AppSummary
+import com.snatik.storage.core.intents.ACTION_OPTIONS
 import com.snatik.storage.core.intents.Extra
 import com.snatik.storage.core.intents.ExtraType
 import com.snatik.storage.core.intents.IntentPresets
@@ -62,9 +66,18 @@ data class BuilderUiState(
     val presetId: Long? = null,
     val presetName: String = "",
     val saving: Boolean = false,
+    val apps: List<AppSummary> = emptyList(),
+    val actionCounts: Map<String, Int> = emptyMap(),
+    val components: AppComponents? = null,
+    val componentsPackage: String? = null,
 )
 
-class IntentBuilderViewModel(route: Route.IntentBuilder, private val sender: IntentSender, private val presets: IntentPresets) : ViewModel() {
+class IntentBuilderViewModel(
+    route: Route.IntentBuilder,
+    private val sender: IntentSender,
+    private val presets: IntentPresets,
+    private val apps: AppRepository,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(BuilderUiState())
     val state: StateFlow<BuilderUiState> = _state.asStateFlow()
@@ -80,9 +93,35 @@ class IntentBuilderViewModel(route: Route.IntentBuilder, private val sender: Int
             if (spec != null) _state.update { it.copy(form = BuilderForm.from(spec), presetId = preset?.id, presetName = preset?.name.orEmpty()) }
             resolve()
         }
+        viewModelScope.launch {
+            val list = apps.list()
+            val counts = apps.resolvableActionCounts(ACTION_OPTIONS.map { it.value })
+            _state.update { it.copy(apps = list, actionCounts = counts) }
+        }
     }
 
     fun update(form: BuilderForm) = _state.update { it.copy(form = form, targets = null) }
+
+    /** Choose a package; clears the class and cached components if the package changed. */
+    fun setPackage(packageName: String) = _state.update {
+        val cleared = packageName != it.form.packageName
+        it.copy(
+            form = it.form.copy(packageName = packageName, className = if (cleared) "" else it.form.className),
+            targets = null,
+            components = if (cleared) null else it.components,
+            componentsPackage = if (cleared) null else it.componentsPackage,
+        )
+    }
+
+    /** Load the components of the current package so the class picker can list them. */
+    fun loadComponents() {
+        val pkg = _state.value.form.packageName.trim()
+        if (pkg.isBlank() || pkg == _state.value.componentsPackage) return
+        viewModelScope.launch {
+            val components = apps.components(pkg)
+            _state.update { it.copy(components = components, componentsPackage = pkg) }
+        }
+    }
     fun toggleFlag(bit: Int) = update(_state.value.form.let { it.copy(flags = it.flags xor bit) })
     fun addExtra() = update(_state.value.form.let { it.copy(extras = it.extras + Extra("", ExtraType.STRING, "")) })
     fun updateExtra(index: Int, extra: Extra) = update(_state.value.form.let { f -> f.copy(extras = f.extras.mapIndexed { i, e -> if (i == index) extra else e }) })

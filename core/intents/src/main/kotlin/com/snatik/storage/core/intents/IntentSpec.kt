@@ -107,31 +107,4 @@ data class IntentSpec(
     }
 }
 
-/** Human readable flag names for the bits set in [flags]. */
-fun intentFlagNames(flags: Int): List<String> = KNOWN_FLAGS.filter { flags and it.second != 0 }.map { it.first }
-
-val KNOWN_FLAGS: List<Pair<String, Int>> = listOf(
-    "NEW_TASK" to Intent.FLAG_ACTIVITY_NEW_TASK,
-    "CLEAR_TOP" to Intent.FLAG_ACTIVITY_CLEAR_TOP,
-    "SINGLE_TOP" to Intent.FLAG_ACTIVITY_SINGLE_TOP,
-    "CLEAR_TASK" to Intent.FLAG_ACTIVITY_CLEAR_TASK,
-    "NO_HISTORY" to Intent.FLAG_ACTIVITY_NO_HISTORY,
-    "EXCLUDE_FROM_RECENTS" to Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
-    "MULTIPLE_TASK" to Intent.FLAG_ACTIVITY_MULTIPLE_TASK,
-    "GRANT_READ_URI" to Intent.FLAG_GRANT_READ_URI_PERMISSION,
-    "GRANT_WRITE_URI" to Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-    "INCLUDE_STOPPED_PACKAGES" to Intent.FLAG_INCLUDE_STOPPED_PACKAGES,
-    "DEBUG_LOG_RESOLUTION" to Intent.FLAG_DEBUG_LOG_RESOLUTION,
-)
-
-/** Actions offered as suggestions in the builder. */
-val COMMON_ACTIONS: List<String> = listOf(
-    Intent.ACTION_VIEW, Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE, Intent.ACTION_MAIN, Intent.ACTION_EDIT,
-    Intent.ACTION_PICK, Intent.ACTION_GET_CONTENT, Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_CREATE_DOCUMENT,
-    Intent.ACTION_DIAL, Intent.ACTION_CALL, Intent.ACTION_SENDTO, Intent.ACTION_WEB_SEARCH, Intent.ACTION_SEARCH,
-    Intent.ACTION_INSERT, Intent.ACTION_DELETE, Intent.ACTION_CHOOSER, Intent.ACTION_APPLICATION_PREFERENCES,
-    "android.settings.SETTINGS", "android.settings.APPLICATION_DETAILS_SETTINGS", "android.settings.WIFI_SETTINGS",
-    "android.settings.BLUETOOTH_SETTINGS", "android.settings.DEVELOPMENT_SETTINGS", "android.settings.LOCALE_SETTINGS",
-    "android.media.action.IMAGE_CAPTURE", "android.media.action.VIDEO_CAPTURE",
-    Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Intent.ACTION_PACKAGE_ADDED, Intent.ACTION_TIME_TICK,
-)
+// Flag and action catalogs live in IntentCatalog.kt.

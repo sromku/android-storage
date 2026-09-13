@@ -193,7 +193,7 @@ val appModule = module {
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
     viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
-    viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get()) }
+    viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get(), get()) }
     viewModelOf(::IntentLogViewModel)
     viewModelOf(::BroadcastMonitorViewModel)
     viewModel { BroadcastHistoryViewModel(get(), get()) }

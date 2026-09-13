@@ -21,16 +21,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -61,14 +55,21 @@ import com.snatik.storage.app.navigation.Route
 import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
-import com.snatik.storage.core.intents.COMMON_ACTIONS
+import com.snatik.storage.core.intents.ACTION_OPTIONS
+import com.snatik.storage.core.intents.CATEGORY_OPTIONS
 import com.snatik.storage.core.intents.Extra
 import com.snatik.storage.core.intents.ExtraType
-import com.snatik.storage.core.intents.KNOWN_FLAGS
+import com.snatik.storage.core.intents.FLAG_CATALOG
+import com.snatik.storage.core.intents.MIME_OPTIONS
 import com.snatik.storage.core.intents.ResolvedTarget
+import com.snatik.storage.core.intents.SCHEME_OPTIONS
 import com.snatik.storage.core.intents.SendAs
+import com.snatik.storage.core.intents.extraTypeInfo
+import com.snatik.storage.core.intents.intentFlagNames
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+
+private enum class BuilderSheet { ACTION, DATA, TYPE, CATEGORIES, PACKAGE, CLASS, FLAGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +79,9 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
     val chooserTitle = stringResource(R.string.builder_chooser)
+
+    var sheet by remember { mutableStateOf<BuilderSheet?>(null) }
+    var extraTypeIndex by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { m ->
@@ -94,6 +98,8 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
     }
 
     val form = state.form
+    val categorySet = remember(form.categories) { form.categories.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet() }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
@@ -117,24 +123,17 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
                     }
                 }
             }
-            item { ActionField(form.action, onChange = { viewModel.update(form.copy(action = it)) }) }
-            item { OutlinedTextField(value = form.data, onValueChange = { viewModel.update(form.copy(data = it)) }, label = { Text(stringResource(R.string.builder_data)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth()) }
-            item { OutlinedTextField(value = form.type, onValueChange = { viewModel.update(form.copy(type = it)) }, label = { Text(stringResource(R.string.builder_type)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth()) }
-            item { OutlinedTextField(value = form.categories, onValueChange = { viewModel.update(form.copy(categories = it)) }, label = { Text(stringResource(R.string.builder_categories)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth()) }
+            item { PickerField(stringResource(R.string.builder_action), form.action, stringResource(R.string.builder_pick_action_hint), onClick = { sheet = BuilderSheet.ACTION }) }
+            item { PickerField(stringResource(R.string.builder_data), form.data, stringResource(R.string.builder_pick_data_hint), onClick = { sheet = BuilderSheet.DATA }) }
+            item { PickerField(stringResource(R.string.builder_type), form.type, stringResource(R.string.builder_pick_type_hint), onClick = { sheet = BuilderSheet.TYPE }) }
+            item { PickerField(stringResource(R.string.builder_categories), form.categories, stringResource(R.string.builder_pick_categories_hint), onClick = { sheet = BuilderSheet.CATEGORIES }) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = form.packageName, onValueChange = { viewModel.update(form.copy(packageName = it)) }, label = { Text(stringResource(R.string.builder_package)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1f))
-                    OutlinedTextField(value = form.className, onValueChange = { viewModel.update(form.copy(className = it)) }, label = { Text(stringResource(R.string.builder_class)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1f))
+                    PickerField(stringResource(R.string.builder_package), form.packageName, stringResource(R.string.builder_pick_package_hint), onClick = { sheet = BuilderSheet.PACKAGE }, modifier = Modifier.weight(1f))
+                    PickerField(stringResource(R.string.builder_class), form.className.substringAfterLast('.'), stringResource(R.string.builder_pick_class_hint), onClick = { viewModel.loadComponents(); sheet = BuilderSheet.CLASS }, modifier = Modifier.weight(1f))
                 }
             }
-            item {
-                Text(stringResource(R.string.builder_flags), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    KNOWN_FLAGS.forEach { (name, bit) ->
-                        FilterChip(selected = form.flags and bit != 0, onClick = { viewModel.toggleFlag(bit) }, label = { Text(name, style = MaterialTheme.typography.labelMedium) })
-                    }
-                }
-            }
+            item { PickerField(stringResource(R.string.builder_flags), intentFlagNames(form.flags).joinToString("  "), stringResource(R.string.builder_pick_flags_hint), onClick = { sheet = BuilderSheet.FLAGS }, mono = false) }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.builder_extras), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
@@ -144,7 +143,7 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
                     }
                 }
             }
-            itemsIndexed(form.extras) { index, extra -> ExtraRow(extra, onChange = { viewModel.updateExtra(index, it) }, onRemove = { viewModel.removeExtra(index) }) }
+            itemsIndexed(form.extras) { index, extra -> ExtraRow(extra, onTypeClick = { extraTypeIndex = index }, onChange = { viewModel.updateExtra(index, it) }, onRemove = { viewModel.removeExtra(index) }) }
             item {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedButton(onClick = viewModel::resolve) { Text(stringResource(R.string.builder_resolve)) }
@@ -162,6 +161,63 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
         }
     }
 
+    when (sheet) {
+        BuilderSheet.ACTION -> OptionSheet(
+            title = stringResource(R.string.builder_pick_action_title), options = ACTION_OPTIONS, current = form.action,
+            customLabel = stringResource(R.string.builder_pick_custom_action), counts = state.actionCounts, searchable = true,
+            onPick = { viewModel.update(form.copy(action = it)); sheet = null }, onDismiss = { sheet = null },
+        )
+        BuilderSheet.DATA -> OptionSheet(
+            title = stringResource(R.string.builder_pick_data_title), options = SCHEME_OPTIONS, current = form.data,
+            customLabel = stringResource(R.string.builder_pick_custom_data),
+            onPick = { viewModel.update(form.copy(data = it)); sheet = null }, onDismiss = { sheet = null },
+        )
+        BuilderSheet.TYPE -> OptionSheet(
+            title = stringResource(R.string.builder_pick_type_mime_title), options = MIME_OPTIONS, current = form.type,
+            customLabel = stringResource(R.string.builder_pick_custom_mime),
+            onPick = { viewModel.update(form.copy(type = it)); sheet = null }, onDismiss = { sheet = null },
+        )
+        BuilderSheet.CATEGORIES -> MultiOptionSheet(
+            title = stringResource(R.string.builder_pick_categories_title), options = CATEGORY_OPTIONS, selected = categorySet,
+            customLabel = stringResource(R.string.builder_pick_custom_category),
+            onToggle = { v -> val next = if (v in categorySet) categorySet - v else categorySet + v; viewModel.update(form.copy(categories = next.joinToString(", "))) },
+            onAddCustom = { v -> viewModel.update(form.copy(categories = (categorySet + v).joinToString(", "))) },
+            onDismiss = { sheet = null },
+        )
+        BuilderSheet.PACKAGE -> AppPickerSheet(
+            apps = state.apps, current = form.packageName,
+            onPick = { viewModel.setPackage(it); sheet = null }, onDismiss = { sheet = null },
+        )
+        BuilderSheet.CLASS -> {
+            val components = when (form.sendAs) {
+                SendAs.ACTIVITY -> state.components?.activities
+                SendAs.BROADCAST -> state.components?.receivers
+                SendAs.SERVICE -> state.components?.services
+            }.orEmpty()
+            val title = stringResource(
+                when (form.sendAs) { SendAs.ACTIVITY -> R.string.builder_pick_class_activities; SendAs.BROADCAST -> R.string.builder_pick_class_receivers; SendAs.SERVICE -> R.string.builder_pick_class_services },
+            )
+            val hint = if (form.packageName.isBlank()) stringResource(R.string.builder_pick_class_pick_package) else stringResource(R.string.builder_pick_class_none)
+            ComponentPickerSheet(
+                title = title, components = components, current = form.className, emptyHint = hint,
+                onPick = { viewModel.update(form.copy(className = it)); sheet = null }, onDismiss = { sheet = null },
+            )
+        }
+        BuilderSheet.FLAGS -> FlagsSheet(flags = FLAG_CATALOG, value = form.flags, onToggle = viewModel::toggleFlag, onDismiss = { sheet = null })
+        null -> Unit
+    }
+
+    extraTypeIndex?.let { index ->
+        val extra = form.extras.getOrNull(index)
+        if (extra != null) {
+            ExtraTypeSheet(
+                types = extraTypeInfo(), current = extra.type,
+                onPick = { viewModel.updateExtra(index, extra.copy(type = it)); extraTypeIndex = null },
+                onDismiss = { extraTypeIndex = null },
+            )
+        } else extraTypeIndex = null
+    }
+
     if (state.saving) {
         AlertDialog(
             onDismissRequest = { viewModel.setSaving(false) },
@@ -173,39 +229,12 @@ fun IntentBuilderScreen(route: Route.IntentBuilder, onBack: () -> Unit, viewMode
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionField(value: String, onChange: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val suggestions = remember(value) { COMMON_ACTIONS.filter { value.isBlank() || it.contains(value, ignoreCase = true) } }
-    ExposedDropdownMenuBox(expanded = expanded && suggestions.isNotEmpty(), onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { onChange(it); expanded = true },
-            label = { Text(stringResource(R.string.builder_action)) },
-            singleLine = true,
-            textStyle = MonoStyle,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable),
-        )
-        ExposedDropdownMenu(expanded = expanded && suggestions.isNotEmpty(), onDismissRequest = { expanded = false }) {
-            suggestions.take(12).forEach { s ->
-                DropdownMenuItem(text = { Text(s, style = MonoStyle) }, onClick = { onChange(s); expanded = false })
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExtraRow(extra: Extra, onChange: (Extra) -> Unit, onRemove: () -> Unit) {
+private fun ExtraRow(extra: Extra, onTypeClick: () -> Unit, onChange: (Extra) -> Unit, onRemove: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(value = extra.key, onValueChange = { onChange(extra.copy(key = it)) }, label = { Text(stringResource(R.string.builder_extra_key)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1.1f))
-        var menu by remember { mutableStateOf(false) }
         Column(modifier = Modifier.width(88.dp)) {
-            AssistChip(onClick = { menu = true }, label = { Text(extra.type.name.lowercase(), maxLines = 1, style = MaterialTheme.typography.labelSmall) })
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                ExtraType.entries.forEach { t -> DropdownMenuItem(text = { Text(t.name.lowercase()) }, onClick = { onChange(extra.copy(type = t)); menu = false }) }
-            }
+            AssistChip(onClick = onTypeClick, label = { Text(extra.type.name.lowercase(), maxLines = 1, style = MaterialTheme.typography.labelSmall) })
         }
         OutlinedTextField(value = extra.value, onValueChange = { onChange(extra.copy(value = it)) }, label = { Text(stringResource(R.string.builder_extra_value)) }, singleLine = extra.type != ExtraType.STRING_ARRAY, textStyle = MonoStyle, modifier = Modifier.weight(1.4f))
         IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.delete)) }

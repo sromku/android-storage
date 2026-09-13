@@ -112,6 +112,36 @@ class AppRepository(private val context: Context) {
     fun applicationInfo(packageName: String): ApplicationInfo? =
         runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull()
 
+    /** The activities, services and receivers one package declares — for the class picker. */
+    suspend fun components(packageName: String): AppComponents = withContext(Dispatchers.IO) {
+        val flags = PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS or
+            PackageManager.MATCH_DISABLED_COMPONENTS
+        val info = packageInfo(packageName, flags) ?: return@withContext AppComponents()
+        fun mapActivities(list: Array<android.content.pm.ActivityInfo>?) =
+            list.orEmpty().map { Component(it.name, it.exported, it.enabled, it.permission, it.processName) }.sortedBy { it.name }
+        fun mapServices(list: Array<android.content.pm.ServiceInfo>?) =
+            list.orEmpty().map { Component(it.name, it.exported, it.enabled, it.permission, it.processName) }.sortedBy { it.name }
+        AppComponents(mapActivities(info.activities), mapServices(info.services), mapActivities(info.receivers))
+    }
+
+    /**
+     * How many apps on this device declare an activity for each of the given actions. Data-dependent
+     * actions (VIEW, EDIT) resolve nothing without a URI, so they come back absent rather than zero.
+     */
+    suspend fun resolvableActionCounts(actions: List<String>): Map<String, Int> = withContext(Dispatchers.IO) {
+        actions.mapNotNull { action ->
+            val count = runCatching {
+                val intent = Intent(action)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0)).size
+                } else {
+                    @Suppress("DEPRECATION") pm.queryIntentActivities(intent, 0).size
+                }
+            }.getOrDefault(0)
+            if (count > 0) action to count else null
+        }.toMap()
+    }
+
     /** Just the storage stats for one package (code / data / cache), cheap enough to poll. */
     suspend fun storage(packageName: String): AppStorage? = withContext(Dispatchers.IO) {
         if (!hasUsageAccess()) return@withContext null

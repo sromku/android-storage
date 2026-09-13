@@ -30,6 +30,13 @@ data class Component(
     val process: String?,
 )
 
+/** The three kinds of components the intent builder can target. */
+data class AppComponents(
+    val activities: List<Component> = emptyList(),
+    val services: List<Component> = emptyList(),
+    val receivers: List<Component> = emptyList(),
+)
+
 data class ContentProvider(
     val name: String,
     val authority: String,
