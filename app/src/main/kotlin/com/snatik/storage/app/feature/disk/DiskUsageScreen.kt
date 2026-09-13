@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -91,7 +92,9 @@ fun DiskUsageScreen(
     viewModel: DiskUsageViewModel = koinViewModel(parameters = { parametersOf(route.path) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    BackHandler(enabled = state.trail.size > 1) { viewModel.up() }
+    BackHandler(enabled = state.selectedKind != null || state.trail.size > 1) {
+        if (state.selectedKind != null) viewModel.closeKind() else viewModel.up()
+    }
 
     Scaffold(
         topBar = {
@@ -103,7 +106,12 @@ fun DiskUsageScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { if (!viewModel.up()) onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
+                    IconButton(onClick = {
+                        when {
+                            state.selectedKind != null -> viewModel.closeKind()
+                            !viewModel.up() -> onBack()
+                        }
+                    }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
                 },
                 actions = {
                     IconButton(onClick = onSunburst) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.sunburst_title)) }
@@ -116,6 +124,8 @@ fun DiskUsageScreen(
             when {
                 state.scanning -> Scanning(state)
                 state.error != null -> EmptyState(Icons.Default.Block, stringResource(R.string.scan_failed), state.error)
+                state.view == DiskView.TYPES && state.selectedKind != null ->
+                    TypeFilesView(state.selectedKind!!, state.selectedFiles, onBrowse)
                 else -> {
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         DiskView.entries.forEachIndexed { i, view ->
@@ -138,7 +148,7 @@ fun DiskUsageScreen(
                     }
                     when (state.view) {
                         DiskView.TREE -> TreeView(route, state, viewModel, onBrowse)
-                        DiskView.TYPES -> TypesView(state.types)
+                        DiskView.TYPES -> TypesView(state.types, onOpen = viewModel::openKind)
                         DiskView.LARGEST -> LargestView(state.largest, onBrowse)
                     }
                 }
@@ -238,7 +248,7 @@ private fun LargestView(largest: List<LargeFile>, onBrowse: (String) -> Unit) {
 }
 
 @Composable
-private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>) {
+private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>, onOpen: (FileKind) -> Unit) {
     val total = types.sumOf { it.bytes }.coerceAtLeast(1)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -247,11 +257,15 @@ private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>) {
     ) {
         items(types, key = { it.kind }) { t ->
             val frac = t.bytes.toFloat() / total
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpen(t.kind) },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(t.kind.icon(), contentDescription = null, tint = t.kind.tint(), modifier = Modifier.size(22.dp))
                     Text(typeLabel(t.kind), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     Text(t.bytes.readableSize(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
                 LinearProgressIndicator(
                     progress = { frac },
@@ -266,6 +280,45 @@ private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypeFilesView(kind: FileKind, files: List<LargeFile>, onBrowse: (String) -> Unit) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(kind.icon(), contentDescription = null, tint = kind.tint(), modifier = Modifier.size(28.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(typeLabel(kind), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(R.string.type_files_summary, files.size, files.sumOf { it.size }.readableSize()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (files.isEmpty()) {
+            EmptyState(Icons.Default.Block, stringResource(R.string.type_files_empty), null)
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+                items(files, key = { it.path }) { file ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onBrowse(file.path.substringBeforeLast('/')) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(file.path.substringAfterLast('/'), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(file.path.substringBeforeLast('/'), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                        }
+                        Text(file.size.readableSize(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
             }
         }
     }

@@ -28,7 +28,13 @@ data class ScanProgress(val filesSeen: Int, val bytesSeen: Long, val currentPath
 
 sealed interface ScanEvent {
     data class Progress(val progress: ScanProgress) : ScanEvent
-    data class Done(val root: DirNode, val largest: List<LargeFile>, val types: List<TypeStat>) : ScanEvent
+    /** [filesByKind] lists every scanned file grouped by category (largest first), for drilling into a type. */
+    data class Done(
+        val root: DirNode,
+        val largest: List<LargeFile>,
+        val types: List<TypeStat>,
+        val filesByKind: Map<FileKind, List<LargeFile>> = emptyMap(),
+    ) : ScanEvent
 }
 
 /** Walks a tree adding up file sizes. Works on the local file system or through a shell. */
@@ -39,6 +45,7 @@ class DiskScanner(private val fs: FileSystem) {
         val largest = ArrayList<LargeFile>(largestCount + 1)
         val typeBytes = HashMap<FileKind, Long>()
         val typeCount = HashMap<FileKind, Int>()
+        val filesByKind = HashMap<FileKind, ArrayList<LargeFile>>()
         var files = 0
         var bytes = 0L
         var lastEmit = 0L
@@ -53,6 +60,7 @@ class DiskScanner(private val fs: FileSystem) {
             val kind = FileKind.of(filePath.substringAfterLast('/'), isDirectory = false)
             typeBytes[kind] = (typeBytes[kind] ?: 0L) + size
             typeCount[kind] = (typeCount[kind] ?: 0) + 1
+            filesByKind.getOrPut(kind) { ArrayList() }.add(LargeFile(filePath, size))
             val now = System.currentTimeMillis()
             if (now - lastEmit > 200) {
                 lastEmit = now
@@ -60,7 +68,8 @@ class DiskScanner(private val fs: FileSystem) {
             }
         }
         val types = typeBytes.map { (kind, b) -> TypeStat(kind, b, typeCount[kind] ?: 0) }.sortedByDescending { it.bytes }
-        emit(ScanEvent.Done(root, largest.sortedByDescending { it.size }, types))
+        val byKind = filesByKind.mapValues { (_, list) -> list.sortedByDescending { it.size } }
+        emit(ScanEvent.Done(root, largest.sortedByDescending { it.size }, types, byKind))
     }.flowOn(Dispatchers.Default)
 
     private fun addFile(root: DirNode, filePath: String, size: Long) {

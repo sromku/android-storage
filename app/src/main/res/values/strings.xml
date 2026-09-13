@@ -671,6 +671,8 @@
     <string name="no_matches">No matches</string>
     <string name="by_type">By type</string>
     <string name="type_share">%1$d%% · %2$d files</string>
+    <string name="type_files_summary">%1$d files · %2$s</string>
+    <string name="type_files_empty">No files of this type</string>
     <string name="kind_directory">Folders</string>
     <string name="kind_image">Images</string>
     <string name="kind_video">Videos</string>

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snatik.storage.core.fs.DirNode
 import com.snatik.storage.core.fs.DiskScanner
+import com.snatik.storage.core.fs.FileKind
 import com.snatik.storage.core.fs.LargeFile
 import com.snatik.storage.core.fs.ScanEvent
 import com.snatik.storage.core.fs.ScanProgress
@@ -25,9 +26,14 @@ data class DiskUsageUiState(
     val trail: List<DirNode> = emptyList(),
     val largest: List<LargeFile> = emptyList(),
     val types: List<TypeStat> = emptyList(),
+    /** Every scanned file grouped by category, for the "By type" drill-down. */
+    val filesByKind: Map<FileKind, List<LargeFile>> = emptyMap(),
+    /** The category being drilled into on the "By type" tab, if any. */
+    val selectedKind: FileKind? = null,
     val view: DiskView = DiskView.TREE,
 ) {
     val current: DirNode? get() = trail.lastOrNull() ?: root
+    val selectedFiles: List<LargeFile> get() = selectedKind?.let { filesByKind[it] }.orEmpty()
 }
 
 class DiskUsageViewModel(private val path: String, private val scanner: DiskScanner) : ViewModel() {
@@ -46,7 +52,7 @@ class DiskUsageViewModel(private val path: String, private val scanner: DiskScan
                 scanner.scan(path).collect { event ->
                     when (event) {
                         is ScanEvent.Progress -> _state.update { it.copy(progress = event.progress) }
-                        is ScanEvent.Done -> _state.update { it.copy(scanning = false, root = event.root, trail = listOf(event.root), largest = event.largest, types = event.types) }
+                        is ScanEvent.Done -> _state.update { it.copy(scanning = false, root = event.root, trail = listOf(event.root), largest = event.largest, types = event.types, filesByKind = event.filesByKind) }
                     }
                 }
             } catch (e: Exception) {
@@ -66,5 +72,8 @@ class DiskUsageViewModel(private val path: String, private val scanner: DiskScan
     }
 
     fun jumpTo(index: Int) = _state.update { it.copy(trail = it.trail.take(index + 1)) }
-    fun setView(view: DiskView) = _state.update { it.copy(view = view) }
+    fun setView(view: DiskView) = _state.update { it.copy(view = view, selectedKind = null) }
+
+    fun openKind(kind: FileKind) = _state.update { it.copy(selectedKind = kind) }
+    fun closeKind() = _state.update { it.copy(selectedKind = null) }
 }
