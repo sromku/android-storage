@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.PlayArrow
@@ -30,6 +33,8 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -43,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -133,14 +139,8 @@ fun DatabaseScreen(path: String, onBack: () -> Unit, onOpenTable: (String) -> Un
 @Composable
 private fun SchemaTab(state: DatabaseUiState, viewModel: DatabaseViewModel) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = viewModel::vacuum, enabled = !state.maintenanceRunning) { Text(stringResource(R.string.db_vacuum)) }
-                Button(onClick = viewModel::integrityCheck, enabled = !state.maintenanceRunning) { Text(stringResource(R.string.db_integrity)) }
-            }
-        }
-        if (state.maintenanceRunning) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-        item { Text(stringResource(R.string.db_schema_tables, state.schema.size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+        // The tab's namesake first: structure and relationships.
+        item { Text(stringResource(R.string.db_schema_tables, state.schema.size), style = MaterialTheme.typography.titleSmall) }
         items(state.schema, key = { it.name }) { st ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(if (st.type == "view") Icons.Default.ViewList else Icons.Default.TableChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -161,6 +161,44 @@ private fun SchemaTab(state: DatabaseUiState, viewModel: DatabaseViewModel) {
                 )
             }
         }
+
+        // Maintenance: whole-file operations, each explained, kept below the schema they act on.
+        item {
+            Text(stringResource(R.string.db_maintenance), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 20.dp))
+            Text(stringResource(R.string.db_maintenance_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    MaintenanceRow(
+                        icon = Icons.Default.CleaningServices,
+                        title = stringResource(R.string.db_vacuum),
+                        description = stringResource(R.string.db_vacuum_desc),
+                        enabled = !state.maintenanceRunning,
+                        onRun = viewModel::vacuum,
+                    )
+                    HorizontalDivider()
+                    MaintenanceRow(
+                        icon = Icons.Default.HealthAndSafety,
+                        title = stringResource(R.string.db_integrity),
+                        description = stringResource(R.string.db_integrity_desc),
+                        enabled = !state.maintenanceRunning,
+                        onRun = viewModel::integrityCheck,
+                    )
+                    if (state.maintenanceRunning) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MaintenanceRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, enabled: Boolean, onRun: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedButton(onClick = onRun, enabled = enabled) { Text(stringResource(R.string.db_run)) }
     }
 }
 

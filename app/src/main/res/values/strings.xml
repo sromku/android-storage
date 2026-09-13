@@ -920,6 +920,11 @@
     <string name="db_vacuum_done">VACUUM reclaimed %1$s</string>
     <string name="db_integrity_ok">Integrity check: ok</string>
     <string name="db_integrity_bad">Integrity: %1$s</string>
+    <string name="db_maintenance">Maintenance</string>
+    <string name="db_maintenance_hint">Operations on the whole database file.</string>
+    <string name="db_vacuum_desc">Rebuild the file to reclaim space left by deleted rows. Reports how much was freed.</string>
+    <string name="db_integrity_desc">Scan the whole database for corruption (PRAGMA integrity_check). Reports OK or the problems found.</string>
+    <string name="db_run">Run</string>
     <string name="compile_title">ART compilation</string>
     <string name="art_explainer">Android apps ship as portable bytecode. ART can compile it ahead-of-time to native machine code for faster startup and execution, at the cost of disk space. Pick how much to compile below — the current state and footprint update after each run.</string>
     <string name="art_current">Current state</string>
