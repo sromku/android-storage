@@ -110,9 +110,16 @@ class ProviderQuery(private val context: Context, private val privilege: Privile
             request.sortOrder?.let { append(" --sort ").append(it.shellQuote()) }
         }
         val result = shell.run(command, timeoutMs = 2 * 60_000)
-        if (!result.ok) throw QueryException(result.err.trim().ifEmpty { "content query failed (${result.exitCode})" }, permissionDenied = result.err.contains("Permission", true))
-        if (result.out.contains("Error while accessing provider") || result.out.contains("SecurityException")) {
-            throw QueryException(result.out.lineSequence().first { it.isNotBlank() }, permissionDenied = true)
+        // `content query` reports provider failures (permission denials, unknown/unsupported URIs) on
+        // STDERR and still exits 0, so a blocked provider would otherwise look like an empty result.
+        // Inspect both streams and surface the failure instead of showing a misleading "No rows".
+        val lines = (result.err + "\n" + result.out).lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        val permLine = lines.firstOrNull { it.contains("Permission Denial") || it.contains("SecurityException") }
+        val errLine = permLine ?: lines.firstOrNull {
+            it.contains("Error while accessing provider") || it.contains("IllegalArgumentException") || it.contains("Exception")
+        }
+        if (!result.ok || errLine != null) {
+            throw QueryException(errLine ?: "content query failed (${result.exitCode})", permissionDenied = permLine != null)
         }
         val parsed = parseContentOutput(result.out)
         val page = parsed.rows.drop(request.offset)

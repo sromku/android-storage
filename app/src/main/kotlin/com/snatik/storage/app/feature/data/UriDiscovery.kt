@@ -60,6 +60,9 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
         val prefixes = listOf(packageName, providerPkg).filter { it.isNotEmpty() }.distinct()
         val found = LinkedHashSet<String>()
         val hints = LinkedHashSet<String>()
+        // Simple names of every class we see, so hint literals that are really class-name references
+        // (log tags, etc.) can be filtered back out.
+        val classNames = HashSet<String>()
         var lastEmit = 0L
 
         // Load one dex at a time and close it before the next, so peak memory stays bounded to a
@@ -88,6 +91,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 val addUriRefs = HashMap<Int, Boolean>()
                 target.forEachIndexed { i, cls ->
                     currentCoroutineContext().ensureActive()
+                    runCatching { classNames.add(cls.fullName.substringAfterLast('.').substringAfterLast('$')) }
                     scanClass(cls, authority, found, hints, addUriRefs)
                     val now = System.currentTimeMillis()
                     if (now - lastEmit > 150 || i == total - 1) {
@@ -101,7 +105,7 @@ class UriDiscovery(private val context: Context, private val apps: AppRepository
                 runCatching { jadx.close() }
             }
         }
-        emit(Event.Done(found.sorted(), scopedOnly = !scanAll, hints = hints.sorted().take(80)))
+        emit(Event.Done(found.sorted(), scopedOnly = !scanAll, hints = hints.filter { it !in classNames }.sorted().take(80)))
     }.flowOn(Dispatchers.IO)
 
     /**
