@@ -150,7 +150,7 @@ fun DiskUsageScreen(
                     when (state.view) {
                         DiskView.TREE -> TreeView(route, state, viewModel, onBrowse)
                         DiskView.TYPES -> TypesView(state.types, onOpen = viewModel::openKind)
-                        DiskView.LARGEST -> LargestView(state.largest, onBrowse)
+                        DiskView.LARGEST -> LargestView(state.largest, onOpenFile)
                     }
                 }
             }
@@ -231,11 +231,11 @@ private fun NodeRow(node: DirNode, parentSize: Long, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LargestView(largest: List<LargeFile>, onBrowse: (String) -> Unit) {
+private fun LargestView(largest: List<LargeFile>, onOpenFile: (String) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         items(largest, key = { it.path }) { file ->
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { onBrowse(file.path.substringBeforeLast('/')) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().clickable { onOpenFile(file.path) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
