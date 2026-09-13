@@ -67,6 +67,15 @@
                 android:value="Developer tooling: monitors activity intents from the system log" />
         </service>
 
+        <service
+            android:name=".feature.intents.BroadcastMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: receives subscribed system broadcasts in the background" />
+        </service>
+
         <receiver
             android:name=".feature.history.PackageEventReceiver"
             android:exported="false">

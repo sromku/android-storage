@@ -88,6 +88,7 @@ import com.snatik.storage.app.R
 
 const val NAV_TARGET_EXTRA = "nav_target"
 const val NAV_INTENT_MONITOR = "intent_monitor"
+const val NAV_BROADCAST_MONITOR = "broadcast_monitor"
 
 @Composable
 fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
@@ -98,10 +99,15 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
     fun pop() { backStack.removeLastOrNull() }
 
     androidx.compose.runtime.LaunchedEffect(navTarget) {
-        if (navTarget == NAV_INTENT_MONITOR) {
-            // Deep link from the monitor notification: give it a real back stack so Back walks out.
+        // Deep link from a monitor notification: give it a real back stack so Back walks out.
+        val target: Route? = when (navTarget) {
+            NAV_INTENT_MONITOR -> Route.IntentMonitor
+            NAV_BROADCAST_MONITOR -> Route.BroadcastMonitor
+            else -> null
+        }
+        if (target != null) {
             backStack.clear()
-            backStack.addAll(listOf(Route.Tools, Route.Intents, Route.IntentMonitor))
+            backStack.addAll(listOf(Route.Tools, Route.Intents, target))
             onNavConsumed()
         }
     }

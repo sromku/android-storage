@@ -61,7 +61,7 @@ import com.snatik.storage.app.feature.intents.DeepLinkViewModel
 import com.snatik.storage.app.feature.intents.IntentBuilderViewModel
 import com.snatik.storage.app.feature.intents.IntentsViewModel
 import com.snatik.storage.core.intents.BroadcastHistory
-import com.snatik.storage.core.intents.BroadcastMonitor
+import com.snatik.storage.core.intents.BroadcastStore
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.intents.IntentSender
 import com.snatik.storage.core.capture.CaptureDatabase
@@ -155,7 +155,7 @@ val appModule = module {
     single { DatabaseSessions(get()) }
     single { IntentSender(androidContext()) }
     single { IntentPresets(androidContext()) }
-    single { BroadcastMonitor(androidContext()) }
+    single { BroadcastStore(androidContext()) }
     single { BroadcastHistory() }
     single { CaptureDatabase.create(androidContext()) }
     single { SnapshotRepository(androidContext(), get(), get()) }
@@ -188,13 +188,13 @@ val appModule = module {
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
-    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
+    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) } // presets, privilege, intentStore, broadcastStore
     viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentExamplesViewModel(get()) }
     single { com.snatik.storage.core.intents.IntentMonitorStore(androidContext()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentMonitorViewModel(androidContext(), get(), get()) }
     viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get(), get()) }
-    viewModelOf(::BroadcastMonitorViewModel)
+    viewModel { BroadcastMonitorViewModel(androidContext(), get()) }
     viewModel { BroadcastHistoryViewModel(get(), get()) }
     viewModelOf(::DeepLinkViewModel)
     viewModel { (route: Route.Capture) -> CaptureViewModel(route, androidContext(), get(), get(), get()) }

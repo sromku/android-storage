@@ -133,8 +133,19 @@ fun IntentsScreen(
                 }
             }
             item(key = "monitor") {
-                FeatureCard(Icons.Default.Sensors, stringResource(R.string.intents_monitor_title), stringResource(R.string.intents_monitor_body), onClick = onOpenMonitor) {
-                    Text(stringResource(R.string.intents_monitor_status, state.monitorActive, state.monitorEvents), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                FeatureCard(
+                    Icons.Default.Sensors, stringResource(R.string.intents_monitor_title), stringResource(R.string.intents_monitor_body), onClick = onOpenMonitor,
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Tag(
+                                stringResource(if (state.broadcastRunning) R.string.intent_monitor_tag_running else R.string.intent_monitor_tag_paused),
+                                if (state.broadcastRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            )
+                            if (state.broadcastCaptured > 0) Tag("%,d".format(state.broadcastCaptured), MaterialTheme.colorScheme.tertiary)
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.broadcast_monitor_card_actions, state.broadcastActive), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenMonitor) { Text(stringResource(R.string.open)) }
                 }
             }

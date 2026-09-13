@@ -511,7 +511,8 @@
     <string name="intent_monitor_notif_title">Intent monitor running</string>
     <string name="intent_monitor_notif_text">Watching activity intents · %1$d captured</string>
     <string name="intents_monitor_title">Broadcast monitor</string>
-    <string name="intents_monitor_body">Listen to system broadcasts live while the app runs.</string>
+    <string name="intents_monitor_body">Subscribe to system broadcasts and capture them in the background — with their full extras.</string>
+    <string name="broadcast_monitor_card_actions">%1$d actions subscribed</string>
     <string name="intents_monitor_status">%1$d actions on · %2$d events</string>
     <string name="intents_history_title">Recent broadcasts</string>
     <string name="intents_history_body">What the system dispatched lately, from dumpsys. Needs shell access.</string>
@@ -597,15 +598,20 @@
     <string name="intent_no_action">(no action)</string>
     <string name="intent_extras_count">%1$d extras</string>
 
-    <!-- Monitor -->
-    <string name="monitor_title">Broadcast monitor</string>
+    <!-- Broadcast monitor -->
+    <string name="broadcast_monitor_title">Broadcast monitor</string>
     <string name="monitor_actions">Actions</string>
     <string name="monitor_custom">Custom action</string>
     <string name="monitor_add">Listen</string>
-    <string name="monitor_events">Events</string>
-    <string name="monitor_empty">No broadcasts yet</string>
-    <string name="monitor_empty_hint">Turn on some actions above. Plugging the charger or toggling the screen triggers a few immediately.</string>
-    <string name="monitor_stop_all">Stop all</string>
+    <string name="broadcast_monitor_empty">No broadcasts yet</string>
+    <string name="broadcast_monitor_empty_hint">Pick actions above, then press play. It keeps receiving in the background — even when the app is closed — until you stop it.</string>
+    <string name="broadcast_monitor_channel">Broadcast monitor</string>
+    <string name="broadcast_monitor_notif_title">Broadcast monitor running</string>
+    <string name="broadcast_monitor_notif_text">Watching broadcasts · %1$d received</string>
+    <string name="broadcast_monitor_start_title">Start broadcast monitor</string>
+    <string name="broadcast_monitor_start_body">Storage will register receivers for the actions you picked and record each matching broadcast — with its full intent and extras. It runs as a background service with a permanent notification and keeps going even if you close the app, until you press Stop.</string>
+    <string name="broadcast_monitor_no_actions">Pick at least one action above to receive.</string>
+    <string name="broadcast_monitor_full_payload">Full payload — extras values included.</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>

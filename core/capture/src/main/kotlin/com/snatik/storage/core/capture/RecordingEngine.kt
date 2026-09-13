@@ -3,7 +3,7 @@ package com.snatik.storage.core.capture
 import android.content.Context
 import android.os.Build
 import android.os.FileObserver
-import com.snatik.storage.core.intents.BroadcastMonitor
+import com.snatik.storage.core.intents.BroadcastStore
 import com.snatik.storage.core.shell.PrivilegeManager
 import com.snatik.storage.core.shell.lines
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,7 +42,7 @@ class RecordingEngine(
     private val context: Context,
     private val db: CaptureDatabase,
     private val privilege: PrivilegeManager,
-    private val monitor: BroadcastMonitor,
+    private val broadcasts: BroadcastStore,
     private val scope: CoroutineScope,
 ) {
     val recordings: Flow<List<RecordingEntity>> = db.recordings().recordings()
@@ -188,8 +187,14 @@ class RecordingEngine(
 
     private fun startBroadcasts(id: Long) {
         jobs += scope.launch {
-            var seen = monitor.events.value.firstOrNull()?.id
-            monitor.events.drop(1).collect { events ->
+            var seen: Long? = null
+            var first = true
+            broadcasts.recent.collect { events ->
+                if (first) {
+                    seen = events.firstOrNull()?.id
+                    first = false
+                    return@collect
+                }
                 val fresh = events.takeWhile { it.id != seen }
                 seen = events.firstOrNull()?.id ?: seen
                 fresh.asReversed().forEach { e -> record(id, RecordSource.BROADCASTS, e.spec.action, e.spec.toJson()) }
