@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -67,10 +68,10 @@ import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -149,15 +150,14 @@ fun AppDetailScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                // The app's name, icon and badges live in the body Header (always visible above the
-                // tabs), so the bar keeps only the back button and actions to avoid showing it twice.
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
-                },
-                actions = {
-                    state.details?.let { d ->
+            // One custom header: back arrow, the app's identity (icon, name, package, badges), and
+            // the actions menu — no separate body header, no duplicated name.
+            val d = state.details
+            if (d != null) {
+                DetailHeaderBar(
+                    details = d,
+                    onBack = onBack,
+                    actions = {
                         AppActionsMenu(
                             details = d,
                             shellAvailable = state.shellAvailable,
@@ -169,9 +169,15 @@ fun AppDetailScreen(
                             onUninstall = viewModel::requestUninstall,
                             onArt = { onArt(d.summary.label, d.summary.packageName, d.summary.isDebuggable) },
                         )
+                    },
+                )
+            } else {
+                Surface(color = MaterialTheme.colorScheme.surface) {
+                    Row(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp)) {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
                     }
-                },
-            )
+                }
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -180,7 +186,6 @@ fun AppDetailScreen(
                 state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 details == null -> EmptyState(Icons.Default.Block, stringResource(R.string.app_not_found), packageName)
                 else -> Column(modifier = Modifier.fillMaxSize()) {
-                    Header(details)
                     PrimaryScrollableTabRow(selectedTabIndex = state.tab.ordinal, edgePadding = 8.dp) {
                         DetailTab.entries.forEach { tab ->
                             val label = when (tab) {
@@ -238,30 +243,34 @@ fun AppDetailScreen(
 }
 
 @Composable
-private fun Header(details: AppDetails) {
+private fun DetailHeaderBar(details: AppDetails, onBack: () -> Unit, actions: @Composable () -> Unit) {
     val s = details.summary
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        AppIcon(s.packageName, size = 56.dp)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(s.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            SelectionContainer { Text(s.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "${s.versionName ?: ""} (${s.versionCode})",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                )
-                if (s.isSystem) Tag(stringResource(R.string.chip_system))
-                if (s.isDebuggable) Tag(stringResource(R.string.chip_debuggable), MaterialTheme.colorScheme.tertiary)
-                if (!s.isEnabled) Tag(stringResource(R.string.chip_disabled), MaterialTheme.colorScheme.error)
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) }
+            AppIcon(s.packageName, size = 48.dp)
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(s.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                SelectionContainer { Text(s.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "${s.versionName ?: ""} (${s.versionCode})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                    )
+                    if (s.isSystem) Tag(stringResource(R.string.chip_system))
+                    if (s.isDebuggable) Tag(stringResource(R.string.chip_debuggable), MaterialTheme.colorScheme.tertiary)
+                    if (!s.isEnabled) Tag(stringResource(R.string.chip_disabled), MaterialTheme.colorScheme.error)
+                }
             }
+            actions()
         }
     }
 }
