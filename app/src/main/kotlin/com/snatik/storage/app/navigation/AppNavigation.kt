@@ -1,6 +1,7 @@
 package com.snatik.storage.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -90,6 +91,7 @@ import com.snatik.storage.app.R
 @Composable
 fun AppNavigation() {
     val backStack = rememberNavBackStack(Route.Home)
+    val context = LocalContext.current
     val systemRootLabel = stringResource(R.string.volume_root)
 
     fun push(route: NavKey) = backStack.add(route)
@@ -138,6 +140,8 @@ fun AppNavigation() {
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
             FileKind.VIDEO, FileKind.AUDIO -> push(Route.MediaViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
+            // No built-in viewer for these — hand off to an external app.
+            FileKind.PDF, FileKind.FONT -> com.snatik.storage.app.util.Intents.openWith(context, entry.path)
             else -> when {
                 entry.name.endsWith(".so") || entry.name.contains(".so.") -> push(Route.ElfViewer(entry.path))
                 entry.name.endsWith(".dex", ignoreCase = true) -> push(Route.Decompile(entry.path))
@@ -202,7 +206,7 @@ fun AppNavigation() {
                 com.snatik.storage.app.feature.apps.ArtOpDetailScreen(packageName = route.packageName, opTs = route.opTs, label = route.label, onBack = ::pop)
             }
             entry<Route.DiskUsage> { route ->
-                DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) }, onSunburst = { push(Route.Sunburst(route.label, route.path)) })
+                DiskUsageScreen(route = route, onBack = ::pop, onBrowse = { path -> openBrowser(route.label, path) }, onOpenFile = { path -> openPath(path) }, onSunburst = { push(Route.Sunburst(route.label, route.path)) })
             }
             entry<Route.Browser> { route ->
                 BrowserScreen(
