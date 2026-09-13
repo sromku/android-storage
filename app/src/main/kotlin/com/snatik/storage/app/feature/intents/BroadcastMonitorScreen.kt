@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +43,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -80,7 +81,9 @@ import com.snatik.storage.core.intents.BroadcastHistory
 import com.snatik.storage.core.intents.BroadcastStore
 import com.snatik.storage.core.intents.HistoricalBroadcast
 import com.snatik.storage.core.shell.PrivilegeManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -172,8 +175,11 @@ class BroadcastHistoryViewModel(private val history: BroadcastHistory, private v
                 return@launch
             }
             try {
+                // fetchRaw already runs on Dispatchers.IO; parse can be heavy (hundreds of
+                // broadcasts × several regexes), so keep it off the main thread too.
                 val raw = history.fetchRaw(shell)
-                _state.update { it.copy(loading = false, raw = raw, parsed = BroadcastHistory.parse(raw)) }
+                val parsed = withContext(Dispatchers.Default) { BroadcastHistory.parse(raw) }
+                _state.update { it.copy(loading = false, raw = raw, parsed = parsed) }
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = e.message ?: e.toString()) }
             }
@@ -428,21 +434,58 @@ private fun RecentBroadcasts(state: HistoryUiState, viewModel: BroadcastHistoryV
                     CodeView(lines = lines, wrap = false, lineNumbers = numbers, highlight = query.ifEmpty { null }, modifier = Modifier.fillMaxSize())
                 } else {
                     val items = remember(state.parsed, query) { if (query.isEmpty()) state.parsed else state.parsed.filter { it.intent.contains(query, true) } }
-                    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                        itemsIndexed(items) { _, b ->
-                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(b.action ?: b.intent, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                    if (b.queue != "?") Tag(b.queue)
-                                }
-                                Text(listOfNotNull(b.enqueued, b.intent).joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(items) { b -> HistoryRow(b) }
                     }
                 }
             }
         }
     }
+}
+
+private val HISTORY_DATA = Regex("""dat=([^\s}]+)""")
+
+/** One parsed row from the device-wide snapshot: friendly action, queue, data and enqueue time. */
+@Composable
+private fun HistoryRow(b: HistoricalBroadcast) {
+    val data = remember(b.intent) { HISTORY_DATA.find(b.intent)?.groupValues?.get(1) }
+    val hasExtras = remember(b.intent) { b.intent.contains("has extras") }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(b.action?.let { shortAction(it) } ?: stringResource(R.string.intent_no_action), style = MaterialTheme.typography.titleSmall)
+                    b.action?.let { Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis) }
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (b.queue != "?") QueueChip(b.queue)
+                    if (hasExtras) Tag(stringResource(R.string.intent_monitor_extras_tag), MaterialTheme.colorScheme.tertiary)
+                }
+            }
+            data?.let {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("DATA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.8.sp)
+                    Text(it, style = MonoStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                }
+            }
+            b.enqueued?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+/** Broadcast queue tag, coloured by urgency (foreground vs background). */
+@Composable
+private fun QueueChip(queue: String) {
+    val color = when (queue.lowercase()) {
+        "foreground", "fg" -> MaterialTheme.colorScheme.primary
+        "background", "bg" -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.outline
+    }
+    Tag(queue, color)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
