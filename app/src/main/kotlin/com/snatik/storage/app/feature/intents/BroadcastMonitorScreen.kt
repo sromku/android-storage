@@ -35,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -274,31 +275,54 @@ private fun BroadcastActionsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        LazyColumn(modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
+        LazyColumn(modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
-                Text(stringResource(R.string.broadcast_monitor_choose), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+                Text(stringResource(R.string.broadcast_monitor_choose), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 24.dp)) {
                     OutlinedTextField(value = custom, onValueChange = onCustomChange, label = { Text(stringResource(R.string.monitor_custom)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onAddCustom) { Text(stringResource(R.string.monitor_add)) }
+                    TextButton(onClick = onAddCustom, enabled = custom.isNotBlank()) { Text(stringResource(R.string.monitor_add)) }
                 }
                 val extra = active.filter { a -> catalogue.none { it.action == a } }
-                if (extra.isNotEmpty()) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-                        extra.forEach { a -> FilterChip(selected = true, onClick = { onToggle(a, null) }, label = { Text(a, style = MaterialTheme.typography.labelMedium) }) }
-                    }
-                }
+                extra.forEach { a -> CustomActionRow(a, onRemove = { onToggle(a, null) }) }
             }
             catalogue.groupBy { it.group }.forEach { (group, actions) ->
                 item(key = "g:$group") {
-                    Text(group, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp, bottom = 2.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        actions.forEach { a ->
-                            FilterChip(selected = a.action in active, onClick = { onToggle(a.action, a.dataScheme) }, label = { Text(shortAction(a.action), style = MaterialTheme.typography.labelMedium) })
-                        }
-                    }
+                    Text(group.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp))
                 }
+                items(actions, key = { it.action }) { a -> ActionRow(a, checked = a.action in active, onToggle = { onToggle(a.action, a.dataScheme) }) }
             }
         }
+    }
+}
+
+@Composable
+private fun ActionRow(action: com.snatik.storage.core.intents.BroadcastAction, checked: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(action.label, style = MaterialTheme.typography.bodyLarge)
+            Text(action.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(action.action, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+        }
+        Switch(checked = checked, onCheckedChange = { onToggle() })
+    }
+}
+
+@Composable
+private fun CustomActionRow(action: String, onRemove: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onRemove).padding(start = 24.dp, end = 24.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.broadcast_monitor_custom_label), style = MaterialTheme.typography.bodyLarge)
+            Text(action, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+        }
+        Switch(checked = true, onCheckedChange = { onRemove() })
     }
 }
 

@@ -615,6 +615,7 @@
     <string name="broadcast_monitor_subscribed">Subscribed · %1$d</string>
     <string name="broadcast_monitor_choose">Choose actions</string>
     <string name="broadcast_monitor_none_subscribed">No actions yet — choose what to capture.</string>
+    <string name="broadcast_monitor_custom_label">Custom action</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>
