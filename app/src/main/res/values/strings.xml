@@ -610,8 +610,11 @@
     <string name="broadcast_monitor_notif_text">Watching broadcasts · %1$d received</string>
     <string name="broadcast_monitor_start_title">Start broadcast monitor</string>
     <string name="broadcast_monitor_start_body">Storage will register receivers for the actions you picked and record each matching broadcast — with its full intent and extras. It runs as a background service with a permanent notification and keeps going even if you close the app, until you press Stop.</string>
-    <string name="broadcast_monitor_no_actions">Pick at least one action above to receive.</string>
+    <string name="broadcast_monitor_no_actions">Pick at least one action to receive.</string>
     <string name="broadcast_monitor_full_payload">Full payload — extras values included.</string>
+    <string name="broadcast_monitor_subscribed">Subscribed · %1$d</string>
+    <string name="broadcast_monitor_choose">Choose actions</string>
+    <string name="broadcast_monitor_none_subscribed">No actions yet — choose what to capture.</string>
 
     <!-- History -->
     <string name="history_title">Recent broadcasts</string>
