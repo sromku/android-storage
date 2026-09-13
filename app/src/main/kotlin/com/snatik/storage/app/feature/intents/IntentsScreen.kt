@@ -82,19 +82,15 @@ fun IntentsScreen(
                 }
             }
             item(key = "discover") {
-                FeatureCard(
-                    Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover,
-                    trailing = { if (state.appCount > 0) Tag(pluralStringResource(R.plurals.intent_discover_apps, state.appCount, state.appCount), MaterialTheme.colorScheme.tertiary) },
-                ) {
+                FeatureCard(Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover) {
+                    if (state.appCount > 0) Tag(pluralStringResource(R.plurals.intent_discover_apps, state.appCount, state.appCount), MaterialTheme.colorScheme.tertiary)
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenDiscover) { Text(stringResource(R.string.open)) }
                 }
             }
             item(key = "examples") {
-                FeatureCard(
-                    Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples,
-                    trailing = { Tag(pluralStringResource(R.plurals.intent_examples_count, IntentExamples.all.size, IntentExamples.all.size), MaterialTheme.colorScheme.tertiary) },
-                ) {
+                FeatureCard(Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples) {
+                    Tag(pluralStringResource(R.plurals.intent_examples_count, IntentExamples.all.size, IntentExamples.all.size), MaterialTheme.colorScheme.tertiary)
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenExamples) { Text(stringResource(R.string.open)) }
                 }
