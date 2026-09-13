@@ -332,6 +332,13 @@
     <string name="uri_action_save">Save to Quick queries</string>
     <string name="uri_action_unsave">Remove from Quick queries</string>
     <string name="uri_action_copy">Copy URI</string>
+    <string name="uri_details">URI details</string>
+    <string name="uri_detail_mime">MIME type</string>
+    <string name="uri_detail_path">Path segments</string>
+    <string name="uri_detail_no_provider">No installed app declares this authority — it may be removed, disabled, or served only at runtime.</string>
+    <string name="uri_detail_direct">App can read directly</string>
+    <string name="uri_detail_direct_yes">Yes</string>
+    <string name="uri_detail_direct_no">No — routed through the privileged shell</string>
     <string name="uri_perm_line">Read: %1$s · %2$s</string>
     <string name="uri_perm_held">Granted — the app can read this provider directly.</string>
     <string name="uri_perm_shell">Not granted — reads route through the privileged shell (Shizuku/root).</string>

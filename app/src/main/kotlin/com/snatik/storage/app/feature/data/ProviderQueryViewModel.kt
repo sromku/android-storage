@@ -65,9 +65,26 @@ data class ProviderQueryUiState(
     val selectedRow: Int? = null,
     /** URIs currently in Quick queries, so the menu can show Save vs Remove. */
     val savedUris: Set<String> = emptySet(),
+    /** Non-null while the URI-details sheet is open. */
+    val details: UriDetails? = null,
 )
 
-class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: ProviderQuery, private val fs: FileSystem, private val savedStore: SavedQueryStore) : ViewModel() {
+/** Everything we can say about the URI being queried and the provider that serves it. */
+data class UriDetails(
+    val uri: String,
+    val authority: String,
+    val pathSegments: List<String>,
+    val mime: String?,
+    val provider: com.snatik.storage.core.data.ProviderEntry?,
+)
+
+class ProviderQueryViewModel(
+    route: Route.ProviderQuery,
+    private val query: ProviderQuery,
+    private val fs: FileSystem,
+    private val savedStore: SavedQueryStore,
+    private val providers: com.snatik.storage.core.data.ProviderRepository,
+) : ViewModel() {
 
     val title: String = route.title
 
@@ -83,6 +100,21 @@ class ProviderQueryViewModel(route: Route.ProviderQuery, private val query: Prov
             savedStore.saved.collect { saved -> _state.update { it.copy(savedUris = saved.map { s -> s.uri }.toSet()) } }
         }
     }
+
+    fun openDetails() {
+        val uri = _state.value.form.uri.trim()
+        val parsed = runCatching { android.net.Uri.parse(uri) }.getOrNull()
+        val authority = parsed?.authority.orEmpty()
+        viewModelScope.launch {
+            val provider = authority.takeIf { it.isNotEmpty() }?.let { providers.resolve(it) }
+            val mime = _state.value.mime ?: query.type(uri)
+            _state.update {
+                it.copy(details = UriDetails(uri, authority, parsed?.pathSegments.orEmpty(), mime, provider))
+            }
+        }
+    }
+
+    fun closeDetails() = _state.update { it.copy(details = null) }
 
     /** Save (or un-save) the current URI to Quick queries so it can be reopened without rebuilding. */
     fun toggleSave() {

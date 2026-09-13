@@ -74,6 +74,32 @@ class ProviderRepository(private val context: Context) {
         }.sortedWith(compareBy({ it.appLabel.lowercase() }, { it.authority }))
     }
 
+    /** The single provider that owns [authority], or null if no installed app declares it. */
+    @Suppress("DEPRECATION")
+    suspend fun resolve(authority: String): ProviderEntry? = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val p = pm.resolveContentProvider(authority, 0) ?: return@withContext null
+        val appInfo = p.applicationInfo
+        val label = appInfo?.let { pm.getApplicationLabel(it).toString() } ?: p.packageName
+        val system = appInfo != null &&
+            (appInfo.flags and (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+        ProviderEntry(
+            authority = authority,
+            packageName = p.packageName,
+            appLabel = label,
+            className = p.name,
+            exported = p.exported,
+            readPermission = p.readPermission,
+            writePermission = p.writePermission,
+            grantUriPermissions = p.grantUriPermissions,
+            pathPermissions = p.pathPermissions.orEmpty().map { pp ->
+                listOfNotNull(pp.path, pp.readPermission?.let { "r:$it" }, pp.writePermission?.let { "w:$it" }).joinToString(" ")
+            },
+            isSystem = system,
+            queryableNow = canRead(p.packageName == context.packageName, p.exported, p.readPermission),
+        )
+    }
+
     /** App-side readability heuristic (ignores the shell fallback): own provider, or exported with a read perm we hold. */
     private fun canRead(own: Boolean, exported: Boolean, readPermission: String?): Boolean {
         if (own) return true

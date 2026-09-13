@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,7 +23,9 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -35,8 +38,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -57,9 +63,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import com.snatik.storage.app.R
 import com.snatik.storage.app.navigation.Route
+import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.DataGrid
+import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.RowSheet
 import com.snatik.storage.app.ui.theme.MonoStyle
@@ -101,6 +112,11 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
                             leadingIcon = { Icon(if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, contentDescription = null) },
                             onClick = { more = false; viewModel.toggleSave() },
                         )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.uri_details)) },
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                            onClick = { more = false; viewModel.openDetails() },
+                        )
                         DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = false) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = true) })
                     }
@@ -140,6 +156,63 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, viewMode
     val result = state.result
     if (selected != null && result != null && selected in result.rows.indices) {
         RowSheet(columns = result.columns, row = result.rows[selected], onDismiss = { viewModel.selectRow(null) })
+    }
+
+    state.details?.let { details ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(onDismissRequest = viewModel::closeDetails, sheetState = sheetState) {
+            UriDetailsSheet(details)
+        }
+    }
+}
+
+@Composable
+private fun UriDetailsSheet(details: UriDetails) {
+    val clipboard = LocalClipboardManager.current
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text(stringResource(R.string.uri_details), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+
+        // Full URI, with a copy affordance.
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(details.uri, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.weight(1f))
+                IconButton(onClick = { clipboard.setText(AnnotatedString(details.uri)) }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.uri_action_copy), modifier = Modifier.size(20.dp)) }
+            }
+        }
+
+        DetailRow(stringResource(R.string.prov_detail_authority), details.authority.ifEmpty { "—" })
+        details.mime?.let { DetailRow(stringResource(R.string.uri_detail_mime), it) }
+        if (details.pathSegments.isNotEmpty()) DetailRow(stringResource(R.string.uri_detail_path), details.pathSegments.joinToString("  /  "))
+
+        val p = details.provider
+        if (p == null) {
+            Text(stringResource(R.string.uri_detail_no_provider), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        } else {
+            HorizontalDivider()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(p.packageName, size = 40.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(p.appLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(p.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                }
+                Tag(stringResource(if (p.isSystem) R.string.prov_tag_system else R.string.prov_source_apps), MaterialTheme.colorScheme.secondary)
+                if (p.exported) Tag(stringResource(R.string.chip_exported), MaterialTheme.colorScheme.primary)
+            }
+            DetailRow(stringResource(R.string.prov_detail_class), p.className)
+            DetailRow(stringResource(R.string.prov_detail_read), p.readPermission ?: stringResource(R.string.prov_detail_none))
+            DetailRow(stringResource(R.string.prov_detail_write), p.writePermission ?: stringResource(R.string.prov_detail_none))
+            DetailRow(stringResource(R.string.prov_detail_grant), stringResource(if (p.grantUriPermissions) R.string.prov_detail_yes else R.string.prov_detail_no))
+            if (p.pathPermissions.isNotEmpty()) DetailRow(stringResource(R.string.prov_detail_paths), p.pathPermissions.joinToString("\n"))
+            DetailRow(stringResource(R.string.uri_detail_direct), stringResource(if (p.queryableNow) R.string.uri_detail_direct_yes else R.string.uri_detail_direct_no))
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface))
     }
 }
 
