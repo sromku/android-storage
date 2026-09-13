@@ -220,6 +220,7 @@ val appModule = module {
     viewModelOf(::SystemViewModel)
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
     viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.FontViewerViewModel(path, get(), androidContext()) }
+    viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.PdfViewerViewModel(path, get(), androidContext()) }
     viewModelOf(::TimeMachineViewModel)
     viewModel { BenchmarkViewModel(androidContext(), get()) }
     viewModelOf(::PermissionFootprintViewModel)

@@ -1,7 +1,6 @@
 package com.snatik.storage.app.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -91,7 +90,6 @@ import com.snatik.storage.app.R
 @Composable
 fun AppNavigation() {
     val backStack = rememberNavBackStack(Route.Home)
-    val context = LocalContext.current
     val systemRootLabel = stringResource(R.string.volume_root)
 
     fun push(route: NavKey) = backStack.add(route)
@@ -141,8 +139,7 @@ fun AppNavigation() {
             FileKind.VIDEO, FileKind.AUDIO -> push(Route.MediaViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
             FileKind.FONT -> push(Route.FontViewer(entry.path))
-            // No built-in viewer — hand off to an external app.
-            FileKind.PDF -> com.snatik.storage.app.util.Intents.openWith(context, entry.path)
+            FileKind.PDF -> push(Route.PdfViewer(entry.path))
             else -> when {
                 entry.name.endsWith(".so") || entry.name.contains(".so.") -> push(Route.ElfViewer(entry.path))
                 entry.name.endsWith(".dex", ignoreCase = true) -> push(Route.Decompile(entry.path))
@@ -318,6 +315,7 @@ fun AppNavigation() {
             }
             entry<Route.ElfViewer> { route -> ElfViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) }) }
             entry<Route.FontViewer> { route -> com.snatik.storage.app.feature.viewer.FontViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.PdfViewer> { route -> com.snatik.storage.app.feature.viewer.PdfViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

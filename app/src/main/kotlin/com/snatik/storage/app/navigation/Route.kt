@@ -167,6 +167,9 @@ sealed interface Route : NavKey {
     data class FontViewer(val path: String) : Route
 
     @Serializable
+    data class PdfViewer(val path: String) : Route
+
+    @Serializable
     data object TimeMachine : Route
 
     @Serializable
