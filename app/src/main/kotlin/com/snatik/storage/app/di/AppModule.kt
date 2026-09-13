@@ -191,7 +191,7 @@ val appModule = module {
     viewModel { (path: String) -> DatabaseViewModel(path, get()) }
     viewModel { (route: Route.DbTable) -> DbTableViewModel(route, get()) }
     viewModel { (path: String) -> PrefsViewModel(path, get()) }
-    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get()) }
+    viewModel { IntentsViewModel(androidContext(), get(), get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentDiscoverViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.intents.IntentExamplesViewModel(get()) }
     single { com.snatik.storage.core.intents.IntentMonitorStore(androidContext()) }

@@ -27,6 +27,7 @@ data class IntentsUiState(
     val monitorEvents: Int = 0,
     val shellAvailable: Boolean = false,
     val appCount: Int = 0,
+    val monitorCaptured: Int = 0,
 )
 
 class IntentsViewModel(
@@ -35,13 +36,14 @@ class IntentsViewModel(
     private val presets: IntentPresets,
     private val monitor: BroadcastMonitor,
     private val privilege: PrivilegeManager,
+    private val monitorStore: com.snatik.storage.core.intents.IntentMonitorStore,
 ) : ViewModel() {
 
     private val sinkComponent = ComponentName(context, IntentSinkActivity::class.java)
     private val sinkEnabled = MutableStateFlow(isSinkEnabled())
     private val appCount = MutableStateFlow(0)
 
-    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor, appCount) { values ->
+    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor, appCount, monitorStore.count) { values ->
         @Suppress("UNCHECKED_CAST")
         IntentsUiState(
             sinkEnabled = values[0] as Boolean,
@@ -51,6 +53,7 @@ class IntentsViewModel(
             monitorEvents = (values[4] as List<*>).size,
             shellAvailable = values[5] != null,
             appCount = values[6] as Int,
+            monitorCaptured = values[7] as Int,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IntentsUiState(sinkEnabled = sinkEnabled.value))
 

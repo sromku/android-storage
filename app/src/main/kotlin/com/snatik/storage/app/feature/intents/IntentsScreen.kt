@@ -123,7 +123,10 @@ fun IntentsScreen(
                 }
             }
             item(key = "intent-monitor") {
-                FeatureCard(Icons.Default.Visibility, stringResource(R.string.intent_monitor_title), stringResource(R.string.intent_monitor_body), onClick = onOpenIntentMonitor) {
+                FeatureCard(
+                    Icons.Default.Visibility, stringResource(R.string.intent_monitor_title), stringResource(R.string.intent_monitor_body), onClick = onOpenIntentMonitor,
+                    trailing = { if (state.monitorCaptured > 0) Tag("%,d".format(state.monitorCaptured), MaterialTheme.colorScheme.tertiary) },
+                ) {
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenIntentMonitor) { Text(stringResource(R.string.open)) }
                 }
