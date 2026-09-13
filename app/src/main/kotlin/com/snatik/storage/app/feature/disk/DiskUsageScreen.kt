@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -72,6 +73,7 @@ import com.snatik.storage.app.navigation.Route
 import com.snatik.storage.app.ui.components.Breadcrumbs
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.app.util.Intents
 import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.core.fs.DirNode
 import com.snatik.storage.core.fs.LargeFile
@@ -125,7 +127,7 @@ fun DiskUsageScreen(
                 state.scanning -> Scanning(state)
                 state.error != null -> EmptyState(Icons.Default.Block, stringResource(R.string.scan_failed), state.error)
                 state.view == DiskView.TYPES && state.selectedKind != null ->
-                    TypeFilesView(state.selectedKind!!, state.selectedFiles, onBrowse)
+                    TypeFilesView(state.selectedKind!!, state.selectedFiles)
                 else -> {
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         DiskView.entries.forEachIndexed { i, view ->
@@ -286,7 +288,8 @@ private fun TypesView(types: List<com.snatik.storage.core.fs.TypeStat>, onOpen: 
 }
 
 @Composable
-private fun TypeFilesView(kind: FileKind, files: List<LargeFile>, onBrowse: (String) -> Unit) {
+private fun TypeFilesView(kind: FileKind, files: List<LargeFile>) {
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -309,7 +312,7 @@ private fun TypeFilesView(kind: FileKind, files: List<LargeFile>, onBrowse: (Str
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
                 items(files, key = { it.path }) { file ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onBrowse(file.path.substringBeforeLast('/')) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { Intents.openWith(context, file.path) }.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
