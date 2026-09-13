@@ -37,6 +37,7 @@ class IntentMonitorService : Service() {
     private val store: IntentMonitorStore by inject()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var counter = 0L
+    private var captured = 0
     @Volatile private var lastNotified = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -47,7 +48,7 @@ class IntentMonitorService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startForegroundCompat(notification(store.intents.value.size))
+        startForegroundCompat(notification(captured))
         store.setRunning(true)
         scope.launch {
             privilege.executor.collectLatest { exec ->
@@ -57,10 +58,11 @@ class IntentMonitorService : Service() {
                         .mapNotNull { line -> IntentMonitorParser.parse(line, counter++, System.currentTimeMillis()) }
                         .collect { i ->
                             store.add(i)
+                            captured++
                             val now = System.currentTimeMillis()
                             if (now - lastNotified > 1_000) {
                                 lastNotified = now
-                                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(store.intents.value.size))
+                                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(captured))
                             }
                         }
                 }

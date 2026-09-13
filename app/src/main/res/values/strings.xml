@@ -484,10 +484,15 @@
     <string name="intent_monitor_needs_shell">Needs Shizuku</string>
     <string name="intent_monitor_needs_shell_hint">Connect Shizuku so the app can read the system\'s activity log.</string>
     <string name="intent_monitor_hide_self">Hide this app</string>
-    <string name="intent_monitor_listening">Listening · %1$d</string>
-    <string name="intent_monitor_paused">Stopped · %1$d</string>
+    <string name="intent_monitor_listening">Listening · %1$s / %2$s</string>
+    <string name="intent_monitor_paused">Stopped · %1$s / %2$s</string>
     <string name="intent_monitor_empty">No intents yet</string>
     <string name="intent_monitor_empty_hint">Press play to start monitoring. It keeps running in the background — even when the app is closed — until you stop it.</string>
+    <string name="intent_monitor_start_title">Start intent monitor</string>
+    <string name="intent_monitor_start_body">Storage will read the system activity log through Shizuku and record every activity intent launched on the device — action, data, target and caller. It runs as a background service with a permanent notification and keeps going even if you close the app, until you press Stop.</string>
+    <string name="intent_monitor_capacity_label">Keep at most</string>
+    <string name="intent_monitor_capacity_note">When the limit is reached, the oldest events are deleted. Events are stored on-device in a database.</string>
+    <string name="intent_monitor_start_action">Start</string>
     <string name="intent_monitor_from">from %1$s</string>
     <string name="intent_monitor_has_extras">Carries extras — the system doesn\'t log their values.</string>
     <string name="intent_monitor_extras_tag">extras</string>

@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -21,10 +22,17 @@ android {
     }
 }
 
+ksp {
+    arg("room.generateKotlin", "true")
+}
+
 dependencies {
     api(project(":core:shell"))
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.serialization.json)
+    api(libs.room.runtime)
+    api(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

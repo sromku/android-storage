@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class MonitorUiState(
     val shellAvailable: Boolean = false,
@@ -18,11 +19,13 @@ data class MonitorUiState(
     val hideSelf: Boolean = true,
     val query: String = "",
     val intents: List<MonitoredIntent> = emptyList(),
+    val count: Int = 0,
+    val capacity: Int = IntentMonitorStore.DEFAULT_CAPACITY,
 )
 
 /**
- * Drives the background [IntentMonitorService] and reflects the shared [IntentMonitorStore] it fills.
- * The collection itself lives in the service, so it keeps running when the app is closed.
+ * Drives the background [IntentMonitorService] and reflects the SQLite-backed [IntentMonitorStore].
+ * Collection lives in the service, so it keeps running when the app is closed.
  */
 class IntentMonitorViewModel(
     private val context: Context,
@@ -33,15 +36,34 @@ class IntentMonitorViewModel(
     private val hideSelf = MutableStateFlow(true)
     private val query = MutableStateFlow("")
 
-    val state: StateFlow<MonitorUiState> = combine(store.intents, store.running, privilege.executor, hideSelf, query) { intents, running, exec, hide, q ->
-        MonitorUiState(shellAvailable = exec != null, running = running, hideSelf = hide, query = q, intents = intents)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MonitorUiState())
-
-    fun toggle() {
-        if (store.running.value) IntentMonitorService.stop(context) else IntentMonitorService.start(context)
+    private val monitor = combine(store.recent, store.count, store.running, store.capacity) { intents, count, running, capacity ->
+        Monitor(intents, count, running, capacity)
+    }
+    private val filters = combine(hideSelf, query, privilege.executor) { hide, q, exec ->
+        Filters(hide, q, exec != null)
     }
 
-    fun clear() = store.clear()
+    val state: StateFlow<MonitorUiState> = combine(monitor, filters) { m, f ->
+        MonitorUiState(
+            shellAvailable = f.shellAvailable, running = m.running, hideSelf = f.hideSelf,
+            query = f.query, intents = m.intents, count = m.count, capacity = m.capacity,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MonitorUiState())
+
+    val capacities: List<Int> = IntentMonitorStore.CAPACITIES
+
+    fun start(capacity: Int) {
+        store.setCapacity(capacity)
+        viewModelScope.launch { store.applyCapacity() }
+        IntentMonitorService.start(context)
+    }
+
+    fun stop() = IntentMonitorService.stop(context)
+
+    fun clear() { viewModelScope.launch { store.clear() } }
     fun setHideSelf(on: Boolean) { hideSelf.value = on }
     fun setQuery(q: String) { query.value = q }
+
+    private data class Monitor(val intents: List<MonitoredIntent>, val count: Int, val running: Boolean, val capacity: Int)
+    private data class Filters(val hideSelf: Boolean, val query: String, val shellAvailable: Boolean)
 }
