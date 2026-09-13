@@ -140,8 +140,9 @@ fun AppNavigation() {
             FileKind.IMAGE -> push(Route.ImageViewer(entry.path))
             FileKind.VIDEO, FileKind.AUDIO -> push(Route.MediaViewer(entry.path))
             FileKind.TEXT, FileKind.CODE -> push(Route.TextViewer(entry.path))
-            // No built-in viewer for these — hand off to an external app.
-            FileKind.PDF, FileKind.FONT -> com.snatik.storage.app.util.Intents.openWith(context, entry.path)
+            FileKind.FONT -> push(Route.FontViewer(entry.path))
+            // No built-in viewer — hand off to an external app.
+            FileKind.PDF -> com.snatik.storage.app.util.Intents.openWith(context, entry.path)
             else -> when {
                 entry.name.endsWith(".so") || entry.name.contains(".so.") -> push(Route.ElfViewer(entry.path))
                 entry.name.endsWith(".dex", ignoreCase = true) -> push(Route.Decompile(entry.path))
@@ -316,6 +317,7 @@ fun AppNavigation() {
                 CommandPaletteScreen(commands = commands, onBack = ::pop)
             }
             entry<Route.ElfViewer> { route -> ElfViewerScreen(path = route.path, onBack = ::pop, onViewAsHex = { push(Route.HexViewer(route.path)) }) }
+            entry<Route.FontViewer> { route -> com.snatik.storage.app.feature.viewer.FontViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.Intents> {
                 IntentsScreen(
                     onBack = ::pop,

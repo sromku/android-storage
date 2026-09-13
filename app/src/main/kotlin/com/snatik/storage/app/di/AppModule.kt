@@ -219,6 +219,7 @@ val appModule = module {
     viewModel { (packageName: String) -> com.snatik.storage.app.feature.apps.ArtViewModel(packageName, get(), get(), get()) }
     viewModelOf(::SystemViewModel)
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
+    viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.FontViewerViewModel(path, get(), androidContext()) }
     viewModelOf(::TimeMachineViewModel)
     viewModel { BenchmarkViewModel(androidContext(), get()) }
     viewModelOf(::PermissionFootprintViewModel)

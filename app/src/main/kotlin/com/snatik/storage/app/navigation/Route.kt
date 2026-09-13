@@ -164,6 +164,9 @@ sealed interface Route : NavKey {
     data class ElfViewer(val path: String) : Route
 
     @Serializable
+    data class FontViewer(val path: String) : Route
+
+    @Serializable
     data object TimeMachine : Route
 
     @Serializable
