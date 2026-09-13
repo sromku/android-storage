@@ -10,12 +10,14 @@ import com.snatik.storage.core.intents.IntentLog
 import com.snatik.storage.core.intents.IntentPreset
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.shell.PrivilegeManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class IntentsUiState(
     val sinkEnabled: Boolean = false,
@@ -24,6 +26,7 @@ data class IntentsUiState(
     val monitorActive: Int = 0,
     val monitorEvents: Int = 0,
     val shellAvailable: Boolean = false,
+    val appCount: Int = 0,
 )
 
 class IntentsViewModel(
@@ -36,8 +39,9 @@ class IntentsViewModel(
 
     private val sinkComponent = ComponentName(context, IntentSinkActivity::class.java)
     private val sinkEnabled = MutableStateFlow(isSinkEnabled())
+    private val appCount = MutableStateFlow(0)
 
-    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor) { values ->
+    val state: StateFlow<IntentsUiState> = combine(sinkEnabled, log.entries, presets.presets, monitor.active, monitor.events, privilege.executor, appCount) { values ->
         @Suppress("UNCHECKED_CAST")
         IntentsUiState(
             sinkEnabled = values[0] as Boolean,
@@ -46,11 +50,15 @@ class IntentsViewModel(
             monitorActive = (values[3] as Set<*>).size,
             monitorEvents = (values[4] as List<*>).size,
             shellAvailable = values[5] != null,
+            appCount = values[6] as Int,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IntentsUiState(sinkEnabled = sinkEnabled.value))
 
     init {
         viewModelScope.launch { log.load(); presets.load() }
+        viewModelScope.launch {
+            appCount.value = withContext(Dispatchers.IO) { context.packageManager.getInstalledApplications(0).size }
+        }
     }
 
     private fun isSinkEnabled(): Boolean =

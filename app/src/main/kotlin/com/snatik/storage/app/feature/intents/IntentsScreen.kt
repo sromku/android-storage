@@ -39,12 +39,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
+import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
 import org.koin.androidx.compose.koinViewModel
 
@@ -80,13 +82,19 @@ fun IntentsScreen(
                 }
             }
             item(key = "discover") {
-                FeatureCard(Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover) {
+                FeatureCard(
+                    Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover,
+                    trailing = { if (state.appCount > 0) Tag(pluralStringResource(R.plurals.intent_discover_apps, state.appCount, state.appCount), MaterialTheme.colorScheme.tertiary) },
+                ) {
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenDiscover) { Text(stringResource(R.string.open)) }
                 }
             }
             item(key = "examples") {
-                FeatureCard(Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples) {
+                FeatureCard(
+                    Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples,
+                    trailing = { Tag(pluralStringResource(R.plurals.intent_examples_count, IntentExamples.all.size, IntentExamples.all.size), MaterialTheme.colorScheme.tertiary) },
+                ) {
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenExamples) { Text(stringResource(R.string.open)) }
                 }
