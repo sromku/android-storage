@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -78,19 +77,24 @@ fun IntentsScreen(
         ) {
             item(key = "send") {
                 FeatureCard(Icons.AutoMirrored.Filled.Send, stringResource(R.string.intents_send_title), stringResource(R.string.intents_send_body), onClick = onOpenBuilder) {
-                    FilledTonalButton(onClick = onOpenBuilder) { Text(stringResource(R.string.intents_new)) }
+                    Text("", modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenBuilder) { Text(stringResource(R.string.intents_new)) }
                 }
             }
             item(key = "discover") {
-                FeatureCard(Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover) {
-                    if (state.appCount > 0) Tag(pluralStringResource(R.plurals.intent_discover_apps, state.appCount, state.appCount), MaterialTheme.colorScheme.tertiary)
+                FeatureCard(
+                    Icons.Default.TravelExplore, stringResource(R.string.intent_discover_title), stringResource(R.string.intent_discover_card_body), onClick = onOpenDiscover,
+                    trailing = { if (state.appCount > 0) Tag(pluralStringResource(R.plurals.intent_discover_apps, state.appCount, state.appCount), MaterialTheme.colorScheme.tertiary) },
+                ) {
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenDiscover) { Text(stringResource(R.string.open)) }
                 }
             }
             item(key = "examples") {
-                FeatureCard(Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples) {
-                    Tag(pluralStringResource(R.plurals.intent_examples_count, IntentExamples.all.size, IntentExamples.all.size), MaterialTheme.colorScheme.tertiary)
+                FeatureCard(
+                    Icons.Default.PlayArrow, stringResource(R.string.intent_examples_title), stringResource(R.string.intent_examples_body), onClick = onOpenExamples,
+                    trailing = { Tag(pluralStringResource(R.plurals.intent_examples_count, IntentExamples.all.size, IntentExamples.all.size), MaterialTheme.colorScheme.tertiary) },
+                ) {
                     Text("", modifier = Modifier.weight(1f))
                     TextButton(onClick = onOpenExamples) { Text(stringResource(R.string.open)) }
                 }
