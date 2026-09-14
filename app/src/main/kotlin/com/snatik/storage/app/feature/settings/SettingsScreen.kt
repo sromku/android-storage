@@ -139,20 +139,23 @@ private fun ExternalCollector(sink: com.snatik.storage.core.apps.ExternalSink, s
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = {
-                    testing = true
-                    scope.launch {
-                        val ok = sink.test().isSuccess
-                        testing = false
-                        snackbar.showSnackbar(if (ok) okMsg else failMsg)
-                    }
-                },
-                enabled = !testing && field.isNotBlank(),
-            ) { Text(stringResource(R.string.settings_collector_test)) }
-            Text(stringResource(R.string.settings_collector_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        }
+        Text(
+            stringResource(R.string.settings_collector_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(
+            onClick = {
+                testing = true
+                scope.launch {
+                    val ok = sink.test().isSuccess
+                    testing = false
+                    snackbar.showSnackbar(if (ok) okMsg else failMsg)
+                }
+            },
+            enabled = !testing && field.isNotBlank(),
+        ) { Text(stringResource(R.string.settings_collector_test)) }
     }
 }
 
