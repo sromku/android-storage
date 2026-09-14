@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -59,7 +58,9 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.EmptyState
+import com.snatik.storage.app.ui.components.FileKindIcon
 import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.core.fs.FsEntry
 import com.snatik.storage.app.util.readableSize
 import com.snatik.storage.app.util.relativeTime
 import com.snatik.storage.core.net.ServerState
@@ -75,7 +76,7 @@ class ReceiveViewModel(private val hub: TransferHub) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReceiveScreen(onBack: () -> Unit, onOpenInbox: (String) -> Unit, viewModel: ReceiveViewModel = koinViewModel()) {
+fun ReceiveScreen(onBack: () -> Unit, onOpenInbox: (String) -> Unit, onOpenFile: (String) -> Unit, viewModel: ReceiveViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -99,8 +100,15 @@ fun ReceiveScreen(onBack: () -> Unit, onOpenInbox: (String) -> Unit, viewModel: 
                 item { EmptyState(Icons.Default.Inbox, stringResource(R.string.receive_none), null, modifier = Modifier.padding(vertical = 8.dp)) }
             }
             items(state.received, key = { it.path }) { file ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                val entry = remember(file.path, file.size, file.time) {
+                    FsEntry(path = file.path, name = file.path.substringAfterLast('/'), isDirectory = false, size = file.size, lastModified = file.time, isHidden = false, isSymlink = false, canRead = true, canWrite = true, childCount = null)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenFile(file.path) }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    FileKindIcon(entry = entry, selected = false)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(file.path.substringAfterLast('/'), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(file.size.readableSize() + "  ·  " + stringResource(R.string.receive_from, file.from) + "  ·  " + file.time.relativeTime(context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
