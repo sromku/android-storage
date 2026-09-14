@@ -28,9 +28,13 @@ so the web tool can show connection status and live rows.
 import argparse
 import json
 import os
+import signal
 import socket
 import sqlite3
+import subprocess
+import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -38,6 +42,57 @@ _lock = threading.Lock()
 _seen_tables = set()
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+
+
+class ReuseServer(ThreadingHTTPServer):
+    # Reuse the address so a quick restart isn't blocked by TIME_WAIT.
+    allow_reuse_address = True
+
+
+def _pids_on_port(port):
+    """PIDs listening on TCP port (macOS/Linux via lsof). Empty if lsof is missing."""
+    try:
+        out = subprocess.check_output(
+            ["lsof", "-tiTCP:%d" % port, "-sTCP:LISTEN"],
+            text=True, stderr=subprocess.DEVNULL,
+        )
+        return [int(p) for p in out.split()]
+    except Exception:
+        return []
+
+
+def _is_collector(pid):
+    """True only if the process looks like another copy of this collector."""
+    try:
+        cmd = subprocess.check_output(["ps", "-p", str(pid), "-o", "command="], text=True)
+        return "collector.py" in cmd
+    except Exception:
+        return False
+
+
+def free_port_if_ours(port):
+    """Silently stop a stale collector holding the port, so a fresh run just works.
+    Only ever kills another collector.py — never an unrelated process."""
+    freed = False
+    for pid in _pids_on_port(port):
+        if pid == os.getpid() or not _is_collector(pid):
+            continue
+        print(f"Port {port} was held by a previous collector (pid {pid}) — restarting it.")
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.kill(pid, sig)
+            except ProcessLookupError:
+                break
+            for _ in range(20):
+                time.sleep(0.05)
+                if pid not in _pids_on_port(port):
+                    break
+            if pid not in _pids_on_port(port):
+                break
+        freed = True
+    if freed:
+        time.sleep(0.2)
+    return freed
 
 
 def lan_ip():
@@ -207,6 +262,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    try:
+        sys.stdout.reconfigure(line_buffering=True)  # show messages live, not on exit
+    except Exception:
+        pass
     default_db = os.path.join(WEB_DIR, "..", "collector-data", "monitor.db")
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8899)
@@ -218,9 +277,31 @@ def main():
     parent = os.path.dirname(os.path.abspath(args.db))
     if parent:
         os.makedirs(parent, exist_ok=True)
+
+    def bind():
+        return ReuseServer((args.host, args.port), Handler)
+
+    try:
+        server = bind()
+    except OSError as e:
+        if e.errno in (48, 98, 10048):  # EADDRINUSE on macOS / Linux / Windows
+            # Free the port automatically if a stale collector is holding it, then retry.
+            if free_port_if_ours(args.port):
+                try:
+                    server = bind()
+                except OSError:
+                    server = None
+            else:
+                server = None
+            if server is None:
+                print(f"Port {args.port} is in use by something that isn't a collector.")
+                print(f"  Stop it, or start this on another port:  --port {args.port + 1}")
+                raise SystemExit(1)
+        else:
+            raise
+
     db = sqlite3.connect(args.db, check_same_thread=False)
     db.execute("PRAGMA journal_mode=WAL")
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.db = db
     server.db_path = os.path.abspath(args.db)
     server.lan_ip = lan_ip()
