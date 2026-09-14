@@ -76,6 +76,15 @@
                 android:value="Developer tooling: receives subscribed system broadcasts in the background" />
         </service>
 
+        <service
+            android:name=".feature.dashboard.AppOpsRecorderService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: records the app-op access timeline from the system in the background" />
+        </service>
+
         <receiver
             android:name=".feature.history.PackageEventReceiver"
             android:exported="false">

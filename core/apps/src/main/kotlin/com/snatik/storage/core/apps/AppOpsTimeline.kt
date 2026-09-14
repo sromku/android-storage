@@ -19,9 +19,13 @@ data class AppOpAccess(
     val sensitive: Boolean,
     val state: AppOpState = AppOpState.UNKNOWN,
     val durationMs: Long? = null,
+    val denied: Boolean = false,   // a Reject: the app tried the op and was blocked
 ) {
     /** True when the app was not in the foreground — a background camera/mic/location hit is a red flag. */
     val background: Boolean get() = state == AppOpState.BACKGROUND
+
+    /** Stable identity of one access across repeated dumpsys polls, for de-duplication. */
+    val key: String get() = "$packageName|$op|$absTime|${if (denied) "r" else "a"}"
 }
 
 /** Device-wide sensitive-access timeline from a single `dumpsys appops` call. */
@@ -48,8 +52,9 @@ class AppOpsTimeline(private val context: Context, private val privilege: Privil
         )
         private val PACKAGE = Regex("""^Package (\S+):""")
         private val OP = Regex("""^([A-Z_]+) \(""")
-        // Access: [<uidstate>-<flag>] <date> <time> (-<rel>) [duration=+<dur>]
-        private val ACCESS = Regex("""Access: \[([^\]]*)] (\S+ \S+) \(-([0-9dhms]+)\)(?: duration=\+([0-9dhms]+))?""")
+        // Access:/Reject: [<uidstate>-<flag>] <date> <time> (-<rel>) [duration=+<dur>]
+        // (Reject lines have no space after the closing bracket, hence \s*.)
+        private val ACCESS = Regex("""(Access|Reject): \[([^\]]*)]\s*(\S+ \S+) \(-([0-9dhms]+)\)(?: duration=\+([0-9dhms]+))?""")
 
         /** Map the appops uid-state tag (before the `-`) to a coarse process state. */
         fun stateOf(tag: String): AppOpState = when (tag.substringBefore('-')) {
@@ -72,17 +77,18 @@ class AppOpsTimeline(private val context: Context, private val privilege: Privil
                 OP.find(t)?.let { op = it.groupValues[1] }
                 val access = ACCESS.find(t)
                 if (access != null && pkg != null && op != null) {
-                    val ago = AppWatchRepository.parseRelativeMs(access.groupValues[3]) ?: continue
-                    val duration = access.groupValues[4].takeIf { it.isNotEmpty() }?.let { AppWatchRepository.parseRelativeMs(it) }
+                    val ago = AppWatchRepository.parseRelativeMs(access.groupValues[4]) ?: continue
+                    val duration = access.groupValues[5].takeIf { it.isNotEmpty() }?.let { AppWatchRepository.parseRelativeMs(it) }
                     out += AppOpAccess(
                         packageName = pkg!!,
                         label = pkg!!,
                         op = op!!,
                         agoMs = ago,
-                        absTime = access.groupValues[2],
+                        absTime = access.groupValues[3],
                         sensitive = op!! in SENSITIVE,
-                        state = stateOf(access.groupValues[1]),
+                        state = stateOf(access.groupValues[2]),
                         durationMs = duration,
+                        denied = access.groupValues[1] == "Reject",
                     )
                 }
             }

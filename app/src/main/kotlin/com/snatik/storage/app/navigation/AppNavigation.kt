@@ -88,6 +88,7 @@ import com.snatik.storage.app.R
 const val NAV_TARGET_EXTRA = "nav_target"
 const val NAV_INTENT_MONITOR = "intent_monitor"
 const val NAV_BROADCAST_MONITOR = "broadcast_monitor"
+const val NAV_APPOPS_TIMELINE = "appops_timeline"
 
 @Composable
 fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
@@ -102,11 +103,14 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
         val target: Route? = when (navTarget) {
             NAV_INTENT_MONITOR -> Route.IntentMonitor
             NAV_BROADCAST_MONITOR -> Route.BroadcastMonitor
+            NAV_APPOPS_TIMELINE -> Route.AppOpsTimeline
             else -> null
         }
         if (target != null) {
             backStack.clear()
-            backStack.addAll(listOf(Route.Tools, Route.Intents, target))
+            val stack: List<Route> = if (target == Route.AppOpsTimeline) listOf(Route.Tools, target)
+            else listOf(Route.Tools, Route.Intents, target)
+            backStack.addAll(stack)
             onNavConsumed()
         }
     }

@@ -133,6 +133,8 @@ val appModule = module {
     single { com.snatik.storage.app.feature.network.NetworkPreferences(androidContext()) }
     single { DeviceStatsRepository(androidContext(), get()) }
     single { AppOpsTimeline(androidContext(), get()) }
+    single { com.snatik.storage.core.apps.AppOpsRecorderStore(androidContext()) }
+    single { com.snatik.storage.core.apps.ExternalSink(androidContext()) }
     single { PermissionMatrixRepository(androidContext()) }
     single { FileSearch(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
     single { ProviderWatcher(androidContext()) }
@@ -210,7 +212,7 @@ val appModule = module {
     viewModelOf(::NetworkViewModel)
     viewModelOf(::DashboardViewModel)
     viewModelOf(::PermissionMatrixViewModel)
-    viewModelOf(::AppOpsTimelineViewModel)
+    viewModel { AppOpsTimelineViewModel(androidContext(), get(), get(), get(), get()) }
     viewModelOf(::SearchViewModel)
     viewModelOf(::NotificationMonitorViewModel)
     viewModelOf(::ProviderWatchViewModel)

@@ -23,12 +23,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -37,8 +40,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,29 +67,90 @@ import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.theme.MonoStyle
+import android.content.Context
 import com.snatik.storage.core.apps.AppOpAccess
 import com.snatik.storage.core.apps.AppOpState
+import com.snatik.storage.core.apps.AppOpsRecorderStore
 import com.snatik.storage.core.apps.AppOpsTimeline
+import com.snatik.storage.core.apps.ExternalSink
 import com.snatik.storage.core.shell.PrivilegeManager
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
-class AppOpsTimelineViewModel(private val timeline: AppOpsTimeline, private val privilege: PrivilegeManager) : ViewModel() {
-    private val _entries = MutableStateFlow<List<AppOpAccess>?>(null)
-    val entries: StateFlow<List<AppOpAccess>?> = _entries.asStateFlow()
+/** Where the timeline reads from: a one-shot dumpsys snapshot, or the persisted recorder history. */
+enum class TimelineSource { LIVE, RECORDED }
+
+class AppOpsTimelineViewModel(
+    private val context: Context,
+    private val timeline: AppOpsTimeline,
+    val store: AppOpsRecorderStore,
+    val sink: ExternalSink,
+    private val privilege: PrivilegeManager,
+) : ViewModel() {
+
+    private val _live = MutableStateFlow<List<AppOpAccess>?>(null)
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    private val _source = MutableStateFlow(TimelineSource.LIVE)
+    val source: StateFlow<TimelineSource> = _source.asStateFlow()
+
+    val recording: StateFlow<Boolean> = store.running
+    val recordedCount: StateFlow<Int> = store.count.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    val oldest: StateFlow<Long?> = store.oldest.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The rows the screen shows, switched by [source]. Null = still loading the live snapshot. */
+    val entries: StateFlow<List<AppOpAccess>?> =
+        combine(_source, _live, store.recent) { src, live, recorded ->
+            if (src == TimelineSource.RECORDED) recorded else live
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val shell get() = privilege.executor.value != null
-    init { load() }
-    fun load() {
+
+    init {
+        loadLive()
+        // If a recording already holds data, open on it.
+        viewModelScope.launch {
+            if (store.snapshot(1).isNotEmpty()) _source.value = TimelineSource.RECORDED
+        }
+    }
+
+    fun loadLive() {
         viewModelScope.launch {
             _loading.value = true
-            _entries.value = timeline.recent()
+            _live.value = timeline.recent()
             _loading.value = false
         }
+    }
+
+    fun setSource(s: TimelineSource) {
+        _source.value = s
+        if (s == TimelineSource.LIVE && _live.value == null) loadLive()
+    }
+
+    fun refresh() {
+        if (_source.value == TimelineSource.LIVE) loadLive()
+        // recorded source is a live Room Flow — nothing to pull.
+    }
+
+    fun startRecording(capacity: Int, intervalSec: Int) {
+        store.setCapacity(capacity)
+        store.setInterval(intervalSec)
+        viewModelScope.launch { store.applyCapacity() }
+        AppOpsRecorderService.start(context)
+        _source.value = TimelineSource.RECORDED
+    }
+
+    fun stopRecording() = AppOpsRecorderService.stop(context)
+
+    fun clearRecording() {
+        viewModelScope.launch { store.clear() }
     }
 }
 
@@ -91,11 +159,17 @@ class AppOpsTimelineViewModel(private val timeline: AppOpsTimeline, private val 
 fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewModel: AppOpsTimelineViewModel = koinViewModel()) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val source by viewModel.source.collectAsStateWithLifecycle()
+    val recording by viewModel.recording.collectAsStateWithLifecycle()
+    val recordedCount by viewModel.recordedCount.collectAsStateWithLifecycle()
+    val oldest by viewModel.oldest.collectAsStateWithLifecycle()
     var sensitiveOnly by rememberSaveable { mutableStateOf(true) }
     var stateFilter by rememberSaveable { mutableStateOf<AppOpState?>(null) }
+    var deniedFilter by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
-    val filterActive = sensitiveOnly || stateFilter != null
+    var showRecord by rememberSaveable { mutableStateOf(false) }
+    val filterActive = sensitiveOnly || stateFilter != null || deniedFilter != null
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -104,9 +178,11 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                 title = { Text(stringResource(R.string.timeline_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
                 actions = {
-                    IconButton(onClick = { viewModel.load() }, enabled = !loading) {
-                        if (loading && entries != null) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.timeline_refresh))
+                    if (source == TimelineSource.LIVE) {
+                        IconButton(onClick = { viewModel.refresh() }, enabled = !loading) {
+                            if (loading && entries != null) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.timeline_refresh))
+                        }
                     }
                     IconButton(onClick = { showFilters = true }) {
                         Icon(Icons.Default.FilterAlt, contentDescription = stringResource(R.string.timeline_filter), tint = if (filterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -116,21 +192,36 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            val list = entries
-            when {
-                !viewModel.shell && list == null -> EmptyState(Icons.Default.Terminal, stringResource(R.string.timeline_needs_shell), null)
-                list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                else -> {
-                    val visible = remember(list, sensitiveOnly, stateFilter) {
-                        list.filter { (!sensitiveOnly || it.sensitive) && (stateFilter == null || it.state == stateFilter) }
-                    }
-                    if (visible.isEmpty()) {
-                        EmptyState(Icons.Default.FilterAlt, stringResource(R.string.timeline_empty), null)
-                    } else {
-                        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                            items(visible, key = { "${it.packageName}|${it.op}|${it.absTime}" }) { e ->
-                                Entry(e) { selectedKey = "${e.packageName}|${e.op}|${e.absTime}" }
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            SourceBar(
+                source = source,
+                recording = recording,
+                recordedCount = recordedCount,
+                oldest = oldest,
+                onSource = viewModel::setSource,
+                onRecordClick = { if (recording) viewModel.stopRecording() else showRecord = true },
+                onClear = viewModel::clearRecording,
+            )
+            HorizontalDivider()
+            Box(modifier = Modifier.fillMaxSize()) {
+                val list = entries
+                when {
+                    !viewModel.shell && list == null -> EmptyState(Icons.Default.Terminal, stringResource(R.string.timeline_needs_shell), null)
+                    source == TimelineSource.LIVE && list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    else -> {
+                        val visible = remember(list, sensitiveOnly, stateFilter, deniedFilter) {
+                            list.filter {
+                                (!sensitiveOnly || it.sensitive) &&
+                                    (stateFilter == null || it.state == stateFilter) &&
+                                    (deniedFilter == null || it.denied == deniedFilter)
+                            }
+                        }
+                        if (visible.isEmpty()) {
+                            EmptyState(Icons.Default.FilterAlt, stringResource(if (source == TimelineSource.RECORDED && recordedCount == 0) R.string.timeline_empty_recorded else R.string.timeline_empty), null)
+                        } else {
+                            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                                items(visible, key = { it.key }) { e -> Entry(e) { selectedKey = e.key } }
                             }
                         }
                     }
@@ -139,7 +230,7 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
         }
     }
 
-    val sel = selectedKey?.let { key -> entries?.firstOrNull { "${it.packageName}|${it.op}|${it.absTime}" == key } }
+    val sel = selectedKey?.let { key -> entries?.firstOrNull { it.key == key } }
     if (sel != null) {
         AccessDetailSheet(sel, onOpenApp = { onOpenApp(it) }, onDismiss = { selectedKey = null })
     }
@@ -147,12 +238,69 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
         FilterSheet(
             sensitiveOnly = sensitiveOnly,
             stateFilter = stateFilter,
+            deniedFilter = deniedFilter,
             onSensitiveChange = { sensitiveOnly = it },
             onStateChange = { stateFilter = it },
+            onDeniedChange = { deniedFilter = it },
             onDismiss = { showFilters = false },
         )
     }
+    if (showRecord) {
+        RecordSheet(
+            store = viewModel.store,
+            sink = viewModel.sink,
+            onStart = { cap, interval -> viewModel.startRecording(cap, interval); showRecord = false },
+            onDismiss = { showRecord = false },
+        )
+    }
     if (showHelp) TimelineHelpSheet(onDismiss = { showHelp = false })
+}
+
+@Composable
+private fun SourceBar(
+    source: TimelineSource,
+    recording: Boolean,
+    recordedCount: Int,
+    oldest: Long?,
+    onSource: (TimelineSource) -> Unit,
+    onRecordClick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Column {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+                SegmentedButton(selected = source == TimelineSource.LIVE, onClick = { onSource(TimelineSource.LIVE) }, shape = SegmentedButtonDefaults.itemShape(0, 2)) {
+                    Text(stringResource(R.string.timeline_source_live))
+                }
+                SegmentedButton(selected = source == TimelineSource.RECORDED, onClick = { onSource(TimelineSource.RECORDED) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) {
+                    Text(stringResource(R.string.timeline_source_recorded))
+                }
+            }
+            if (recording) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(50)))
+                    TextButton(onClick = onRecordClick) { Text(stringResource(R.string.recorder_stop)) }
+                }
+            } else {
+                FilledTonalButton(onClick = onRecordClick, contentPadding = PaddingValues(horizontal = 14.dp)) {
+                    Icon(Icons.Default.FiberManualRecord, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                    Text(stringResource(R.string.recorder_record), modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+        if (source == TimelineSource.RECORDED && recordedCount > 0) {
+            Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                val since = oldest?.let { humanAgo((System.currentTimeMillis() - it).coerceAtLeast(0)) }
+                Text(
+                    if (since != null) stringResource(R.string.timeline_recorded_stats, recordedCount, since) else stringResource(R.string.timeline_recorded_count, recordedCount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onClear) { Text(stringResource(R.string.timeline_clear), color = MaterialTheme.colorScheme.error) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -166,6 +314,13 @@ private fun Entry(e: AppOpAccess, onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(e.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (e.denied) {
+                    Text(
+                        stringResource(R.string.timeline_result_denied),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.background(MaterialTheme.colorScheme.error.copy(alpha = 0.14f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
                 OpTag(e)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -260,8 +415,10 @@ private fun DetailRow(label: String, value: String, valueColor: Color = Material
 private fun FilterSheet(
     sensitiveOnly: Boolean,
     stateFilter: AppOpState?,
+    deniedFilter: Boolean?,
     onSensitiveChange: (Boolean) -> Unit,
     onStateChange: (AppOpState?) -> Unit,
+    onDeniedChange: (Boolean?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -288,9 +445,73 @@ private fun FilterSheet(
                 StateChip(stringResource(R.string.timeline_state_fgservice), stateFilter == AppOpState.FOREGROUND_SERVICE) { onStateChange(AppOpState.FOREGROUND_SERVICE) }
                 StateChip(stringResource(R.string.timeline_state_system), stateFilter == AppOpState.PERSISTENT) { onStateChange(AppOpState.PERSISTENT) }
             }
+
+            HorizontalDivider()
+
+            // Result: allowed vs denied
+            Text(stringResource(R.string.timeline_filter_result), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                StateChip(stringResource(R.string.timeline_filter_any), deniedFilter == null) { onDeniedChange(null) }
+                StateChip(stringResource(R.string.timeline_result_allowed), deniedFilter == false) { onDeniedChange(false) }
+                StateChip(stringResource(R.string.timeline_result_denied), deniedFilter == true, MaterialTheme.colorScheme.error) { onDeniedChange(true) }
+            }
             Spacer(Modifier.size(4.dp))
         }
     }
+}
+
+/* ---------- Record start sheet ---------- */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecordSheet(store: AppOpsRecorderStore, sink: ExternalSink, onStart: (Int, Int) -> Unit, onDismiss: () -> Unit) {
+    val savedCap by store.capacity.collectAsStateWithLifecycle()
+    val savedInterval by store.intervalSec.collectAsStateWithLifecycle()
+    val sinkOn by sink.enabledFlow.collectAsStateWithLifecycle()
+    val sinkUrl by sink.url.collectAsStateWithLifecycle()
+    var cap by remember { mutableStateOf(savedCap) }
+    var interval by remember { mutableStateOf(savedInterval) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(stringResource(R.string.recorder_start_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.recorder_start_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Text(stringResource(R.string.recorder_interval), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                AppOpsRecorderStore.INTERVALS.forEachIndexed { i, sec ->
+                    SegmentedButton(selected = interval == sec, onClick = { interval = sec }, shape = SegmentedButtonDefaults.itemShape(i, AppOpsRecorderStore.INTERVALS.size)) {
+                        Text(humanInterval(sec))
+                    }
+                }
+            }
+
+            Text(stringResource(R.string.recorder_capacity), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                AppOpsRecorderStore.CAPACITIES.forEachIndexed { i, c ->
+                    SegmentedButton(selected = cap == c, onClick = { cap = c }, shape = SegmentedButtonDefaults.itemShape(i, AppOpsRecorderStore.CAPACITIES.size)) {
+                        Text("%,d".format(c))
+                    }
+                }
+            }
+            Text(
+                if (sinkOn) stringResource(R.string.recorder_sink_on, sinkUrl) else stringResource(R.string.recorder_sink_off),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (sinkOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(onClick = { onStart(cap, interval) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.FiberManualRecord, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
+                Text(stringResource(R.string.recorder_start_button), modifier = Modifier.padding(start = 6.dp))
+            }
+            Spacer(Modifier.size(4.dp))
+        }
+    }
+}
+
+private fun humanInterval(sec: Int): String = when {
+    sec < 60 -> "${sec}s"
+    sec % 60 == 0 -> "${sec / 60}m"
+    else -> "${sec}s"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
