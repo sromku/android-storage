@@ -7,10 +7,12 @@ import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -207,14 +210,20 @@ fun CaptureScreen(
                 if (RecordSource.LOGCAT in form.sources) {
                     Column(modifier = Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!state.shellAvailable) Text(stringResource(R.string.logcat_needs_shell), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        Row(modifier = Modifier.fillMaxWidth().clickable { showAppPicker = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.logcat_scope_title), style = MaterialTheme.typography.bodyLarge)
-                                val summary = if (form.logcatPackages.isEmpty()) stringResource(R.string.logcat_scope_all)
-                                else form.logcatPackages.joinToString(", ") { pkg -> apps.firstOrNull { it.packageName == pkg }?.label ?: pkg.substringAfterLast('.') }
-                                Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column(modifier = Modifier.fillMaxWidth().clickable { showAppPicker = true }.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(stringResource(R.string.logcat_scope_title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
-                            Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            if (form.logcatPackages.isEmpty()) {
+                                Text(stringResource(R.string.logcat_scope_all), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    form.logcatPackages.forEach { pkg ->
+                                        AppChip(pkg, apps.firstOrNull { it.packageName == pkg }?.label ?: pkg.substringAfterLast('.'))
+                                    }
+                                }
+                            }
                         }
                         OutlinedTextField(value = form.logcatFilter, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatFilter = it)) }, label = { Text(stringResource(R.string.logcat_filter)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
                     }
@@ -362,6 +371,19 @@ private fun FolderPickerSheet(start: String, onPick: (String) -> Unit, onDismiss
                 Button(onClick = { onPick(dir.absolutePath) }) { Text(stringResource(R.string.folder_picker_use)) }
             }
         }
+    }
+}
+
+/** A tiny app pill (icon + label) for the selected logcat-scope apps. */
+@Composable
+private fun AppChip(packageName: String, label: String) {
+    Row(
+        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(50)).padding(start = 4.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        AppIcon(packageName, size = 16.dp)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
     }
 }
 
