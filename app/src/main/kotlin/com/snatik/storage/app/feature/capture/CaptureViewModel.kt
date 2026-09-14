@@ -47,6 +47,9 @@ data class RecordingForm(
 /** A pickable installed app, for the recording form's app scope. */
 data class AppPick(val packageName: String, val label: String)
 
+/** An in-progress snapshot rename. */
+data class SnapshotRename(val id: Long, val text: String)
+
 data class CaptureUiState(
     val active: RecordingEntity? = null,
     val liveCount: Int = 0,
@@ -57,6 +60,7 @@ data class CaptureUiState(
     val snapshotProgress: SnapshotEvent.Progress? = null,
     val snapshotRunning: Boolean = false,
     val recordingForm: RecordingForm? = null,
+    val renameSnapshot: SnapshotRename? = null,
 )
 
 class CaptureViewModel(
@@ -81,6 +85,7 @@ class CaptureViewModel(
         val snapshotProgress: SnapshotEvent.Progress? = null,
         val snapshotRunning: Boolean = false,
         val recordingForm: RecordingForm? = null,
+        val renameSnapshot: SnapshotRename? = null,
     )
 
     private val local = MutableStateFlow(Local(snapshotForm = route.newSnapshotPath?.let { SnapshotForm(path = it, label = it.substringAfterLast('/')) }))
@@ -98,6 +103,7 @@ class CaptureViewModel(
             snapshotProgress = l.snapshotProgress,
             snapshotRunning = l.snapshotRunning,
             recordingForm = l.recordingForm,
+            renameSnapshot = l.renameSnapshot,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CaptureUiState())
 
@@ -128,6 +134,16 @@ class CaptureViewModel(
     }
 
     fun deleteSnapshot(id: Long) = viewModelScope.launch { snapshots.delete(id) }
+
+    fun startRenameSnapshot(snap: SnapshotEntity) = local.update { it.copy(renameSnapshot = SnapshotRename(snap.id, snap.label)) }
+    fun updateRenameText(text: String) = local.update { it.copy(renameSnapshot = it.renameSnapshot?.copy(text = text)) }
+    fun cancelRenameSnapshot() = local.update { it.copy(renameSnapshot = null) }
+    fun confirmRenameSnapshot() {
+        val r = local.value.renameSnapshot ?: return
+        if (r.text.isBlank()) return
+        local.update { it.copy(renameSnapshot = null) }
+        viewModelScope.launch { snapshots.rename(r.id, r.text.trim()) }
+    }
 
     // Recordings
 

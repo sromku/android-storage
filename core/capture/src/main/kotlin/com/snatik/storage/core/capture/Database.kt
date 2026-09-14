@@ -66,6 +66,7 @@ interface SnapshotDao {
     @Insert suspend fun insertFiles(files: List<SnapshotFileEntity>)
     @Query("SELECT * FROM snapshots ORDER BY createdAt DESC") fun snapshots(): Flow<List<SnapshotEntity>>
     @Query("SELECT * FROM snapshots WHERE id = :id") suspend fun snapshot(id: Long): SnapshotEntity?
+    @Query("UPDATE snapshots SET label = :label WHERE id = :id") suspend fun rename(id: Long, label: String)
     @Query("SELECT * FROM snapshot_files WHERE snapshotId = :id ORDER BY path") suspend fun files(id: Long): List<SnapshotFileEntity>
     @Query("DELETE FROM snapshot_files WHERE snapshotId = :id") suspend fun deleteFiles(id: Long)
     @Query("DELETE FROM snapshots WHERE id = :id") suspend fun delete(id: Long)

@@ -722,6 +722,7 @@
     <string name="snapshot_copies_desc">Store the file contents with the snapshot, so comparing two snapshots can show a line-by-line diff of what changed inside text files. Uses more storage.</string>
     <string name="snapshot_progress">%1$d files · %2$s</string>
     <string name="snapshot_summary">%1$d files · %2$s</string>
+    <string name="snapshot_rename_title">Rename snapshot</string>
     <string name="snapshot_none">No snapshots yet</string>
     <string name="snapshot_none_hint">Freeze a folder now, change something, snapshot again and compare.</string>
     <string name="recording_none">No recordings yet</string>

@@ -6,7 +6,9 @@ import android.os.Build
 import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -147,7 +150,7 @@ fun CaptureScreen(
                 item { EmptyState(Icons.Default.CameraAlt, stringResource(R.string.snapshot_none), stringResource(R.string.snapshot_none_hint), modifier = Modifier.padding(vertical = 8.dp)) }
             }
             items(state.snapshots, key = { "s:" + it.id }) { snap ->
-                SnapshotRow(snap, onClick = { onOpenSnapshot(snap.id) }, onDelete = { viewModel.deleteSnapshot(snap.id) })
+                SnapshotRow(snap, onClick = { onOpenSnapshot(snap.id) }, onLongPress = { viewModel.startRenameSnapshot(snap) }, onDelete = { viewModel.deleteSnapshot(snap.id) })
             }
             item(key = "recordings-header") {
                 Text(stringResource(R.string.section_recordings), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp))
@@ -272,6 +275,24 @@ fun CaptureScreen(
             onDismiss = { showFolderPicker = false },
         )
     }
+
+    state.renameSnapshot?.let { rename ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelRenameSnapshot,
+            title = { Text(stringResource(R.string.snapshot_rename_title)) },
+            text = {
+                OutlinedTextField(
+                    value = rename.text,
+                    onValueChange = viewModel::updateRenameText,
+                    label = { Text(stringResource(R.string.snapshot_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = { TextButton(onClick = viewModel::confirmRenameSnapshot, enabled = rename.text.isNotBlank()) { Text(stringResource(R.string.save)) } },
+            dismissButton = { TextButton(onClick = viewModel::cancelRenameSnapshot) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 }
 
 private fun Set<RecordSource>.toggle(source: RecordSource, on: Boolean) = if (on) this + source else this - source
@@ -385,10 +406,11 @@ private fun RecordingCard(state: CaptureUiState, onStart: () -> Unit, onStop: ()
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SnapshotRow(snap: SnapshotEntity, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun SnapshotRow(snap: SnapshotEntity, onClick: () -> Unit, onLongPress: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
-    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongPress).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

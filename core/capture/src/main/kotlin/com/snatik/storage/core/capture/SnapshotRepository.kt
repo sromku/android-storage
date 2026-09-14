@@ -75,6 +75,7 @@ class SnapshotRepository(private val context: Context, private val fs: FileSyste
     }.flowOn(Dispatchers.IO)
 
     suspend fun snapshot(id: Long): SnapshotEntity? = db.snapshots().snapshot(id)
+    suspend fun rename(id: Long, label: String) = withContext(Dispatchers.IO) { db.snapshots().rename(id, label) }
     suspend fun files(id: Long): List<SnapshotFileEntity> = db.snapshots().files(id)
 
     suspend fun delete(id: Long) = withContext(Dispatchers.IO) {
