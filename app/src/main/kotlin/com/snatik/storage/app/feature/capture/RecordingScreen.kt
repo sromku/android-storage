@@ -207,14 +207,14 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
                     else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                         items(visible, key = { it.id }) { e ->
                             Row(
-                                modifier = Modifier.fillMaxWidth().horizontalScroll(hScroll).padding(horizontal = 16.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(hScroll).padding(horizontal = 16.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.Top,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 Text(timeFormat.format(Date(e.time)), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.width(TIME_W))
                                 Box(modifier = Modifier.width(SRC_W)) { Tag(e.source.lowercase(), sourceColor(e.source)) }
                                 Text(e.tag.orEmpty(), style = MonoStyle.copy(color = MaterialTheme.colorScheme.primary), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(TAG_W))
-                                Text(e.text, style = MonoStyle, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = MSG_W))
+                                Text(e.text, style = MonoStyle, maxLines = 8, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(MSG_W))
                             }
                         }
                     }
@@ -227,7 +227,7 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
 private val TIME_W = 108.dp
 private val SRC_W = 96.dp
 private val TAG_W = 148.dp
-private val MSG_W = 240.dp
+private val MSG_W = 340.dp
 
 @Composable
 private fun HeaderCell(label: String, width: androidx.compose.ui.unit.Dp) {
