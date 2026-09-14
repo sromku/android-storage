@@ -20,6 +20,10 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,7 +38,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,6 +113,13 @@ fun ReceiveScreen(onBack: () -> Unit, onOpenInbox: (String) -> Unit, viewModel: 
 
 @Composable
 private fun ServerCard(state: ServerState, onStart: () -> Unit, onStop: () -> Unit, onNewCode: () -> Unit) {
+    val context = LocalContext.current
+    val copiedLabel = stringResource(R.string.copied)
+    val copy: (String) -> Unit = { text ->
+        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+        clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("", text))
+        android.widget.Toast.makeText(context, copiedLabel, android.widget.Toast.LENGTH_SHORT).show()
+    }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -119,10 +132,14 @@ private fun ServerCard(state: ServerState, onStart: () -> Unit, onStop: () -> Un
                 val url = state.urls.firstOrNull()
                 if (url != null) {
                     Text(stringResource(R.string.receive_open_url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SelectionContainer { Text(url, style = MonoStyle.copy(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)) }
+                    CopyRow(url, copy)
                     val qr = remember(url) { qrBitmap(url, 512) }
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Image(bitmap = qr.asImageBitmap(), contentDescription = url, modifier = Modifier.size(200.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp))
+                    }
+                    if (state.urls.size > 1) {
+                        Text(stringResource(R.string.receive_other), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                        state.urls.drop(1).forEach { alt -> CopyRow(alt, copy) }
                     }
                 } else {
                     Text(stringResource(R.string.receive_no_network, state.port), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
@@ -134,7 +151,43 @@ private fun ServerCard(state: ServerState, onStart: () -> Unit, onStop: () -> Un
                     }
                     TextButton(onClick = onNewCode) { Text(stringResource(R.string.receive_new_code)) }
                 }
+
+                var showHelp by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { showHelp = !showHelp }.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Default.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.receive_help_toggle), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    Icon(if (showHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (showHelp) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stringResource(R.string.receive_help_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.receive_help_step1), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        CopyRow("adb forward tcp:${state.port} tcp:${state.port}", copy)
+                        Text(stringResource(R.string.receive_help_step2), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        CopyRow("http://localhost:${state.port}/?code=${state.code}", copy)
+                    }
+                }
             }
+        }
+    }
+}
+
+/** A mono line with a copy button, for URLs and commands. */
+@Composable
+private fun CopyRow(text: String, onCopy: (String) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SelectionContainer(modifier = Modifier.weight(1f)) {
+            Text(text, style = MonoStyle.copy(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+        }
+        IconButton(onClick = { onCopy(text) }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.copy), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
     }
 }

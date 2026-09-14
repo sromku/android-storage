@@ -820,6 +820,12 @@
     <string name="receive_new_code">New code</string>
     <string name="receive_open_url">Open this address in a browser on the same Wi‑Fi, or scan the code.</string>
     <string name="receive_no_network">No Wi‑Fi address found. Connect to a network, or use adb forward tcp:%1$d tcp:%1$d for localhost.</string>
+    <string name="receive_other">Other addresses to try</string>
+    <string name="receive_help_toggle">Page won\'t load?</string>
+    <string name="receive_help_body">Many networks — guest Wi‑Fi, work networks and some routers — block devices from connecting to each other, even on the same Wi‑Fi. Ping may work while the page still won\'t load. If so, connect over USB instead:</string>
+    <string name="receive_help_step1">1 · On your computer, run:</string>
+    <string name="receive_help_step2">2 · Then open in your browser:</string>
+    <string name="copied">Copied</string>
     <string name="receive_inbox">Received files</string>
     <string name="receive_open_inbox">Open folder</string>
     <string name="receive_none">Nothing received yet</string>
