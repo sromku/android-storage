@@ -664,6 +664,7 @@
     <string name="deeplink_examples_count">%1$d example links</string>
     <string name="deeplink_examples_root">Bare scheme — add the rest yourself</string>
     <string name="deeplink_examples_error">Couldn\'t read the app\'s code: %1$s</string>
+    <string name="deeplink_scheme_pick">Handled by %1$d apps — pick which one to read</string>
 
     <string name="tab_capture">Capture</string>
     <string name="snapshot_folder">Snapshot this folder</string>

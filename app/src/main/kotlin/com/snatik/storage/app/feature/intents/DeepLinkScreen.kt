@@ -2,6 +2,7 @@ package com.snatik.storage.app.feature.intents
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -159,24 +160,28 @@ class DeepLinkViewModel(
     }
 
     fun loadSchemeExamples(scheme: String, packageName: String) {
-        val current = _schemeExamples.value[scheme]
+        val key = schemeKey(scheme, packageName)
+        val current = _schemeExamples.value[key]
         if (current?.loading == true || current?.examples != null) return
         viewModelScope.launch {
-            _schemeExamples.update { it + (scheme to SchemeExamplesUi(loading = true)) }
+            _schemeExamples.update { it + (key to SchemeExamplesUi(loading = true)) }
             val shell = privilege.executor.value
             if (shell == null) {
-                _schemeExamples.update { it + (scheme to SchemeExamplesUi(error = "no-shell")) }
+                _schemeExamples.update { it + (key to SchemeExamplesUi(error = "no-shell")) }
                 return@launch
             }
             try {
                 val examples = catalog.schemeExamples(shell, packageName, scheme)
-                _schemeExamples.update { it + (scheme to SchemeExamplesUi(examples = examples)) }
+                _schemeExamples.update { it + (key to SchemeExamplesUi(examples = examples)) }
             } catch (e: Exception) {
-                _schemeExamples.update { it + (scheme to SchemeExamplesUi(error = e.message ?: e.toString())) }
+                _schemeExamples.update { it + (key to SchemeExamplesUi(error = e.message ?: e.toString())) }
             }
         }
     }
 }
+
+/** Cache key for mined examples: a scheme's URIs differ per handling app. */
+private fun schemeKey(scheme: String, packageName: String) = scheme + "/" + packageName
 
 private enum class DeepLinkMode { COMPOSE, DISCOVER }
 
@@ -352,8 +357,8 @@ private fun Discover(
     selectedScheme?.let { scheme ->
         SchemeExamplesSheet(
             scheme = scheme,
-            examples = schemeExamples[scheme.scheme],
-            onLoad = { onLoadSchemeExamples(scheme.scheme, scheme.packages.first()) },
+            schemeExamples = schemeExamples,
+            onLoad = { p -> onLoadSchemeExamples(scheme.scheme, p) },
             onPick = { url -> selectedScheme = null; onPick(url) },
             onDismiss = { selectedScheme = null },
         )
@@ -364,13 +369,14 @@ private fun Discover(
 @Composable
 private fun SchemeExamplesSheet(
     scheme: SchemeLink,
-    examples: SchemeExamplesUi?,
-    onLoad: () -> Unit,
+    schemeExamples: Map<String, SchemeExamplesUi>,
+    onLoad: (String) -> Unit,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    LaunchedEffect(scheme.scheme) { onLoad() }
-    val pkg = scheme.packages.first()
+    var pkg by remember(scheme.scheme) { mutableStateOf(scheme.packages.first()) }
+    LaunchedEffect(scheme.scheme, pkg) { onLoad(pkg) }
+    val examples = schemeExamples[schemeKey(scheme.scheme, pkg)]
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
@@ -380,7 +386,25 @@ private fun SchemeExamplesSheet(
                 AppIcon(pkg, size = 40.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(scheme.scheme + "://", style = MaterialTheme.typography.titleLarge)
-                    Text(appLabel(pkg) + (if (scheme.packages.size > 1) "  ·  " + stringResource(R.string.deeplink_scheme_apps, scheme.packages.size) else ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(appLabel(pkg), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (scheme.packages.size > 1) {
+                Text(stringResource(R.string.deeplink_scheme_pick, scheme.packages.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    scheme.packages.forEach { candidate ->
+                        val selected = candidate == pkg
+                        Surface(
+                            onClick = { pkg = candidate },
+                            color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                AppIcon(candidate, size = 22.dp)
+                                Text(appLabel(candidate), style = MaterialTheme.typography.labelLarge, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                            }
+                        }
+                    }
                 }
             }
             ExampleRow(scheme.scheme + "://", stringResource(R.string.deeplink_examples_root)) { onPick(scheme.scheme + "://") }
