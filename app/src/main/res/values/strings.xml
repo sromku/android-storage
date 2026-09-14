@@ -311,6 +311,10 @@
     <string name="perm_scope_hint">Off by default — only apps you can manage are counted.</string>
     <string name="perm_granted_of">granted</string>
     <string name="perm_toggle_hint">Flip the switch to grant or revoke this permission for each app.</string>
+    <string name="perm_state_granted">Granted</string>
+    <string name="perm_state_requested">Requested, not granted</string>
+    <string name="perm_cell_open_app">Open %1$s</string>
+    <string name="perm_cell_all_apps">See all %1$d apps requesting this</string>
     <string name="perm_help">About these badges</string>
     <string name="perm_help_scope_title">What you\'re looking at</string>
     <string name="perm_help_scope_body">%1$d apps declare %2$d distinct permissions between them. By default only apps you can see and manage are shown — turn on system apps to include the platform\'s own.</string>

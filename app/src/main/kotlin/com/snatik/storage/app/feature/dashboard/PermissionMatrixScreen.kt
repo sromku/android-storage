@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Search
@@ -188,6 +189,8 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
     // Saveable so the open sheet is restored when returning from an app screen.
     var detailPerm by rememberSaveable { mutableStateOf<String?>(null) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+    var cellApp by rememberSaveable { mutableStateOf<String?>(null) }
+    var cellPerm by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -235,7 +238,7 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else when (ui.view) {
                 PermView.OVERVIEW -> OverviewView(data, ui, viewModel, onOpenPerm = { detailPerm = it }, onOpenApp = onOpenApp)
-                PermView.MATRIX -> MatrixView(data, ui, viewModel, onOpenApp = onOpenApp, onOpenPerm = { detailPerm = it })
+                PermView.MATRIX -> MatrixView(data, ui, viewModel, onOpenApp = onOpenApp, onOpenPerm = { detailPerm = it }, onOpenCell = { pkg, perm -> cellApp = pkg; cellPerm = perm })
                 PermView.PERMS -> PermsView(data, ui, viewModel, onOpenPerm = { detailPerm = it })
                 PermView.APPS -> AppsView(data, ui, viewModel, onOpenApp = onOpenApp, onOpenPerm = { detailPerm = it })
                 PermView.GROUPS -> GroupsView(data, onOpenApp = onOpenApp)
@@ -250,6 +253,20 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
             onOpenApp = { onOpenApp(it) }, // keep the sheet so it's here on the way back
             onToggle = { app, perm, grant -> viewModel.setGranted(app.packageName, perm.name, grant) { onGrantResult(perm.short, app.label, it) } },
             onDismiss = { detailPerm = null },
+        )
+    }
+
+    val cp = cellPerm
+    val ca = cellApp
+    if (cp != null && ca != null) {
+        MatrixCellSheet(
+            pkg = ca,
+            permName = cp,
+            ui = ui,
+            onOpenApp = { onOpenApp(it) }, // keep the sheet for the way back
+            onOpenPerm = { cellApp = null; cellPerm = null; detailPerm = it },
+            onToggle = { app, perm, grant -> viewModel.setGranted(app.packageName, perm.name, grant) { onGrantResult(perm.short, app.label, it) } },
+            onDismiss = { cellApp = null; cellPerm = null },
         )
     }
 
@@ -427,7 +444,7 @@ private fun AppSummaryRow(app: PermApp, data: PermissionData, onClick: () -> Uni
 /* ---------- Matrix ---------- */
 
 @Composable
-private fun MatrixView(data: PermissionData, ui: PermUiState, viewModel: PermissionMatrixViewModel, onOpenApp: (String) -> Unit, onOpenPerm: (String) -> Unit) {
+private fun MatrixView(data: PermissionData, ui: PermUiState, viewModel: PermissionMatrixViewModel, onOpenApp: (String) -> Unit, onOpenPerm: (String) -> Unit, onOpenCell: (String, String) -> Unit) {
     FilterRow(ui, viewModel)
     SearchField(ui, viewModel)
     val cols = remember(data, ui.filters) {
@@ -459,8 +476,8 @@ private fun MatrixView(data: PermissionData, ui: PermUiState, viewModel: Permiss
         HorizontalDivider()
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             items(rows, key = { it.packageName }) { app ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onOpenApp(app.packageName) }) {
-                    Row(modifier = Modifier.width(nameW).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.width(nameW).clickable { onOpenApp(app.packageName) }.padding(start = 8.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         AppIcon(app.packageName, size = 22.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(app.label, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -468,8 +485,13 @@ private fun MatrixView(data: PermissionData, ui: PermUiState, viewModel: Permiss
                     Row(modifier = Modifier.horizontalScroll(horizontal)) {
                         cols.forEach { p ->
                             val c = categoryColor(p.category)
-                            val color = when { p.name in app.granted -> c; p.name in app.requested -> c.copy(alpha = 0.22f); else -> Color.Transparent }
-                            Box(modifier = Modifier.width(cell).height(28.dp).padding(1.dp).background(color, RoundedCornerShape(4.dp)))
+                            val requested = p.name in app.requested
+                            val color = when { p.name in app.granted -> c; requested -> c.copy(alpha = 0.22f); else -> Color.Transparent }
+                            Box(
+                                modifier = Modifier.width(cell).height(28.dp).padding(1.dp)
+                                    .background(color, RoundedCornerShape(4.dp))
+                                    .let { if (requested) it.clickable { onOpenCell(app.packageName, p.name) } else it },
+                            )
                         }
                     }
                 }
@@ -660,6 +682,83 @@ private fun PermDetailSheet(
                 }
             }
         }
+    }
+}
+
+/* ---------- Matrix cell sheet (one app × one permission) ---------- */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MatrixCellSheet(
+    pkg: String,
+    permName: String,
+    ui: PermUiState,
+    onOpenApp: (String) -> Unit,
+    onOpenPerm: (String) -> Unit,
+    onToggle: (PermApp, PermInfo, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val data = ui.data ?: return
+    val perm = data.perms[permName] ?: return
+    val app = data.apps.find { it.packageName == pkg } ?: return
+    val granted = permName in app.granted
+    val busy = "$pkg|$permName" in ui.busy
+    val toggleable = perm.category == PermCategory.DANGEROUS
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // App header
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(app.packageName, size = 40.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(app.packageName, style = MonoStyle.copy(fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                }
+            }
+            HorizontalDivider()
+
+            // Permission + grant control
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.width(3.dp).height(34.dp).background(categoryColor(perm.category), RoundedCornerShape(2.dp)))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(perm.short, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    perm.label?.takeIf { it != perm.short }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                Box(modifier = Modifier.size(width = 52.dp, height = 32.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        toggleable && ui.privileged -> Switch(checked = granted, enabled = !busy, onCheckedChange = { onToggle(app, perm, it) })
+                        busy -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        granted -> Icon(Icons.Default.Check, contentDescription = null, tint = categoryColor(perm.category), modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            SelectionContainer { Text(perm.name, style = MonoStyle.copy(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CountBadge(categoryLabel(perm.category), categoryColor(perm.category))
+                if (perm.custom) CountBadge(stringResource(R.string.perm_cat_custom), MaterialTheme.colorScheme.primary)
+                perm.group?.let { CountBadge(GROUP_LABELS[it] ?: it.lowercase(), MaterialTheme.colorScheme.onSurfaceVariant) }
+                CountBadge(if (granted) stringResource(R.string.perm_state_granted) else stringResource(R.string.perm_state_requested), if (granted) categoryColor(perm.category) else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (toggleable && !ui.privileged) {
+                Text(stringResource(R.string.perm_grant_needs_shell), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            HorizontalDivider()
+
+            // Actions
+            CellAction(stringResource(R.string.perm_cell_open_app, app.label)) { onOpenApp(app.packageName) }
+            CellAction(stringResource(R.string.perm_cell_all_apps, perm.requestedBy)) { onOpenPerm(perm.name) }
+            Spacer(Modifier.height(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun CellAction(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
 }
 
