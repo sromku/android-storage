@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,12 +27,10 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -37,12 +38,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -139,71 +143,90 @@ fun CaptureScreen(
     }
 
     state.snapshotForm?.let { form ->
-        AlertDialog(
-            onDismissRequest = viewModel::closeSnapshotForm,
-            title = { Text(stringResource(R.string.snapshot_new)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = form.path, onValueChange = { viewModel.updateSnapshotForm(form.copy(path = it)) }, label = { Text(stringResource(R.string.snapshot_path)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = form.label, onValueChange = { viewModel.updateSnapshotForm(form.copy(label = it)) }, label = { Text(stringResource(R.string.snapshot_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    CheckRow(stringResource(R.string.snapshot_hash), form.hash) { viewModel.updateSnapshotForm(form.copy(hash = it)) }
-                    CheckRow(stringResource(R.string.snapshot_copies), form.keepCopies) { viewModel.updateSnapshotForm(form.copy(keepCopies = it)) }
+        ModalBottomSheet(onDismissRequest = viewModel::closeSnapshotForm, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(
+                modifier = Modifier.navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(stringResource(R.string.snapshot_new), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.snapshot_sheet_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(value = form.path, onValueChange = { viewModel.updateSnapshotForm(form.copy(path = it)) }, label = { Text(stringResource(R.string.snapshot_path)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = form.label, onValueChange = { viewModel.updateSnapshotForm(form.copy(label = it)) }, label = { Text(stringResource(R.string.snapshot_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OptionRow(stringResource(R.string.snapshot_hash_label), stringResource(R.string.snapshot_hash_desc), form.hash) { viewModel.updateSnapshotForm(form.copy(hash = it)) }
+                OptionRow(stringResource(R.string.snapshot_copies_label), stringResource(R.string.snapshot_copies_desc), form.keepCopies) { viewModel.updateSnapshotForm(form.copy(keepCopies = it)) }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = viewModel::closeSnapshotForm) { Text(stringResource(R.string.cancel)) }
+                    Button(onClick = viewModel::createSnapshot, enabled = form.path.isNotBlank()) { Text(stringResource(R.string.create)) }
                 }
-            },
-            confirmButton = { TextButton(onClick = viewModel::createSnapshot, enabled = form.path.isNotBlank()) { Text(stringResource(R.string.create)) } },
-            dismissButton = { TextButton(onClick = viewModel::closeSnapshotForm) { Text(stringResource(R.string.cancel)) } },
-        )
+            }
+        }
     }
 
     state.recordingForm?.let { form ->
-        AlertDialog(
-            onDismissRequest = viewModel::closeRecordingForm,
-            title = { Text(stringResource(R.string.recording_start)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    OutlinedTextField(value = form.name, onValueChange = { viewModel.updateRecordingForm(form.copy(name = it)) }, label = { Text(stringResource(R.string.recording_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Text(stringResource(R.string.recording_sources), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
-                    CheckRow(stringResource(R.string.source_logcat), RecordSource.LOGCAT in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.LOGCAT, it))) }
-                    if (RecordSource.LOGCAT in form.sources) {
+        ModalBottomSheet(onDismissRequest = viewModel::closeRecordingForm, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(
+                modifier = Modifier.navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(stringResource(R.string.recording_start), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.recording_sheet_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(value = form.name, onValueChange = { viewModel.updateRecordingForm(form.copy(name = it)) }, label = { Text(stringResource(R.string.recording_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(R.string.recording_sources), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+
+                OptionRow(stringResource(R.string.source_logcat), stringResource(R.string.source_logcat_desc), RecordSource.LOGCAT in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.LOGCAT, it))) }
+                if (RecordSource.LOGCAT in form.sources) {
+                    Column(modifier = Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (!state.shellAvailable) Text(stringResource(R.string.logcat_needs_shell), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         OutlinedTextField(value = form.logcatPackage, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatPackage = it)) }, label = { Text(stringResource(R.string.logcat_package)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(value = form.logcatFilter, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatFilter = it)) }, label = { Text(stringResource(R.string.logcat_filter)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
                     }
-                    CheckRow(stringResource(R.string.source_broadcasts), RecordSource.BROADCASTS in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.BROADCASTS, it))) }
-                    if (RecordSource.BROADCASTS in form.sources) Text(stringResource(R.string.broadcasts_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    CheckRow(stringResource(R.string.source_files), RecordSource.FILES in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.FILES, it))) }
-                    if (RecordSource.FILES in form.sources) {
-                        OutlinedTextField(value = form.watchPaths, onValueChange = { viewModel.updateRecordingForm(form.copy(watchPaths = it)) }, label = { Text(stringResource(R.string.watch_paths)) }, minLines = 2, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
-                    }
-                    CheckRow(stringResource(R.string.source_screen), RecordSource.SCREEN in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.SCREEN, it))) }
-                    if (RecordSource.SCREEN in form.sources) Text(stringResource(R.string.screen_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.notifications_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = form.sources.isNotEmpty(),
-                    onClick = {
-                        if (RecordSource.SCREEN in form.sources) {
-                            projectionLauncher.launch(context.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-                        } else {
-                            viewModel.startRecording()
-                        }
-                    },
-                ) { Text(stringResource(R.string.recording_begin)) }
-            },
-            dismissButton = { TextButton(onClick = viewModel::closeRecordingForm) { Text(stringResource(R.string.cancel)) } },
-        )
+
+                OptionRow(stringResource(R.string.source_broadcasts), stringResource(R.string.source_broadcasts_desc), RecordSource.BROADCASTS in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.BROADCASTS, it))) }
+
+                OptionRow(stringResource(R.string.source_files), stringResource(R.string.source_files_desc), RecordSource.FILES in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.FILES, it))) }
+                if (RecordSource.FILES in form.sources) {
+                    OutlinedTextField(value = form.watchPaths, onValueChange = { viewModel.updateRecordingForm(form.copy(watchPaths = it)) }, label = { Text(stringResource(R.string.watch_paths)) }, minLines = 2, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth().padding(start = 4.dp))
+                }
+
+                OptionRow(stringResource(R.string.source_screen), stringResource(R.string.source_screen_desc), RecordSource.SCREEN in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.SCREEN, it))) }
+
+                Text(stringResource(R.string.notifications_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = viewModel::closeRecordingForm) { Text(stringResource(R.string.cancel)) }
+                    Button(
+                        enabled = form.sources.isNotEmpty(),
+                        onClick = {
+                            if (RecordSource.SCREEN in form.sources) {
+                                projectionLauncher.launch(context.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
+                            } else {
+                                viewModel.startRecording()
+                            }
+                        },
+                    ) { Text(stringResource(R.string.recording_begin)) }
+                }
+            }
+        }
     }
 }
 
 private fun Set<RecordSource>.toggle(source: RecordSource, on: Boolean) = if (on) this + source else this - source
 
+/** A labelled toggle with a description, for the capture form sheets. */
 @Composable
-private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }) {
-        Checkbox(checked = checked, onCheckedChange = onChange)
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+private fun OptionRow(label: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
