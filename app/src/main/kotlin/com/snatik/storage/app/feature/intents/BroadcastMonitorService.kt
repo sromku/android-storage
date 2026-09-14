@@ -34,6 +34,7 @@ import org.koin.android.ext.android.inject
 class BroadcastMonitorService : Service() {
 
     private val store: BroadcastStore by inject()
+    private val sink: com.snatik.storage.core.apps.ExternalSink by inject()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val receivers = HashMap<String, BroadcastReceiver>()
     private var captured = 0
@@ -54,6 +55,16 @@ class BroadcastMonitorService : Service() {
         return START_STICKY
     }
 
+    private fun broadcastJson(spec: IntentSpec) = org.json.JSONObject()
+        .put("at_ms", System.currentTimeMillis())
+        .put("action", spec.action ?: org.json.JSONObject.NULL)
+        .put("data", spec.data ?: org.json.JSONObject.NULL)
+        .put("type", spec.type ?: org.json.JSONObject.NULL)
+        .put("categories", spec.categories.joinToString(","))
+        .put("package", spec.packageName ?: org.json.JSONObject.NULL)
+        .put("flags", spec.flags)
+        .put("extras", spec.extras.size)
+
     private fun sync(active: List<ActiveBroadcast>) {
         val wanted = active.associateBy { it.action }
         (receivers.keys - wanted.keys).toList().forEach { action ->
@@ -66,7 +77,9 @@ class BroadcastMonitorService : Service() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 captured++
-                scope.launch { store.add(IntentSpec.describe(intent)) }
+                val spec = IntentSpec.describe(intent)
+                scope.launch { store.add(spec) }
+                if (sink.enabled) scope.launch { runCatching { sink.send("broadcasts", listOf(broadcastJson(spec))) } }
                 val now = System.currentTimeMillis()
                 if (now - lastNotified > 1_000) {
                     lastNotified = now

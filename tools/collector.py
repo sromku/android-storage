@@ -64,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
         import time
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode("utf-8", "replace")
-        stored, pings = 0, 0
+        stored, pings = {}, 0
         now = int(time.time() * 1000)
         with _lock:
             db = self.server.db
@@ -82,11 +82,12 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 _ensure_table(db, tool, rec)
                 _insert(db, tool, rec, now)
-                stored += 1
+                stored[tool] = stored.get(tool, 0) + 1
             db.commit()
-            total = db.execute("SELECT COUNT(*) FROM appops").fetchone()[0] if "appops" in _seen_tables else 0
+            totals = {t: db.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in stored}
         if stored:
-            print(f"+{stored} stored (appops total: {total})", flush=True)
+            summary = ", ".join(f"{t} +{n} (total {totals[t]})" for t, n in stored.items())
+            print(summary, flush=True)
         elif pings:
             print("ping ok", flush=True)
         self.send_response(200)

@@ -560,6 +560,7 @@ private fun BroadcastStartSheet(currentCapacity: Int, capacities: List<Int>, has
                 }
             }
             Text(stringResource(R.string.intent_monitor_capacity_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.snatik.storage.app.ui.components.ExternalSinkOption(org.koin.compose.koinInject())
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

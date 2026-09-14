@@ -31,28 +31,35 @@ class ExternalSink(context: Context) {
     fun setEnabled(value: Boolean) { _enabled.value = value; prefs.edit().putBoolean(KEY_ENABLED, value).apply() }
     fun setUrl(value: String) { _url.value = value.trim(); prefs.edit().putString(KEY_URL, value.trim()).apply() }
 
-    /** POST a batch of app-op accesses as NDJSON. Throws on network/HTTP failure so callers can report it. */
-    suspend fun send(accesses: List<AppOpAccess>, pollTimeMs: Long) {
-        if (!enabled || accesses.isEmpty()) return
+    /**
+     * POST a batch of records as NDJSON, tagged with [tool] (which the collector uses as the table
+     * name). Any monitor can call this. Throws on network/HTTP failure so callers can report it.
+     */
+    suspend fun send(tool: String, records: List<JSONObject>) {
+        if (!enabled || records.isEmpty()) return
         val body = buildString {
-            for (a in accesses) {
-                append(
-                    JSONObject()
-                        .put("tool", "appops")
-                        .put("package", a.packageName)
-                        .put("op", a.op)
-                        .put("at_ms", (pollTimeMs - a.agoMs).coerceAtLeast(0))
-                        .put("state", a.state.name)
-                        .put("duration_ms", a.durationMs ?: JSONObject.NULL)
-                        .put("denied", a.denied)
-                        .put("sensitive", a.sensitive)
-                        .put("key", a.key)
-                        .toString(),
-                )
+            for (o in records) {
+                append(o.put("tool", tool).toString())
                 append('\n')
             }
         }
         post(body)
+    }
+
+    /** Convenience for the app-ops recorder: serialize accesses and send them under the "appops" tool. */
+    suspend fun sendAppOps(accesses: List<AppOpAccess>, pollTimeMs: Long) {
+        if (!enabled || accesses.isEmpty()) return
+        send("appops", accesses.map { a ->
+            JSONObject()
+                .put("package", a.packageName)
+                .put("op", a.op)
+                .put("at_ms", (pollTimeMs - a.agoMs).coerceAtLeast(0))
+                .put("state", a.state.name)
+                .put("duration_ms", a.durationMs ?: JSONObject.NULL)
+                .put("denied", a.denied)
+                .put("sensitive", a.sensitive)
+                .put("key", a.key)
+        })
     }
 
     /** Send a tiny probe so Settings can confirm the endpoint is reachable. */

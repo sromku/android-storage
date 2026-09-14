@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -30,9 +31,12 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -311,14 +315,24 @@ private fun SourceBar(
                     Text(stringResource(R.string.timeline_source_recorded))
                 }
             }
+            // Same button footprint in both states so switching never resizes the toggle.
+            val recordMod = Modifier.widthIn(min = 116.dp)
             if (recording) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(50)))
-                    TextButton(onClick = onRecordClick) { Text(stringResource(R.string.recorder_stop)) }
+                FilledTonalButton(
+                    onClick = onRecordClick,
+                    modifier = recordMod,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.recorder_stop), modifier = Modifier.padding(start = 6.dp))
                 }
             } else {
-                FilledTonalButton(onClick = onRecordClick, contentPadding = PaddingValues(horizontal = 14.dp)) {
-                    Icon(Icons.Default.FiberManualRecord, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                FilledTonalButton(onClick = onRecordClick, modifier = recordMod, contentPadding = PaddingValues(horizontal = 14.dp)) {
+                    Icon(Icons.Outlined.Circle, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                     Text(stringResource(R.string.recorder_record), modifier = Modifier.padding(start = 6.dp))
                 }
             }
@@ -769,8 +783,6 @@ private fun FilterSheet(
 private fun RecordSheet(store: AppOpsRecorderStore, sink: ExternalSink, onStart: (Int, Int) -> Unit, onDismiss: () -> Unit) {
     val savedCap by store.capacity.collectAsStateWithLifecycle()
     val savedInterval by store.intervalSec.collectAsStateWithLifecycle()
-    val sinkOn by sink.enabledFlow.collectAsStateWithLifecycle()
-    val sinkUrl by sink.url.collectAsStateWithLifecycle()
     var cap by remember { mutableStateOf(savedCap) }
     var interval by remember { mutableStateOf(savedInterval) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -795,11 +807,7 @@ private fun RecordSheet(store: AppOpsRecorderStore, sink: ExternalSink, onStart:
                     }
                 }
             }
-            Text(
-                if (sinkOn) stringResource(R.string.recorder_sink_on, sinkUrl) else stringResource(R.string.recorder_sink_off),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (sinkOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            com.snatik.storage.app.ui.components.ExternalSinkOption(sink)
 
             Button(onClick = { onStart(cap, interval) }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.FiberManualRecord, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))

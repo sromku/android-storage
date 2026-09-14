@@ -35,6 +35,7 @@ class IntentMonitorService : Service() {
 
     private val privilege: PrivilegeManager by inject()
     private val store: IntentMonitorStore by inject()
+    private val sink: com.snatik.storage.core.apps.ExternalSink by inject()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var counter = 0L
     private var captured = 0
@@ -58,6 +59,7 @@ class IntentMonitorService : Service() {
                         .mapNotNull { line -> IntentMonitorParser.parse(line, counter++, System.currentTimeMillis()) }
                         .collect { i ->
                             store.add(i)
+                            if (sink.enabled) runCatching { sink.send("intents", listOf(intentJson(i))) }
                             captured++
                             val now = System.currentTimeMillis()
                             if (now - lastNotified > 1_000) {
@@ -70,6 +72,19 @@ class IntentMonitorService : Service() {
         }
         return START_STICKY
     }
+
+    private fun intentJson(i: com.snatik.storage.core.intents.MonitoredIntent) = org.json.JSONObject()
+        .put("at_ms", i.time)
+        .put("action", i.action ?: org.json.JSONObject.NULL)
+        .put("data", i.data ?: org.json.JSONObject.NULL)
+        .put("type", i.type ?: org.json.JSONObject.NULL)
+        .put("categories", i.categories.joinToString(","))
+        .put("flags", i.flags)
+        .put("package", i.packageName ?: org.json.JSONObject.NULL)
+        .put("class", i.className ?: org.json.JSONObject.NULL)
+        .put("caller_uid", i.callerUid ?: org.json.JSONObject.NULL)
+        .put("caller_package", i.callerPackage ?: org.json.JSONObject.NULL)
+        .put("has_extras", i.hasExtras)
 
     override fun onDestroy() {
         store.setRunning(false)

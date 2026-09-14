@@ -7,6 +7,9 @@ import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /** One notification seen device-wide. */
 data class NotificationRecord(
@@ -51,7 +54,10 @@ object NotificationLog {
 }
 
 /** System-bound listener that mirrors posted and removed notifications into [NotificationLog]. */
-class NotificationMonitorService : NotificationListenerService() {
+class NotificationMonitorService : NotificationListenerService(), KoinComponent {
+
+    private val sink: com.snatik.storage.core.apps.ExternalSink by inject()
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
     override fun onListenerConnected() {
         NotificationLog.connected.value = true
@@ -73,15 +79,27 @@ class NotificationMonitorService : NotificationListenerService() {
         val title = extras?.getCharSequence("android.title")?.toString().orEmpty()
         val text = extras?.getCharSequence("android.text")?.toString()
             ?: extras?.getCharSequence("android.bigText")?.toString().orEmpty()
-        NotificationLog.add(
-            NotificationRecord(
-                key = sbn.key ?: (sbn.packageName + sbn.postTime),
-                packageName = sbn.packageName,
-                title = title,
-                text = text,
-                postedAt = sbn.postTime,
-                ongoing = sbn.isOngoing,
-            ),
+        val record = NotificationRecord(
+            key = sbn.key ?: (sbn.packageName + sbn.postTime),
+            packageName = sbn.packageName,
+            title = title,
+            text = text,
+            postedAt = sbn.postTime,
+            ongoing = sbn.isOngoing,
         )
+        NotificationLog.add(record)
+        if (sink.enabled) scope.launch {
+            runCatching {
+                sink.send("notifications", listOf(
+                    org.json.JSONObject()
+                        .put("at_ms", record.postedAt)
+                        .put("package", record.packageName)
+                        .put("title", record.title)
+                        .put("text", record.text)
+                        .put("ongoing", record.ongoing)
+                        .put("key", record.key),
+                ))
+            }
+        }
     }
 }

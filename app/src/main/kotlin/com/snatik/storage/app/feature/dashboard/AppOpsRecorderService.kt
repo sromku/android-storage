@@ -63,7 +63,7 @@ class AppOpsRecorderService : Service() {
                     val text = exec.run("dumpsys appops", timeoutMs = 30_000).out
                     val accesses = AppOpsTimeline.parse(text)
                     val added = store.record(accesses, pollTime)
-                    if (sink.enabled) runCatching { sink.send(accesses, pollTime) }
+                    if (sink.enabled) runCatching { sink.sendAppOps(accesses, pollTime) }
                     if (added > 0) {
                         total += added
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
