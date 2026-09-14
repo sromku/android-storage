@@ -239,6 +239,7 @@ private fun Discover(
 ) {
     var query by remember { mutableStateOf("") }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    val sectionOpen = remember { mutableStateMapOf<String, Boolean>() }
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -269,8 +270,11 @@ private fun Discover(
                         item { EmptyState(Icons.Default.Search, stringResource(R.string.deeplink_discover_empty), null, modifier = Modifier.padding(top = 24.dp)) }
                     }
                     if (webGroups.isNotEmpty()) {
-                        item(key = "web-header") { SectionHeader(stringResource(R.string.deeplink_web_links), stringResource(R.string.deeplink_web_count, domainTotal, webGroups.size), Modifier.padding(top = 4.dp, bottom = 6.dp)) }
-                        webGroups.forEach { (pkg, domains) ->
+                        val webOpen = sectionOpen["web"] != false
+                        item(key = "web-header") {
+                            SectionHeader(stringResource(R.string.deeplink_web_links), stringResource(R.string.deeplink_web_count, domainTotal, webGroups.size), webOpen, { sectionOpen["web"] = !webOpen }, Modifier.padding(top = 4.dp, bottom = 6.dp))
+                        }
+                        if (webOpen) webGroups.forEach { (pkg, domains) ->
                             val isOpen = expanded[pkg] == true
                             val links = appLinks[pkg]
                             item(key = "web:$pkg") {
@@ -294,8 +298,11 @@ private fun Discover(
                         }
                     }
                     if (schemes.isNotEmpty()) {
-                        item(key = "scheme-header") { SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size), Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                        items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, Modifier.padding(top = 8.dp), onPick) }
+                        val schemesOpen = sectionOpen["schemes"] != false
+                        item(key = "scheme-header") {
+                            SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size), schemesOpen, { sectionOpen["schemes"] = !schemesOpen }, Modifier.padding(top = 16.dp, bottom = 6.dp))
+                        }
+                        if (schemesOpen) items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, Modifier.padding(top = 8.dp), onPick) }
                     }
                 }
             }
@@ -304,10 +311,21 @@ private fun Discover(
 }
 
 @Composable
-private fun SectionHeader(title: String, subtitle: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SectionHeader(title: String, subtitle: String, expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(
+            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = stringResource(if (expanded) R.string.deeplink_collapse else R.string.deeplink_expand),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
