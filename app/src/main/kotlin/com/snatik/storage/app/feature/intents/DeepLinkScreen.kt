@@ -118,6 +118,11 @@ class DeepLinkViewModel(
 
     fun discover(force: Boolean = false) {
         if (!force && (_discovery.value.loading || _discovery.value.data != null)) return
+        if (force) {
+            // A manual refresh re-reads the device, so drop the per-app path and per-scheme example caches too.
+            _appLinks.value = emptyMap()
+            _schemeExamples.value = emptyMap()
+        }
         viewModelScope.launch {
             _discovery.update { it.copy(loading = true, error = null) }
             val shell = privilege.executor.value
