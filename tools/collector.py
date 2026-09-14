@@ -7,8 +7,11 @@ monitor is recording. Every record is appended to a local SQLite database with
 no row limit, so you can leave a device recording for days and keep everything.
 
 Usage:
-    python3 tools/collector.py                 # listen on 0.0.0.0:8899, db ./monitor.db
+    python3 tools/collector.py                 # 0.0.0.0:8899, db tools/collector-data/monitor.db
     python3 tools/collector.py --port 9000 --db ~/captures/run1.db
+
+The default database lives in tools/collector-data/ (gitignored), so captures
+never show up in git status.
 
 Then open the web tool at http://localhost:8899 for guided setup, copy-paste
 URLs and live results, and in the app: Settings -> External collector -> enable,
@@ -204,12 +207,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    default_db = os.path.join(WEB_DIR, "..", "collector-data", "monitor.db")
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8899)
     ap.add_argument("--host", default="0.0.0.0")
-    ap.add_argument("--db", default="monitor.db")
+    ap.add_argument("--db", default=os.path.normpath(default_db),
+                    help="SQLite path (default: tools/collector-data/monitor.db, which is gitignored)")
     args = ap.parse_args()
 
+    parent = os.path.dirname(os.path.abspath(args.db))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     db = sqlite3.connect(args.db, check_same_thread=False)
     db.execute("PRAGMA journal_mode=WAL")
     server = ThreadingHTTPServer((args.host, args.port), Handler)

@@ -7,3 +7,7 @@ local.properties
 build/
 /captures
 *.hprof
+
+# External collector local databases
+/tools/collector-data/
+monitor.db*

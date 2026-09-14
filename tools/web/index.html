@@ -219,8 +219,8 @@
     <!-- Step 1 -->
     <div class="card">
       <h2><span class="badge-letter">1</span> Start the collector</h2>
-      <p>From the repo root, run the collector. It creates the SQLite database if it doesn't exist yet — no setup needed.</p>
-      <div class="code" data-copy>python3 tools/collector.py --port 8899 --db monitor.db</div>
+      <p>From the repo root, run the collector. It creates the SQLite database if it doesn't exist yet (in <span class="mono">tools/collector-data/</span>, which is gitignored) — no setup needed.</p>
+      <div class="code" data-copy>python3 tools/collector.py</div>
       <div class="callout"><b>Expected:</b> it prints the web-tool URL and the app URL. Then open this page at <span class="mono" id="localUrl">http://localhost:8899</span>.</div>
     </div>
 
@@ -274,11 +274,18 @@
   };
 
   // copy buttons on [data-copy] code blocks
+  function codeText(el) {
+    // Only the text nodes — excludes the appended Copy button. Read at click time so
+    // dynamically-filled URLs (e.g. the Wi-Fi address) copy their current value.
+    var out = "";
+    el.childNodes.forEach(function (n) { if (n.nodeType === 3) out += n.textContent; });
+    return out.trim();
+  }
   function addCopy(el) {
     var b = document.createElement("button");
     b.className = "copy"; b.textContent = "Copy";
     b.onclick = function () {
-      navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+      navigator.clipboard.writeText(codeText(el)).then(function () {
         b.textContent = "Copied"; b.classList.add("ok");
         setTimeout(function () { b.textContent = "Copy"; b.classList.remove("ok"); }, 1200);
       });
