@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -52,11 +53,19 @@ class BroadcastMonitorService : Service() {
         startForegroundCompat(notification(captured))
         store.setRunning(true)
         scope.launch { store.active.collect { sync(it) } }
+        // Backfill already-received broadcasts so a fresh recording streams the history too. De-duped by key.
+        scope.launch {
+            if (sink.enabled) runCatching {
+                val history = store.recent.first()
+                if (history.isNotEmpty()) sink.send("broadcasts", history.map { broadcastJson(it.time, it.spec) })
+            }
+        }
         return START_STICKY
     }
 
-    private fun broadcastJson(spec: IntentSpec) = org.json.JSONObject()
-        .put("at_ms", System.currentTimeMillis())
+    private fun broadcastJson(timeMs: Long, spec: IntentSpec) = org.json.JSONObject()
+        .put("key", "$timeMs|${spec.action.orEmpty()}|${spec.packageName.orEmpty()}|${spec.data.orEmpty()}")
+        .put("at_ms", timeMs)
         .put("action", spec.action ?: org.json.JSONObject.NULL)
         .put("data", spec.data ?: org.json.JSONObject.NULL)
         .put("type", spec.type ?: org.json.JSONObject.NULL)
@@ -78,8 +87,9 @@ class BroadcastMonitorService : Service() {
             override fun onReceive(context: Context, intent: Intent) {
                 captured++
                 val spec = IntentSpec.describe(intent)
+                val nowMs = System.currentTimeMillis()
                 scope.launch { store.add(spec) }
-                if (sink.enabled) scope.launch { runCatching { sink.send("broadcasts", listOf(broadcastJson(spec))) } }
+                if (sink.enabled) scope.launch { runCatching { sink.send("broadcasts", listOf(broadcastJson(nowMs, spec))) } }
                 val now = System.currentTimeMillis()
                 if (now - lastNotified > 1_000) {
                     lastNotified = now

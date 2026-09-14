@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 _lock = threading.Lock()
-_seen_tables = set()
+_table_cols = {}  # tool -> set of known columns (so new fields are added on the fly)
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
@@ -128,20 +128,31 @@ def table_columns(db, table):
 
 
 def _ensure_table(db, tool, sample):
-    """Create a table for a tool on first sight, with columns from the record keys."""
-    if tool in _seen_tables:
-        return
+    """Create the tool's table on first sight, and add any newly-seen columns to it."""
     cols = [k for k in sample.keys() if k != "tool"]
-    coldefs = ", ".join(f'"{c}"' for c in cols)
-    db.execute(
-        f'CREATE TABLE IF NOT EXISTS "{tool}" '
-        f'(_id INTEGER PRIMARY KEY AUTOINCREMENT, received_at INTEGER, {coldefs})'
-    )
-    # A unique index on "key" (if present) makes re-sent rows idempotent.
-    if "key" in cols:
-        db.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS "{tool}_key" ON "{tool}" ("key")')
+    known = _table_cols.get(tool)
+    if known is None:
+        existing = set(table_columns(db, tool))
+        if not existing:
+            coldefs = ", ".join(f'"{c}"' for c in cols)
+            db.execute(
+                f'CREATE TABLE "{tool}" '
+                f'(_id INTEGER PRIMARY KEY AUTOINCREMENT, received_at INTEGER, {coldefs})'
+            )
+            # A unique index on "key" (if present) makes re-sent rows idempotent.
+            if "key" in cols:
+                db.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS "{tool}_key" ON "{tool}" ("key")')
+            existing = set(cols) | {"_id", "received_at"}
+        known = existing
+        _table_cols[tool] = known
+    for c in cols:
+        if c not in known:
+            try:
+                db.execute(f'ALTER TABLE "{tool}" ADD COLUMN "{c}"')
+                known.add(c)
+            except sqlite3.OperationalError:
+                pass
     db.commit()
-    _seen_tables.add(tool)
 
 
 def _insert(db, tool, rec, received_at):

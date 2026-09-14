@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -51,6 +52,14 @@ class IntentMonitorService : Service() {
         }
         startForegroundCompat(notification(captured))
         store.setRunning(true)
+        // Backfill: send the history already in the local store, so a fresh recording streams
+        // everything (like the app-ops snapshot does), not just events from now on. De-duped by key.
+        scope.launch {
+            if (sink.enabled) runCatching {
+                val history = store.recent.first()
+                if (history.isNotEmpty()) sink.send("intents", history.map { intentJson(it) })
+            }
+        }
         scope.launch {
             privilege.executor.collectLatest { exec ->
                 if (exec == null) return@collectLatest
@@ -74,6 +83,7 @@ class IntentMonitorService : Service() {
     }
 
     private fun intentJson(i: com.snatik.storage.core.intents.MonitoredIntent) = org.json.JSONObject()
+        .put("key", "${i.time}|${i.action.orEmpty()}|${i.packageName.orEmpty()}|${i.className.orEmpty()}|${i.callerUid ?: ""}")
         .put("at_ms", i.time)
         .put("action", i.action ?: org.json.JSONObject.NULL)
         .put("data", i.data ?: org.json.JSONObject.NULL)
