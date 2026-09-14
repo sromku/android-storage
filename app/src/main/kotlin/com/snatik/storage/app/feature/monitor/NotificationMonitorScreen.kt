@@ -16,8 +16,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +61,8 @@ fun NotificationMonitorScreen(onBack: () -> Unit, viewModel: NotificationMonitor
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val hasAccess = viewModel.hasAccess(context)
+    LaunchedEffect(Unit) { NotificationLog.initStreaming(context) }
+    val streamOn by NotificationLog.streamEnabled.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,7 +72,24 @@ fun NotificationMonitorScreen(onBack: () -> Unit, viewModel: NotificationMonitor
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        if (hasAccess) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { NotificationLog.setStreamEnabled(context, !streamOn) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.notif_stream), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.notif_stream_sub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = streamOn, onCheckedChange = { NotificationLog.setStreamEnabled(context, it) })
+            }
+            if (streamOn) {
+                com.snatik.storage.app.ui.components.ExternalSinkOption(org.koin.compose.koinInject(), modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp))
+            }
+            HorizontalDivider()
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
                 !hasAccess -> EmptyState(
                     Icons.Default.NotificationsActive,
@@ -83,6 +105,7 @@ fun NotificationMonitorScreen(onBack: () -> Unit, viewModel: NotificationMonitor
                     }
                 }
             }
+        }
         }
     }
 }

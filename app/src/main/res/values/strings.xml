@@ -1167,6 +1167,8 @@
     <string name="notif_grant">Open settings</string>
     <string name="notif_empty">Listening for notifications</string>
     <string name="notif_empty_body">Notifications posted from now on will appear here, newest first.</string>
+    <string name="notif_stream">Stream to external collector</string>
+    <string name="notif_stream_sub">Off by default. Notifications only stream while this is on — they have no recording session like the other monitors.</string>
     <string name="tools_notif_sub">Log every notification posted on the device.</string>
     <string name="watch_title">Provider watch</string>
     <string name="watch_empty">Pick providers to watch</string>

@@ -34,6 +34,25 @@ object NotificationLog {
 
     val connected = MutableStateFlow(false)
 
+    // Opt-in: notifications only stream to the external collector when the user turns this on
+    // (the listener is always connected, unlike the record-gated monitors), so the collector
+    // doesn't fill with notifications unless asked.
+    val streamEnabled = MutableStateFlow(false)
+    private var prefs: android.content.SharedPreferences? = null
+
+    fun initStreaming(context: Context) {
+        if (prefs == null) {
+            prefs = context.applicationContext.getSharedPreferences("notif_monitor", Context.MODE_PRIVATE)
+            streamEnabled.value = prefs!!.getBoolean("stream", false)
+        }
+    }
+
+    fun setStreamEnabled(context: Context, value: Boolean) {
+        initStreaming(context)
+        streamEnabled.value = value
+        prefs!!.edit().putBoolean("stream", value).apply()
+    }
+
     fun add(record: NotificationRecord) {
         _entries.value = (listOf(record) + _entries.value).take(CAP)
     }
@@ -61,6 +80,7 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
 
     override fun onListenerConnected() {
         NotificationLog.connected.value = true
+        NotificationLog.initStreaming(this)
         runCatching { activeNotifications }.getOrNull()?.forEach { record(it) }
     }
 
@@ -88,7 +108,7 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
             ongoing = sbn.isOngoing,
         )
         NotificationLog.add(record)
-        if (sink.enabled) scope.launch {
+        if (sink.enabled && NotificationLog.streamEnabled.value) scope.launch {
             runCatching {
                 sink.send("notifications", listOf(
                     org.json.JSONObject()
