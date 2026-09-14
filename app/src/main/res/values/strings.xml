@@ -753,6 +753,10 @@
     <string name="snapshot_none">No snapshots yet</string>
     <string name="snapshot_none_hint">Freeze a folder now, change something, snapshot again and compare.</string>
     <string name="recording_none">No recordings yet</string>
+    <string name="col_time">Time</string>
+    <string name="col_source">Source</string>
+    <string name="col_tag">Tag</string>
+    <string name="col_message">Message</string>
     <string name="snapshot_compare">Compare with…</string>
     <string name="snapshot_compare_title">Compare against</string>
     <string name="snapshot_files">Files</string>

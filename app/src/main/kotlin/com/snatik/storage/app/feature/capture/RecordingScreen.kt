@@ -1,7 +1,7 @@
 package com.snatik.storage.app.feature.capture
 
 import android.content.Intent
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -25,6 +28,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -183,20 +187,34 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
             val visible = remember(state.events, state.source, state.query) {
                 state.events.filter { (state.source == null || it.source == state.source!!.name) && (state.query.isBlank() || it.text.contains(state.query, true) || it.tag?.contains(state.query, true) == true) }
             }
+            val hScroll = rememberScrollState()
+            if (visible.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(hScroll).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HeaderCell(stringResource(R.string.col_time), TIME_W)
+                    HeaderCell(stringResource(R.string.col_source), SRC_W)
+                    HeaderCell(stringResource(R.string.col_tag), TAG_W)
+                    HeaderCell(stringResource(R.string.col_message), MSG_W)
+                }
+                HorizontalDivider()
+            }
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
                     state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     visible.isEmpty() -> EmptyState(Icons.Default.FiberManualRecord, stringResource(R.string.recording_events, 0), null)
                     else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                         items(visible, key = { it.id }) { e ->
-                            var expanded by remember { mutableStateOf(false) }
-                            Row(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(timeFormat.format(Date(e.time)), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Tag(e.source.take(5).lowercase(), sourceColor(e.source))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    e.tag?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                                    Text(e.text, style = MonoStyle, maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis)
-                                }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(hScroll).padding(horizontal = 16.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text(timeFormat.format(Date(e.time)), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, modifier = Modifier.width(TIME_W))
+                                Box(modifier = Modifier.width(SRC_W)) { Tag(e.source.lowercase(), sourceColor(e.source)) }
+                                Text(e.tag.orEmpty(), style = MonoStyle.copy(color = MaterialTheme.colorScheme.primary), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(TAG_W))
+                                Text(e.text, style = MonoStyle, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = MSG_W))
                             }
                         }
                     }
@@ -204,6 +222,22 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
             }
         }
     }
+}
+
+private val TIME_W = 108.dp
+private val SRC_W = 96.dp
+private val TAG_W = 148.dp
+private val MSG_W = 240.dp
+
+@Composable
+private fun HeaderCell(label: String, width: androidx.compose.ui.unit.Dp) {
+    Text(
+        label.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = Modifier.width(width),
+    )
 }
 
 @Composable
