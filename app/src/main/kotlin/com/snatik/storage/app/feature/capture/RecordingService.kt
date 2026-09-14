@@ -99,7 +99,7 @@ class RecordingService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, RecordingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.presence_video_online)
-            .setContentTitle(getString(R.string.notification_title, name.ifBlank { getString(R.string.recording_now) }))
+            .setContentTitle(if (name.isBlank()) getString(R.string.recording_now) else getString(R.string.notification_title, name))
             .setContentText(getString(R.string.notification_text, sources.joinToString(", ") { it.name.lowercase() }))
             .setOngoing(true)
             .setContentIntent(open)
