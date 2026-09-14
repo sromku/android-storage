@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -48,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -256,38 +258,44 @@ private fun Discover(
                     data.schemes.filter { q.isBlank() || it.scheme.contains(q, true) || it.packages.any { p -> p.contains(q, true) } }
                 }
                 val domainTotal = remember(webGroups) { webGroups.sumOf { it.second.size } }
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     item(key = "hint") {
                         Text(stringResource(R.string.deeplink_discover_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                     }
                     item(key = "search") {
-                        OutlinedTextField(value = query, onValueChange = { query = it }, placeholder = { Text(stringResource(R.string.deeplink_search)) }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = query, onValueChange = { query = it }, placeholder = { Text(stringResource(R.string.deeplink_search)) }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
                     }
                     if (webGroups.isEmpty() && schemes.isEmpty()) {
                         item { EmptyState(Icons.Default.Search, stringResource(R.string.deeplink_discover_empty), null, modifier = Modifier.padding(top = 24.dp)) }
                     }
                     if (webGroups.isNotEmpty()) {
-                        item(key = "web-header") { SectionHeader(stringResource(R.string.deeplink_web_links), stringResource(R.string.deeplink_web_count, domainTotal, webGroups.size)) }
-                        items(webGroups, key = { "web:" + it.first }) { (pkg, domains) ->
+                        item(key = "web-header") { SectionHeader(stringResource(R.string.deeplink_web_links), stringResource(R.string.deeplink_web_count, domainTotal, webGroups.size), Modifier.padding(top = 4.dp, bottom = 6.dp)) }
+                        webGroups.forEach { (pkg, domains) ->
                             val isOpen = expanded[pkg] == true
-                            WebLinkGroup(
-                                packageName = pkg,
-                                domains = domains,
-                                expanded = isOpen,
-                                appLinks = appLinks[pkg],
-                                query = q,
-                                onToggle = {
+                            val links = appLinks[pkg]
+                            item(key = "web:$pkg") {
+                                WebAppHeader(pkg, domains.size, isOpen, topOnly = isOpen, modifier = Modifier.padding(top = 8.dp)) {
                                     val next = !isOpen
                                     expanded[pkg] = next
                                     if (next) onLoadAppLinks(pkg)
-                                },
-                                onPick = onPick,
-                            )
+                                }
+                            }
+                            if (isOpen) {
+                                if (links?.loading == true) {
+                                    item(key = "load:$pkg") { HostLoading(pkg) }
+                                } else {
+                                    val pathsByHost = links?.hosts?.associate { it.host to it.paths } ?: emptyMap()
+                                    val lastDomain = domains.lastOrNull()
+                                    items(domains, key = { "host:$pkg:$it" }) { domain ->
+                                        HostRow(domain, pathsByHost[domain].orEmpty(), q, bottom = domain == lastDomain, onPick = onPick)
+                                    }
+                                }
+                            }
                         }
                     }
                     if (schemes.isNotEmpty()) {
-                        item(key = "scheme-header") { SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size)) }
-                        items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, onPick) }
+                        item(key = "scheme-header") { SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size), Modifier.padding(top = 16.dp, bottom = 6.dp)) }
+                        items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, Modifier.padding(top = 8.dp), onPick) }
                     }
                 }
             }
@@ -296,91 +304,86 @@ private fun Discover(
 }
 
 @Composable
-private fun SectionHeader(title: String, subtitle: String) {
-    Column(modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)) {
+private fun SectionHeader(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
+/** The collapsible app row for a web-links group. Top-rounded when expanded so the host rows below attach. */
 @Composable
-private fun WebLinkGroup(
-    packageName: String,
-    domains: List<String>,
-    expanded: Boolean,
-    appLinks: AppLinksUi?,
-    query: String,
-    onToggle: () -> Unit,
-    onPick: (String) -> Unit,
-) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AppIcon(packageName, size = 36.dp)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(appLabel(packageName), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.deeplink_domains, domains.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = stringResource(if (expanded) R.string.deeplink_collapse else R.string.deeplink_expand),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+private fun WebAppHeader(packageName: String, count: Int, expanded: Boolean, topOnly: Boolean, modifier: Modifier = Modifier, onToggle: () -> Unit) {
+    val shape = if (topOnly) RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp) else MaterialTheme.shapes.medium
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = shape, modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AppIcon(packageName, size = 36.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(appLabel(packageName), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(R.string.deeplink_domains, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                val pathsByHost = appLinks?.hosts?.associate { it.host to it.paths } ?: emptyMap()
-                if (appLinks?.loading == true) {
-                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Text(packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                    }
-                } else {
-                    domains.forEachIndexed { index, domain ->
-                        if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 14.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                        HostRow(domain, pathsByHost[domain].orEmpty(), query, onPick)
-                    }
-                }
+            Icon(
+                if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = stringResource(if (expanded) R.string.deeplink_collapse else R.string.deeplink_expand),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** The "loading paths" row shown under an expanded app while its dumpsys runs. */
+@Composable
+private fun HostLoading(packageName: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Text(packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
             }
         }
     }
 }
 
-/** One verified host as a link row, with each concrete example path as an indented sub-row. */
+/** One verified host as a link row (its own lazy item), with each example path as an indented sub-row. */
 @Composable
-private fun HostRow(host: String, paths: List<String>, query: String, onPick: (String) -> Unit) {
+private fun HostRow(host: String, paths: List<String>, query: String, bottom: Boolean, onPick: (String) -> Unit) {
     val concrete = remember(paths, query) {
         paths.filter { it.isNotEmpty() }.filter { query.isBlank() || it.contains(query, true) || host.contains(query, true) }
     }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable { onPick("https://$host/") }.padding(horizontal = 14.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Text("https://$host", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-        }
-        concrete.forEach { path ->
+    val shape = if (bottom) RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp) else RectangleShape
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = shape, modifier = Modifier.fillMaxWidth()) {
+        Column {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { onPick("https://$host$path") }.padding(start = 40.dp, end = 14.dp, top = 2.dp, bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth().clickable { onPick("https://$host/") }.padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
-                Text(path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Text("https://$host", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+            }
+            concrete.forEach { path ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onPick("https://$host$path") }.padding(start = 40.dp, end = 14.dp, top = 2.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                    Text(path, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SchemeRow(scheme: SchemeLink, onPick: (String) -> Unit) {
-    Surface(onClick = { onPick(scheme.scheme + "://") }, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+private fun SchemeRow(scheme: SchemeLink, modifier: Modifier = Modifier, onPick: (String) -> Unit) {
+    Surface(onClick = { onPick(scheme.scheme + "://") }, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppIcon(scheme.packages.first(), size = 36.dp)
             Column(modifier = Modifier.weight(1f)) {
