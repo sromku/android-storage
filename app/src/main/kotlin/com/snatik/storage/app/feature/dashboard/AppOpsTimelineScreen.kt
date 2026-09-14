@@ -90,7 +90,6 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     var sensitiveOnly by rememberSaveable { mutableStateOf(true) }
-    var backgroundOnly by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -118,15 +117,14 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                 !viewModel.shell && list == null -> EmptyState(Icons.Default.Terminal, stringResource(R.string.timeline_needs_shell), null)
                 list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 else -> {
-                    val bgCount = remember(list) { list.count { it.background } }
-                    val visible = remember(list, sensitiveOnly, backgroundOnly) {
-                        list.filter { (!sensitiveOnly || it.sensitive) && (!backgroundOnly || it.background) }
+                    val visible = remember(list, sensitiveOnly) {
+                        list.filter { !sensitiveOnly || it.sensitive }
                     }
+                    val bgCount = remember(visible) { visible.count { it.background } }
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Background-access banner: the headline forensic signal.
-                        if (bgCount > 0) {
-                            BackgroundBanner(bgCount, backgroundOnly) { backgroundOnly = !backgroundOnly }
-                        }
+                        // Background-access summary: the headline forensic signal. Informational only —
+                        // the accesses themselves are already marked "background" inline below.
+                        if (bgCount > 0) BackgroundBanner(bgCount)
                         if (visible.isEmpty()) {
                             EmptyState(Icons.Default.FilterAlt, stringResource(R.string.timeline_empty), null)
                         } else {
@@ -150,12 +148,11 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
 }
 
 @Composable
-private fun BackgroundBanner(count: Int, active: Boolean, onToggle: () -> Unit) {
+private fun BackgroundBanner(count: Int) {
     val color = MaterialTheme.colorScheme.error
     Row(
         modifier = Modifier.fillMaxWidth()
-            .background(if (active) color.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onToggle)
+            .background(color.copy(alpha = 0.10f))
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -166,11 +163,6 @@ private fun BackgroundBanner(count: Int, active: Boolean, onToggle: () -> Unit) 
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
-        )
-        Text(
-            stringResource(if (active) R.string.timeline_bg_showing else R.string.timeline_bg_show),
-            style = MaterialTheme.typography.labelLarge,
-            color = color,
         )
     }
 }
