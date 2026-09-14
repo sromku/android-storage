@@ -772,6 +772,9 @@
     <string name="diff_binary">Binary file</string>
     <string name="recording_export">Export zip</string>
     <string name="recording_exported">Saved to %1$s</string>
+    <string name="recording_export_title">Recording exported</string>
+    <string name="recording_export_open_folder">Open folder</string>
+    <string name="recording_export_share">Share zip</string>
     <string name="recording_video">Play video</string>
     <string name="recording_filter_all">All</string>
     <string name="recording_search">Search events</string>

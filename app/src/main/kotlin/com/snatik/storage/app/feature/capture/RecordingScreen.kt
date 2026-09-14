@@ -1,5 +1,6 @@
 package com.snatik.storage.app.feature.capture
 
+import android.app.DownloadManager
 import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -10,8 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,9 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +38,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -85,6 +93,8 @@ data class RecordingUiState(
     val loading: Boolean = true,
     val source: RecordSource? = null,
     val query: String = "",
+    val exporting: Boolean = false,
+    val exportedZip: String? = null,
 )
 
 class RecordingViewModel(private val id: Long, private val engine: RecordingEngine) : ViewModel() {
@@ -110,15 +120,20 @@ class RecordingViewModel(private val id: Long, private val engine: RecordingEngi
     fun setQuery(q: String) = _state.update { it.copy(query = q) }
 
     fun export() {
+        if (_state.value.exporting) return
+        _state.update { it.copy(exporting = true) }
         viewModelScope.launch {
             try {
                 val zip = engine.export(id, File("/storage/emulated/0/Download"))
-                _messages.send("saved:" + zip.absolutePath)
+                _state.update { it.copy(exporting = false, exportedZip = zip.absolutePath) }
             } catch (e: Exception) {
+                _state.update { it.copy(exporting = false) }
                 _messages.send(e.message ?: e.toString())
             }
         }
     }
+
+    fun dismissExport() = _state.update { it.copy(exportedZip = null) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,7 +144,7 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel, resources) {
-        viewModel.messages.collect { m -> snackbar.showSnackbar(if (m.startsWith("saved:")) resources.getString(R.string.recording_exported, m.removePrefix("saved:")) else m) }
+        viewModel.messages.collect { m -> snackbar.showSnackbar(m) }
     }
     val rec = state.recording
     val timeFormat = remember { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
@@ -157,6 +172,9 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
                             val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(path))
                             context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
                         }) { Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.recording_video)) }
+                    }
+                    if (state.exporting) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 4.dp), strokeWidth = 2.dp)
                     }
                     var more by remember { mutableStateOf(false) }
                     IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more)) }
@@ -217,6 +235,38 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
                                 Text(e.text, style = MonoStyle, maxLines = 8, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(MSG_W))
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    state.exportedZip?.let { zip ->
+        ModalBottomSheet(onDismissRequest = viewModel::dismissExport) {
+            Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.recording_export_title), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.recording_exported, zip), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zip.substringAfterLast('/'), style = MonoStyle, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = { runCatching { context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) } },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.recording_export_open_folder), modifier = Modifier.padding(start = 6.dp))
+                    }
+                    Button(
+                        onClick = {
+                            runCatching {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(zip))
+                                val send = Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                context.startActivity(Intent.createChooser(send, context.getString(R.string.recording_export_share)))
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.recording_export_share), modifier = Modifier.padding(start = 6.dp))
                     }
                 }
             }
