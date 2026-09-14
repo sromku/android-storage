@@ -49,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -126,18 +125,12 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                     val visible = remember(list, sensitiveOnly, stateFilter) {
                         list.filter { (!sensitiveOnly || it.sensitive) && (stateFilter == null || it.state == stateFilter) }
                     }
-                    val bgCount = remember(visible) { visible.count { it.background } }
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // Background-access summary: the headline forensic signal. Informational only —
-                        // the accesses themselves are already marked "background" inline below.
-                        if (bgCount > 0) BackgroundBanner(bgCount)
-                        if (visible.isEmpty()) {
-                            EmptyState(Icons.Default.FilterAlt, stringResource(R.string.timeline_empty), null)
-                        } else {
-                            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                                items(visible, key = { "${it.packageName}|${it.op}|${it.absTime}" }) { e ->
-                                    Entry(e) { selectedKey = "${e.packageName}|${e.op}|${e.absTime}" }
-                                }
+                    if (visible.isEmpty()) {
+                        EmptyState(Icons.Default.FilterAlt, stringResource(R.string.timeline_empty), null)
+                    } else {
+                        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                            items(visible, key = { "${it.packageName}|${it.op}|${it.absTime}" }) { e ->
+                                Entry(e) { selectedKey = "${e.packageName}|${e.op}|${e.absTime}" }
                             }
                         }
                     }
@@ -160,26 +153,6 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
         )
     }
     if (showHelp) TimelineHelpSheet(onDismiss = { showHelp = false })
-}
-
-@Composable
-private fun BackgroundBanner(count: Int) {
-    val color = MaterialTheme.colorScheme.error
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .background(color.copy(alpha = 0.10f))
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(50)))
-        Text(
-            pluralStringResource(R.plurals.timeline_bg_banner, count, count),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-    }
 }
 
 @Composable

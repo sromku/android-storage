@@ -1076,10 +1076,6 @@
         <item quantity="one">Delete %1$d item?</item>
         <item quantity="other">Delete %1$d items?</item>
     </plurals>
-    <plurals name="timeline_bg_banner">
-        <item quantity="one">%1$d access happened while the app was in the background</item>
-        <item quantity="other">%1$d accesses happened while apps were in the background</item>
-    </plurals>
     <plurals name="copied_items">
         <item quantity="one">Copied %1$d item</item>
         <item quantity="other">Copied %1$d items</item>
