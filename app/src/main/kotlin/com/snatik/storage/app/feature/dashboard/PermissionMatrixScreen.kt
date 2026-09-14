@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -45,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +70,8 @@ import com.snatik.storage.core.apps.PermCategory
 import com.snatik.storage.core.apps.PermInfo
 import com.snatik.storage.core.apps.PermissionData
 import com.snatik.storage.core.apps.PermissionMatrixRepository
+import com.snatik.storage.core.shell.PrivilegeManager
+import com.snatik.storage.core.shell.run
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,13 +89,30 @@ data class PermUiState(
     val query: String = "",
     val includeSystem: Boolean = false,
     val filters: Set<PermFilter> = setOf(PermFilter.DANGEROUS, PermFilter.SPECIAL),
+    val privileged: Boolean = false,   // Shizuku or root available -> can grant/revoke
+    val busy: Set<String> = emptySet(), // "pkg|perm" currently being toggled
 )
 
-class PermissionMatrixViewModel(private val repo: PermissionMatrixRepository) : ViewModel() {
+/** Outcome of a grant/revoke, surfaced so the UI can build a localized message. */
+sealed interface GrantResult {
+    data class Ok(val granted: Boolean) : GrantResult
+    data class Failed(val error: String?) : GrantResult
+    object NeedsShell : GrantResult
+}
+
+class PermissionMatrixViewModel(
+    private val repo: PermissionMatrixRepository,
+    private val privilege: PrivilegeManager,
+) : ViewModel() {
     private val _ui = MutableStateFlow(PermUiState())
     val ui: StateFlow<PermUiState> = _ui.asStateFlow()
 
-    init { reload() }
+    init {
+        reload()
+        viewModelScope.launch {
+            privilege.state.collect { st -> _ui.update { it.copy(privileged = st.isPrivileged) } }
+        }
+    }
 
     private fun reload() {
         _ui.update { it.copy(loading = true) }
@@ -104,6 +127,37 @@ class PermissionMatrixViewModel(private val repo: PermissionMatrixRepository) : 
     fun toggleSystem() { _ui.update { it.copy(includeSystem = !it.includeSystem) }; reload() }
     fun toggleFilter(f: PermFilter) = _ui.update {
         it.copy(filters = if (f in it.filters) it.filters - f else it.filters + f)
+    }
+
+    /** Grant or revoke a runtime permission for one app via the privileged shell. Updates state in place. */
+    fun setGranted(pkg: String, perm: String, grant: Boolean, onResult: (GrantResult) -> Unit) {
+        val exec = privilege.executor.value
+        if (exec == null) { onResult(GrantResult.NeedsShell); return }
+        val key = "$pkg|$perm"
+        if (key in _ui.value.busy) return
+        _ui.update { it.copy(busy = it.busy + key) }
+        viewModelScope.launch {
+            val verb = if (grant) "grant" else "revoke"
+            val res = runCatching { exec.run("pm $verb $pkg $perm", timeoutMs = 15_000) }.getOrNull()
+            val ok = res?.ok == true
+            if (ok) {
+                _ui.update { st ->
+                    val data = st.data ?: return@update st.copy(busy = st.busy - key)
+                    val apps = data.apps.map { app ->
+                        if (app.packageName != pkg) app
+                        else app.copy(granted = if (grant) app.granted + perm else app.granted - perm)
+                    }
+                    val perms = data.perms.mapValues { (n, info) ->
+                        if (n != perm) info else info.copy(grantedBy = (info.grantedBy + if (grant) 1 else -1).coerceAtLeast(0))
+                    }
+                    st.copy(data = data.copy(apps = apps, perms = perms), busy = st.busy - key)
+                }
+                onResult(GrantResult.Ok(grant))
+            } else {
+                _ui.update { it.copy(busy = it.busy - key) }
+                onResult(GrantResult.Failed(res?.err?.ifBlank { res.out }?.trim()?.take(140)))
+            }
+        }
     }
 }
 
@@ -131,14 +185,37 @@ private fun categoryColor(category: PermCategory): Color = when (category) {
 fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewModel: PermissionMatrixViewModel = koinViewModel()) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     var detailPerm by remember { mutableStateOf<String?>(null) }
+    var showHelp by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Localized strings for grant/revoke feedback, resolved here so the VM stays free of resources.
+    val fmtGranted = stringResource(R.string.perm_granted_toast)
+    val fmtRevoked = stringResource(R.string.perm_revoked_toast)
+    val fmtFailed = stringResource(R.string.perm_grant_failed)
+    val needsShell = stringResource(R.string.perm_grant_needs_shell)
+    fun onGrantResult(permShort: String, appLabel: String, result: GrantResult) {
+        val msg = when (result) {
+            is GrantResult.Ok -> (if (result.granted) fmtGranted else fmtRevoked).format(permShort, appLabel)
+            is GrantResult.Failed -> fmtFailed.format(result.error ?: "")
+            GrantResult.NeedsShell -> needsShell
+        }
+        scope.launch { snackbar.showSnackbar(msg) }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.matrix_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+                actions = {
+                    IconButton(onClick = { showHelp = true }) {
+                        Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.perm_help))
+                    }
+                },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // View switcher
@@ -155,7 +232,7 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
             if (ui.loading || data == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else when (ui.view) {
-                PermView.OVERVIEW -> OverviewView(data, onOpenPerm = { detailPerm = it }, onOpenApp = onOpenApp)
+                PermView.OVERVIEW -> OverviewView(data, ui, viewModel, onOpenPerm = { detailPerm = it }, onOpenApp = onOpenApp)
                 PermView.MATRIX -> MatrixView(data, ui, viewModel, onOpenApp = onOpenApp, onOpenPerm = { detailPerm = it })
                 PermView.PERMS -> PermsView(data, ui, viewModel, onOpenPerm = { detailPerm = it })
                 PermView.APPS -> AppsView(data, ui, viewModel, onOpenApp = onOpenApp, onOpenPerm = { detailPerm = it })
@@ -165,8 +242,16 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
     }
 
     detailPerm?.let { name ->
-        PermDetailSheet(name, ui.data, onOpenApp = { detailPerm = null; onOpenApp(it) }, onDismiss = { detailPerm = null })
+        PermDetailSheet(
+            name = name,
+            ui = ui,
+            onOpenApp = { detailPerm = null; onOpenApp(it) },
+            onToggle = { app, perm, grant -> viewModel.setGranted(app.packageName, perm.name, grant) { onGrantResult(perm.short, app.label, it) } },
+            onDismiss = { detailPerm = null },
+        )
     }
+
+    if (showHelp) HelpSheet(ui, viewModel, onDismiss = { showHelp = false })
 }
 
 @Composable
@@ -240,7 +325,7 @@ private fun catFilter(ui: PermUiState, viewModel: PermissionMatrixViewModel, f: 
 /* ---------- Overview ---------- */
 
 @Composable
-private fun OverviewView(data: PermissionData, onOpenPerm: (String) -> Unit, onOpenApp: (String) -> Unit) {
+private fun OverviewView(data: PermissionData, ui: PermUiState, viewModel: PermissionMatrixViewModel, onOpenPerm: (String) -> Unit, onOpenApp: (String) -> Unit) {
     val perms = remember(data) { data.perms.values }
     val dangerous = remember(data) { perms.filter { it.category == PermCategory.DANGEROUS } }
     val special = remember(data) { perms.filter { it.category == PermCategory.SPECIAL } }
@@ -258,6 +343,18 @@ private fun OverviewView(data: PermissionData, onOpenPerm: (String) -> Unit, onO
                 StatTile(data.perms.size.toString(), stringResource(R.string.perm_stat_perms), Modifier.weight(1f))
                 StatTile(dangerous.size.toString(), stringResource(R.string.perm_stat_dangerous), Modifier.weight(1f), MaterialTheme.colorScheme.error)
                 StatTile(custom.size.toString(), stringResource(R.string.perm_stat_custom), Modifier.weight(1f), MaterialTheme.colorScheme.primary)
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { viewModel.toggleSystem() }.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.perm_include_system), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.perm_scope_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = ui.includeSystem, onCheckedChange = { viewModel.toggleSystem() })
             }
         }
         item { SectionHeader(stringResource(R.string.perm_most_requested)) }
@@ -392,26 +489,41 @@ private fun PermsView(data: PermissionData, ui: PermUiState, viewModel: Permissi
             .sortedWith(compareBy<PermInfo> { it.category.ordinal }.thenByDescending { it.requestedBy })
     }
     if (list.isEmpty()) { EmptyNote(); return }
-    val max = remember(list) { (list.maxOfOrNull { it.requestedBy } ?: 1).coerceAtLeast(1) }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        items(list, key = { it.name }) { p ->
-            Column(modifier = Modifier.fillMaxWidth().clickable { onOpenPerm(p.name) }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PermChip(p)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(p.label ?: p.short, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val meta = listOfNotNull(p.group?.lowercase(), p.definingLabel).joinToString("  ·  ")
-                        if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    }
-                    Text(stringResource(R.string.perm_req_grant, p.requestedBy, p.grantedBy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                val color = categoryColor(p.category)
-                Box(modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 4.dp).background(color.copy(alpha = 0.12f), RoundedCornerShape(2.dp))) {
-                    Box(modifier = Modifier.fillMaxWidth(p.requestedBy.toFloat() / max).height(4.dp).background(color, RoundedCornerShape(2.dp)))
-                }
+        items(list, key = { it.name }) { p -> PermRow(p) { onOpenPerm(p.name) } }
+    }
+}
+
+/** One aligned row in the By-permission list: color rail · name/label/badges · trailing count. */
+@Composable
+private fun PermRow(p: PermInfo, onClick: () -> Unit) {
+    val color = categoryColor(p.category)
+    val label = p.label?.takeIf { it != p.short }
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 16.dp, top = 11.dp, bottom = 11.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(modifier = Modifier.padding(top = 2.dp).width(3.dp).height(if (label != null) 34.dp else 18.dp).background(color, RoundedCornerShape(2.dp)))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(p.short, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CountBadge(categoryLabel(p.category), color)
+                p.group?.let { CountBadge(GROUP_LABELS[it] ?: it.lowercase(), MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (p.custom) CountBadge(stringResource(R.string.perm_cat_custom), MaterialTheme.colorScheme.primary)
+                p.definingLabel?.let { CountBadge(it, MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
+        Column(horizontalAlignment = Alignment.End) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(p.grantedBy.toString(), style = MaterialTheme.typography.titleMedium, color = color)
+                Text("/${p.requestedBy}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            }
+            Text(stringResource(R.string.perm_granted_of), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 }
 
 /* ---------- By app ---------- */
@@ -495,9 +607,18 @@ private fun GroupsView(data: PermissionData, onOpenApp: (String) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PermDetailSheet(name: String, data: PermissionData?, onOpenApp: (String) -> Unit, onDismiss: () -> Unit) {
-    val perm = data?.perms?.get(name) ?: return
+private fun PermDetailSheet(
+    name: String,
+    ui: PermUiState,
+    onOpenApp: (String) -> Unit,
+    onToggle: (PermApp, PermInfo, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val data = ui.data ?: return
+    val perm = data.perms[name] ?: return
     val apps = remember(name, data) { data.apps.filter { name in it.requested } }
+    // pm grant/revoke only works for runtime (dangerous) permissions.
+    val toggleable = perm.category == PermCategory.DANGEROUS
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(perm.label ?: perm.short, style = MaterialTheme.typography.titleLarge)
@@ -511,12 +632,24 @@ private fun PermDetailSheet(name: String, data: PermissionData?, onOpenApp: (Str
             }
             perm.definingLabel?.let { Text(stringResource(R.string.perm_defined_by, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text(stringResource(R.string.perm_req_grant, perm.requestedBy, perm.grantedBy), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (toggleable) {
+                val hint = if (ui.privileged) R.string.perm_toggle_hint else R.string.perm_grant_needs_shell
+                Text(stringResource(hint), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
             HorizontalDivider()
             apps.forEach { app ->
-                Row(modifier = Modifier.fillMaxWidth().clickable { onOpenApp(app.packageName) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AppIcon(app.packageName, size = 30.dp)
-                    Text(app.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (name in app.granted) Icon(Icons.Default.Check, contentDescription = null, tint = categoryColor(perm.category), modifier = Modifier.size(16.dp))
+                val granted = name in app.granted
+                val busy = "${app.packageName}|$name" in ui.busy
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(modifier = Modifier.weight(1f).clickable { onOpenApp(app.packageName) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        AppIcon(app.packageName, size = 30.dp)
+                        Text(app.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    when {
+                        busy -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        toggleable && ui.privileged -> Switch(checked = granted, onCheckedChange = { onToggle(app, perm, it) })
+                        granted -> Icon(Icons.Default.Check, contentDescription = null, tint = categoryColor(perm.category), modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
@@ -538,5 +671,74 @@ private fun categoryLabel(category: PermCategory): String = stringResource(
 private fun EmptyNote() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(stringResource(R.string.perm_none_match), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/* ---------- Help / legend ---------- */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HelpSheet(ui: PermUiState, viewModel: PermissionMatrixViewModel, onDismiss: () -> Unit) {
+    val data = ui.data
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(stringResource(R.string.perm_help), style = MaterialTheme.typography.titleLarge)
+
+            // Scope
+            HelpSection(stringResource(R.string.perm_help_scope_title)) {
+                if (data != null) {
+                    Text(
+                        stringResource(R.string.perm_help_scope_body, data.apps.size, data.perms.size),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { viewModel.toggleSystem() }.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.perm_include_system), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = ui.includeSystem, onCheckedChange = { viewModel.toggleSystem() })
+                }
+            }
+
+            // Protection level
+            HelpSection(stringResource(R.string.perm_help_cat_title)) {
+                Text(stringResource(R.string.perm_help_cat_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HelpBadgeRow(stringResource(R.string.perm_cat_dangerous), categoryColor(PermCategory.DANGEROUS), stringResource(R.string.perm_help_dangerous))
+                HelpBadgeRow(stringResource(R.string.perm_cat_special), categoryColor(PermCategory.SPECIAL), stringResource(R.string.perm_help_special))
+                HelpBadgeRow(stringResource(R.string.perm_cat_signature), categoryColor(PermCategory.SIGNATURE), stringResource(R.string.perm_help_signature))
+                HelpBadgeRow(stringResource(R.string.perm_cat_normal), categoryColor(PermCategory.NORMAL), stringResource(R.string.perm_help_normal))
+            }
+
+            // Custom
+            HelpSection(stringResource(R.string.perm_help_custom_title)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50)))
+                    Text(stringResource(R.string.perm_help_custom_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // Grant & revoke
+            HelpSection(stringResource(R.string.perm_help_grant_title)) {
+                Text(stringResource(R.string.perm_help_grant_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun HelpSection(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        content()
+    }
+}
+
+@Composable
+private fun HelpBadgeRow(badge: String, color: Color, body: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        Box(modifier = Modifier.padding(top = 2.dp).width(84.dp)) { CountBadge(badge, color) }
+        Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
     }
 }
