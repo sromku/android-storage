@@ -174,6 +174,34 @@
   td.mono { font-family: ui-monospace, monospace; }
   .empty { padding: 26px; text-align: center; color: var(--muted); font-size: 13.5px; }
   .foot { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; }
+
+  /* results analytics */
+  .tooldesc { color: var(--muted); font-size: 13.5px; margin: -4px 0 12px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .stat { border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; min-width: 84px; }
+  .stat .n { font-size: 20px; font-weight: 700; }
+  .stat .l { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .stat.danger .n { color: var(--red); }
+  .grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (min-width: 760px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  .panel .ph { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+  .bar { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; margin: 5px 0; }
+  .bar .bl { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .bc { font-size: 12.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar .track { grid-column: 1 / -1; height: 5px; background: var(--code-bg); border-radius: 3px; overflow: hidden; }
+  .bar .fill { height: 5px; border-radius: 3px; }
+  .chart { display: flex; align-items: flex-end; gap: 2px; height: 84px; }
+  .chart .b { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; background: var(--accent); }
+  .chart .b.zero { background: var(--code-bg); }
+  .chartx { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: 5px; }
+  .tablehead { display:flex; justify-content:flex-end; padding: 2px 2px 8px; }
+  .tablehead .mono { font-size: 11.5px; color: var(--faint); }
+  tbody tr.data { cursor: pointer; }
+  tbody tr.sel { background: var(--accent-soft); }
+  .rowdetail { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 12px; background: var(--code-bg); }
+  .kv { display: grid; grid-template-columns: 160px 1fr; gap: 5px 12px; font-size: 12.5px; }
+  .kv .k { color: var(--muted); font-family: ui-monospace, monospace; }
+  .kv .v { font-family: ui-monospace, monospace; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -254,7 +282,11 @@
       <h2><span class="badge-letter">3</span> Live results</h2>
       <p>Start recording a monitor in the app (with streaming on). Rows appear here as they arrive.</p>
       <div class="tabs" id="tabs"></div>
+      <div id="toolDesc" class="tooldesc"></div>
+      <div id="summary"></div>
+      <div class="tablehead" id="tablehead" hidden><span class="mono" id="tableNote"></span></div>
       <div class="tablewrap"><div id="results"><div class="empty">No data yet — pick a monitor above once it has rows.</div></div></div>
+      <div id="rowdetail" class="rowdetail" hidden></div>
     </div>
 
     <div class="foot">android-storage · local collector web tool</div>
@@ -264,7 +296,15 @@
 (function () {
   var API = (location.protocol === "http:" || location.protocol === "https:") ? location.origin : "http://localhost:8899";
   var currentTool = null;
+  var lastTools = {};
+  var loadedKey = "";
   var toolColors = { appops: "--t-appops", intents: "--t-intents", broadcasts: "--t-broadcasts", notifications: "--t-notifications" };
+  var toolMeta = {
+    appops: { desc: "Sensitive resource accesses and denials — location, camera, mic, contacts.", group2: "op", g2label: "operations" },
+    intents: { desc: "Activity intents launched across the device — action, target and caller.", group2: "action", g2label: "actions" },
+    broadcasts: { desc: "Broadcasts received by the actions you subscribed to.", group2: "action", g2label: "actions" },
+    notifications: { desc: "Every notification posted device-wide — the app, title and text.", group2: null }
+  };
 
   // theme
   var root = document.documentElement;
@@ -309,8 +349,15 @@
   }
 
   function fmtTime(v) {
-    if (!v || isNaN(v)) return v;
-    try { return new Date(Number(v)).toLocaleTimeString(); } catch (e) { return v; }
+    if (v === null || v === undefined || isNaN(v)) return v;
+    try {
+      return new Date(Number(v)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    } catch (e) { return v; }
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
   }
 
   function renderStrip(h) {
@@ -338,19 +385,82 @@
   }
 
   function renderTabs(tools) {
+    lastTools = tools || {};
     var tabs = document.getElementById("tabs");
-    var names = Object.keys(tools || {});
+    var names = Object.keys(lastTools);
     tabs.innerHTML = "";
-    if (!names.length) { return; }
+    if (!names.length) { document.getElementById("summary").innerHTML = ""; document.getElementById("toolDesc").textContent = ""; return; }
     if (!currentTool || names.indexOf(currentTool) < 0) currentTool = names[0];
     names.forEach(function (n) {
       var t = document.createElement("button");
-      t.className = "tab"; t.textContent = n + " · " + tools[n].toLocaleString();
+      t.className = "tab"; t.textContent = n + " · " + lastTools[n].toLocaleString();
       t.setAttribute("aria-selected", n === currentTool ? "true" : "false");
-      t.onclick = function () { currentTool = n; renderTabs(tools); loadRows(n); };
+      t.onclick = function () { currentTool = n; loadedKey = ""; renderTabs(lastTools); };
       tabs.appendChild(t);
     });
-    loadRows(currentTool);
+    // Reload the shown tool only when its row count changed (keeps expanded rows / scroll on idle ticks).
+    var key = currentTool + ":" + (lastTools[currentTool] || 0);
+    if (key !== loadedKey) { loadedKey = key; loadTool(currentTool); }
+  }
+
+  function loadTool(tool) {
+    var meta = toolMeta[tool] || { desc: "", group2: null };
+    document.getElementById("toolDesc").textContent = meta.desc;
+    loadSummary(tool, meta);
+    loadRows(tool);
+  }
+
+  function gfetch(tool, by, limit) {
+    return fetch(API + "/api/group?tool=" + encodeURIComponent(tool) + "&by=" + by + "&limit=" + (limit || 10))
+      .then(function (r) { return r.ok ? r.json() : { groups: [] }; }).catch(function () { return { groups: [] }; });
+  }
+
+  function loadSummary(tool, meta) {
+    var box = document.getElementById("summary");
+    var color = toolColors[tool] ? "var(" + toolColors[tool] + ")" : "var(--accent)";
+    Promise.all([
+      gfetch(tool, "package", 200),
+      meta.group2 ? gfetch(tool, meta.group2, 8) : Promise.resolve({ groups: [] }),
+      fetch(API + "/api/hist?tool=" + encodeURIComponent(tool) + "&hours=24").then(function (r) { return r.json(); }).catch(function () { return { buckets: [] }; }),
+      tool === "appops" ? gfetch(tool, "denied", 5) : Promise.resolve({ groups: [] }),
+      tool === "appops" ? gfetch(tool, "state", 6) : Promise.resolve({ groups: [] })
+    ]).then(function (res) {
+      var byApp = res[0].groups, byG2 = res[1].groups, hist = res[2].buckets || [];
+      var total = byApp.reduce(function (a, g) { return a + g.count; }, 0);
+      var stats = '<div class="stats">' + statTile(total.toLocaleString(), "total") + statTile(byApp.length.toLocaleString(), "apps");
+      if (tool === "appops") {
+        stats += statTile(sumWhere(res[3].groups, 1).toLocaleString(), "denied", true);
+        stats += statTile(sumWhere(res[4].groups, "BACKGROUND").toLocaleString(), "background", true);
+      }
+      stats += "</div>";
+      var g2Panel = meta.group2 ? '<div class="grid2">' + panel("Top " + meta.g2label, barsHtml(byG2, color)) + "</div>" : "";
+      box.innerHTML = stats +
+        '<div class="grid2">' + panel("Last 24 hours", chartHtml(hist, color)) + panel("Top apps", barsHtml(byApp.slice(0, 8), color)) + "</div>" +
+        g2Panel;
+    });
+  }
+
+  function sumWhere(groups, val) { for (var i = 0; i < groups.length; i++) { if (String(groups[i].value) === String(val)) return groups[i].count; } return 0; }
+  function statTile(n, l, danger) { return '<div class="stat' + (danger ? ' danger' : '') + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>'; }
+  function panel(title, inner) { return '<div class="panel"><div class="ph">' + title + '</div>' + inner + '</div>'; }
+  function barsHtml(groups, color) {
+    if (!groups.length) return '<div class="muted" style="font-size:12.5px">none</div>';
+    var max = groups.reduce(function (m, g) { return Math.max(m, g.count); }, 1);
+    return groups.map(function (g) {
+      var pct = Math.round(g.count / max * 100);
+      var label = (g.value === null || g.value === undefined || g.value === "") ? "(none)" : g.value;
+      return '<div class="bar"><span class="bl" title="' + esc(label) + '">' + esc(label) + '</span><span class="bc">' + g.count + '</span>' +
+             '<span class="track"><span class="fill" style="width:' + pct + '%;background:' + color + '"></span></span></div>';
+    }).join("");
+  }
+  function chartHtml(buckets, color) {
+    if (!buckets.length) return '<div class="muted" style="font-size:12.5px">no timestamps yet</div>';
+    var max = buckets.reduce(function (m, v) { return Math.max(m, v); }, 1);
+    var bars = buckets.map(function (v) {
+      var h = max ? Math.max(v / max * 100, v > 0 ? 4 : 0) : 0;
+      return '<div class="b' + (v > 0 ? '' : ' zero') + '" style="height:' + h + '%' + (v > 0 ? ';background:' + color : '') + '" title="' + v + '"></div>';
+    }).join("");
+    return '<div class="chart">' + bars + '</div><div class="chartx"><span>24h ago</span><span>now</span></div>';
   }
 
   function loadRows(tool) {
@@ -358,19 +468,44 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var box = document.getElementById("results");
-        if (!d.rows || !d.rows.length) { box.innerHTML = '<div class="empty">No rows in ' + tool + ' yet.</div>'; return; }
+        var head = document.getElementById("tablehead");
+        if (!d.rows || !d.rows.length) { box.innerHTML = '<div class="empty">No rows in ' + tool + ' yet.</div>'; head.hidden = true; return; }
+        head.hidden = false;
+        document.getElementById("tableNote").textContent = d.rows.length + " newest rows · tap a row for full detail";
         var cols = d.columns.filter(function (c) { return c !== "_id"; });
-        var html = "<table><thead><tr>" + cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>";
-        d.rows.forEach(function (row) {
-          html += "<tr>" + cols.map(function (c) {
+        // Compact table hides long/derived columns; the full row is available on tap.
+        var short = cols.filter(function (c) { return c !== "key" && c !== "text"; });
+        if (!short.length) short = cols;
+        var html = "<table><thead><tr>" + short.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
+        d.rows.forEach(function (row, i) {
+          html += "<tr class='data' data-i='" + i + "'>" + short.map(function (c) {
             var v = row[c];
             if (c === "at_ms" || c === "received_at" || c === "postedAt") v = fmtTime(v);
-            var cls = (typeof row[c] === "number" || c === "package" || c === "op" || c === "key") ? " class='mono'" : "";
-            return "<td" + cls + ">" + (v === null || v === undefined ? "" : String(v)) + "</td>";
+            var cls = (typeof row[c] === "number" || c === "package" || c === "op") ? " class='mono'" : "";
+            var full = (v === null || v === undefined) ? "" : String(v);
+            return "<td" + cls + " title=\"" + esc(full) + "\">" + esc(full) + "</td>";
           }).join("") + "</tr>";
         });
         html += "</tbody></table>";
         box.innerHTML = html;
+        var rd = document.getElementById("rowdetail");
+        rd.hidden = true; rd.removeAttribute("data-i");
+        box.querySelectorAll("tr.data").forEach(function (tr) {
+          tr.onclick = function () {
+            var i = tr.getAttribute("data-i");
+            box.querySelectorAll("tr.sel").forEach(function (x) { x.classList.remove("sel"); });
+            if (rd.getAttribute("data-i") === i && !rd.hidden) { rd.hidden = true; rd.removeAttribute("data-i"); return; }
+            var row = d.rows[parseInt(i, 10)];
+            var kv = cols.map(function (c) {
+              var v = row[c];
+              if (c === "at_ms" || c === "received_at" || c === "postedAt") v = fmtTime(v) + "  (" + row[c] + ")";
+              return '<div class="k">' + esc(c) + '</div><div class="v">' + esc(v === null || v === undefined ? "" : String(v)) + '</div>';
+            }).join("");
+            rd.innerHTML = '<div class="kv">' + kv + '</div>';
+            rd.hidden = false; rd.setAttribute("data-i", i);
+            tr.classList.add("sel");
+          };
+        });
       })
       .catch(function () {});
   }

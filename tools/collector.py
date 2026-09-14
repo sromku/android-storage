@@ -120,6 +120,13 @@ def list_tables(db):
     return out
 
 
+def table_columns(db, table):
+    """Column names of a table, or [] if it doesn't exist (also validates the name)."""
+    if table not in list_tables(db):
+        return []
+    return [r[1] for r in db.execute(f'PRAGMA table_info("{table}")').fetchall()]
+
+
 def _ensure_table(db, tool, sample):
     """Create a table for a tool on first sight, with columns from the record keys."""
     if tool in _seen_tables:
@@ -201,6 +208,42 @@ class Handler(BaseHTTPRequestHandler):
                 cols = [c[0] for c in cur.description]
                 rows = [dict(zip(cols, r)) for r in cur.fetchall()]
             self._json({"tool": tool, "columns": cols, "rows": rows})
+            return
+        if path == "/api/group":
+            q = parse_qs(parsed.query)
+            tool = q.get("tool", [""])[0]
+            by = q.get("by", [""])[0]
+            limit = min(int(q.get("limit", ["12"])[0] or 12), 100)
+            with _lock:
+                db = self.server.db
+                cols = table_columns(db, tool)
+                if not cols:
+                    self._json({"error": "unknown tool"}, 404); return
+                if by not in cols:
+                    self._json({"error": "unknown column"}, 400); return
+                cur = db.execute(
+                    f'SELECT "{by}" AS value, COUNT(*) AS count FROM "{tool}" '
+                    f'GROUP BY "{by}" ORDER BY count DESC LIMIT ?', (limit,))
+                groups = [{"value": r[0], "count": r[1]} for r in cur.fetchall()]
+            self._json({"tool": tool, "by": by, "groups": groups})
+            return
+        if path == "/api/hist":
+            q = parse_qs(parsed.query)
+            tool = q.get("tool", [""])[0]
+            hours = min(int(q.get("hours", ["24"])[0] or 24), 168)
+            with _lock:
+                db = self.server.db
+                if "at_ms" not in table_columns(db, tool):
+                    self._json({"tool": tool, "hours": hours, "buckets": []}); return
+                now = int(time.time() * 1000)
+                start = now - hours * 3600000
+                cur = db.execute(
+                    f'SELECT (at_ms/3600000) AS hb, COUNT(*) FROM "{tool}" '
+                    f'WHERE at_ms >= ? GROUP BY hb', (start,))
+                counts = {int(r[0]): r[1] for r in cur.fetchall()}
+            now_h = now // 3600000
+            buckets = [counts.get(now_h - (hours - 1 - i), 0) for i in range(hours)]
+            self._json({"tool": tool, "hours": hours, "buckets": buckets})
             return
         self.send_response(404)
         self._cors()
