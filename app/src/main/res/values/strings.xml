@@ -659,6 +659,11 @@
     <string name="deeplink_domains">%1$d domains</string>
     <string name="deeplink_expand">Expand</string>
     <string name="deeplink_collapse">Collapse</string>
+    <string name="deeplink_examples_source">Real links found in %1$s\'s code (base.apk) — tap one to load it.</string>
+    <string name="deeplink_examples_none">No example links found in this app\'s code. You can still start from the bare scheme.</string>
+    <string name="deeplink_examples_count">%1$d example links</string>
+    <string name="deeplink_examples_root">Bare scheme — add the rest yourself</string>
+    <string name="deeplink_examples_error">Couldn\'t read the app\'s code: %1$s</string>
 
     <string name="tab_capture">Capture</string>
     <string name="snapshot_folder">Snapshot this folder</string>

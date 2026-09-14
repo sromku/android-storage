@@ -37,6 +37,27 @@ class DeepLinkCatalog {
         return withContext(Dispatchers.Default) { parseAppLinks(result.out) }
     }
 
+    /**
+     * Real example URIs for a custom scheme, mined from the handling app's own code: `scheme://…`
+     * string literals in its base.apk DEX (dex string pools are stored uncompressed, so `strings`
+     * reads them directly). These are authored by the app, not guessed. Needs the shell.
+     */
+    suspend fun schemeExamples(shell: ShellExecutor, packageName: String, scheme: String): List<String> {
+        val pathOut = shell.run("pm path $packageName", timeoutMs = 15_000).out
+        val apks = pathOut.lineSequence().map { it.trim().removePrefix("package:") }.filter { it.endsWith(".apk") }.toList()
+        val apk = apks.firstOrNull { it.endsWith("base.apk") } ?: apks.firstOrNull() ?: return emptyList()
+        // Escape the scheme for grep -E; the URI tail class is single-quoted so the shell leaves it alone.
+        val schemeEre = scheme.replace(".", "\\.").replace("+", "\\+")
+        val tail = "[A-Za-z0-9._~:/?#@!${'$'}&()*+,;=%-]+"
+        val command = "strings '$apk' | grep -aoE '$schemeEre://$tail' | sort -u | head -120"
+        val out = shell.run(command, timeoutMs = 90_000).out
+        return out.lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("$scheme://", ignoreCase = true) && it.length > scheme.length + 3 }
+            .distinct()
+            .toList()
+    }
+
     companion object {
         // http/https are web links (handled via domain verification), not custom deep-link schemes.
         private val WEB_SCHEMES = setOf("http", "https")

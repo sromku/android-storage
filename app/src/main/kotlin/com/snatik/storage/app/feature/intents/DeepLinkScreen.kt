@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -30,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -85,6 +89,9 @@ data class DiscoveryUiState(val loading: Boolean = false, val error: String? = n
 /** Lazily-loaded per-app web hosts with their example paths, keyed by package in the VM. */
 data class AppLinksUi(val loading: Boolean = false, val error: String? = null, val hosts: List<HostPaths>? = null)
 
+/** Lazily-mined example URIs for a custom scheme, keyed by scheme in the VM. */
+data class SchemeExamplesUi(val loading: Boolean = false, val error: String? = null, val examples: List<String>? = null)
+
 class DeepLinkViewModel(
     private val sender: IntentSender,
     private val catalog: DeepLinkCatalog,
@@ -98,6 +105,9 @@ class DeepLinkViewModel(
 
     private val _appLinks = MutableStateFlow<Map<String, AppLinksUi>>(emptyMap())
     val appLinks: StateFlow<Map<String, AppLinksUi>> = _appLinks.asStateFlow()
+
+    private val _schemeExamples = MutableStateFlow<Map<String, SchemeExamplesUi>>(emptyMap())
+    val schemeExamples: StateFlow<Map<String, SchemeExamplesUi>> = _schemeExamples.asStateFlow()
 
     private fun spec() = IntentSpec(action = Intent.ACTION_VIEW, data = _state.value.url.trim(), categories = listOf(Intent.CATEGORY_BROWSABLE), sendAs = SendAs.ACTIVITY)
 
@@ -142,6 +152,25 @@ class DeepLinkViewModel(
             }
         }
     }
+
+    fun loadSchemeExamples(scheme: String, packageName: String) {
+        val current = _schemeExamples.value[scheme]
+        if (current?.loading == true || current?.examples != null) return
+        viewModelScope.launch {
+            _schemeExamples.update { it + (scheme to SchemeExamplesUi(loading = true)) }
+            val shell = privilege.executor.value
+            if (shell == null) {
+                _schemeExamples.update { it + (scheme to SchemeExamplesUi(error = "no-shell")) }
+                return@launch
+            }
+            try {
+                val examples = catalog.schemeExamples(shell, packageName, scheme)
+                _schemeExamples.update { it + (scheme to SchemeExamplesUi(examples = examples)) }
+            } catch (e: Exception) {
+                _schemeExamples.update { it + (scheme to SchemeExamplesUi(error = e.message ?: e.toString())) }
+            }
+        }
+    }
 }
 
 private enum class DeepLinkMode { COMPOSE, DISCOVER }
@@ -152,6 +181,7 @@ fun DeepLinkScreen(onBack: () -> Unit, viewModel: DeepLinkViewModel = koinViewMo
     val state by viewModel.state.collectAsStateWithLifecycle()
     val discovery by viewModel.discovery.collectAsStateWithLifecycle()
     val appLinks by viewModel.appLinks.collectAsStateWithLifecycle()
+    val schemeExamples by viewModel.schemeExamples.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val chooserTitle = stringResource(R.string.deeplink_open_chooser)
     var mode by remember { mutableStateOf(DeepLinkMode.COMPOSE) }
@@ -185,7 +215,9 @@ fun DeepLinkScreen(onBack: () -> Unit, viewModel: DeepLinkViewModel = koinViewMo
                 DeepLinkMode.DISCOVER -> Discover(
                     state = discovery,
                     appLinks = appLinks,
+                    schemeExamples = schemeExamples,
                     onLoadAppLinks = viewModel::loadAppLinks,
+                    onLoadSchemeExamples = viewModel::loadSchemeExamples,
                     onPick = { url -> viewModel.setUrl(url); mode = DeepLinkMode.COMPOSE },
                 )
             }
@@ -234,12 +266,15 @@ private fun ComposeTab(state: DeepLinkUiState, context: android.content.Context,
 private fun Discover(
     state: DiscoveryUiState,
     appLinks: Map<String, AppLinksUi>,
+    schemeExamples: Map<String, SchemeExamplesUi>,
     onLoadAppLinks: (String) -> Unit,
+    onLoadSchemeExamples: (String, String) -> Unit,
     onPick: (String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
     val sectionOpen = remember { mutableStateMapOf<String, Boolean>() }
+    var selectedScheme by remember { mutableStateOf<SchemeLink?>(null) }
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -302,10 +337,79 @@ private fun Discover(
                         item(key = "scheme-header") {
                             SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size), schemesOpen, { sectionOpen["schemes"] = !schemesOpen }, Modifier.padding(top = 16.dp, bottom = 6.dp))
                         }
-                        if (schemesOpen) items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, Modifier.padding(top = 8.dp), onPick) }
+                        if (schemesOpen) items(schemes, key = { "scheme:" + it.scheme }) { s -> SchemeRow(s, Modifier.padding(top = 8.dp)) { selectedScheme = s } }
                     }
                 }
             }
+        }
+    }
+
+    selectedScheme?.let { scheme ->
+        SchemeExamplesSheet(
+            scheme = scheme,
+            examples = schemeExamples[scheme.scheme],
+            onLoad = { onLoadSchemeExamples(scheme.scheme, scheme.packages.first()) },
+            onPick = { url -> selectedScheme = null; onPick(url) },
+            onDismiss = { selectedScheme = null },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SchemeExamplesSheet(
+    scheme: SchemeLink,
+    examples: SchemeExamplesUi?,
+    onLoad: () -> Unit,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    LaunchedEffect(scheme.scheme) { onLoad() }
+    val pkg = scheme.packages.first()
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(pkg, size = 40.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(scheme.scheme + "://", style = MaterialTheme.typography.titleLarge)
+                    Text(appLabel(pkg) + (if (scheme.packages.size > 1) "  ·  " + stringResource(R.string.deeplink_scheme_apps, scheme.packages.size) else ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            ExampleRow(scheme.scheme + "://", stringResource(R.string.deeplink_examples_root)) { onPick(scheme.scheme + "://") }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            when {
+                examples == null || examples.loading -> {
+                    Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.deeplink_examples_source, appLabel(pkg)).substringBefore(" —"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                examples.error == "no-shell" -> Text(stringResource(R.string.deeplink_discover_needs_shell), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                examples.error != null -> Text(stringResource(R.string.deeplink_examples_error, examples.error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                examples.examples.isNullOrEmpty() -> Text(stringResource(R.string.deeplink_examples_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> {
+                    Text(stringResource(R.string.deeplink_examples_source, appLabel(pkg)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    examples.examples.forEach { uri -> ExampleRow(uri, null) { onPick(uri) } }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExampleRow(uri: String, subtitle: String?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(uri, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            subtitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -400,14 +504,15 @@ private fun HostRow(host: String, paths: List<String>, query: String, bottom: Bo
 }
 
 @Composable
-private fun SchemeRow(scheme: SchemeLink, modifier: Modifier = Modifier, onPick: (String) -> Unit) {
-    Surface(onClick = { onPick(scheme.scheme + "://") }, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
+private fun SchemeRow(scheme: SchemeLink, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppIcon(scheme.packages.first(), size = 36.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(scheme.scheme + "://", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface))
                 Text(appLabel(scheme.packages.first()) + (if (scheme.packages.size > 1) "  ·  " + stringResource(R.string.deeplink_scheme_apps, scheme.packages.size) else ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
