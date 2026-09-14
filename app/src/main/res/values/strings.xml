@@ -341,9 +341,8 @@
     <string name="timeline_refresh">Refresh</string>
     <string name="timeline_help">About the timeline</string>
     <string name="timeline_held">held %1$s</string>
-    <string name="timeline_bg_banner">%1$d access(es) happened while the app was in the background</string>
-    <string name="timeline_bg_show">Show only</string>
-    <string name="timeline_bg_showing">Showing</string>
+    <string name="timeline_bg_show">Show only these</string>
+    <string name="timeline_bg_showing">Show all</string>
     <string name="timeline_bg_note">This access happened while the app was in the background — worth a look if you didn\'t expect it.</string>
     <string name="timeline_state_background">background</string>
     <string name="timeline_state_foreground">foreground</string>
@@ -1073,6 +1072,10 @@
     <plurals name="delete_items_title">
         <item quantity="one">Delete %1$d item?</item>
         <item quantity="other">Delete %1$d items?</item>
+    </plurals>
+    <plurals name="timeline_bg_banner">
+        <item quantity="one">%1$d access happened while the app was in the background</item>
+        <item quantity="other">%1$d accesses happened while apps were in the background</item>
     </plurals>
     <plurals name="copied_items">
         <item quantity="one">Copied %1$d item</item>
