@@ -372,6 +372,7 @@
     <string name="sink_option_setup">Not set up. Add a collector in Settings → External collector to keep unlimited history off-device.</string>
     <string name="sink_option_off">Off — turn on to also stream this recording to your collector (kept with no row limit).</string>
     <string name="sink_option_test">Test</string>
+    <string name="sink_option_open_settings">Open Settings</string>
     <string name="sink_option_ok">Connected</string>
     <string name="sink_option_fail">Can\'t reach it — check it\'s running and the URL in Settings.</string>
     <string name="timeline_view_overview">Overview</string>

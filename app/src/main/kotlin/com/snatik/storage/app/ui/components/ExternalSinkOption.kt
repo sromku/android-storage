@@ -3,6 +3,7 @@ package com.snatik.storage.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,8 +50,17 @@ fun ExternalSinkOption(sink: ExternalSink, modifier: Modifier = Modifier) {
     val enabled by sink.enabledFlow.collectAsStateWithLifecycle()
     val url by sink.url.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var test by remember { mutableStateOf(TestState.IDLE) }
     val configured = url.isNotBlank()
+    fun openSettings() {
+        context.startActivity(
+            android.content.Intent(context, com.snatik.storage.app.MainActivity::class.java)
+                .setAction(android.content.Intent.ACTION_MAIN)
+                .putExtra(com.snatik.storage.app.navigation.NAV_TARGET_EXTRA, com.snatik.storage.app.navigation.NAV_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        )
+    }
 
     Column(
         modifier = modifier.fillMaxWidth()
@@ -72,8 +83,11 @@ fun ExternalSinkOption(sink: ExternalSink, modifier: Modifier = Modifier) {
 
         if (!configured) {
             Text(stringResource(R.string.sink_option_setup), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { openSettings() }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                Text(stringResource(R.string.sink_option_open_settings))
+            }
         } else if (enabled) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = {
                         test = TestState.TESTING
@@ -81,15 +95,19 @@ fun ExternalSinkOption(sink: ExternalSink, modifier: Modifier = Modifier) {
                     },
                     enabled = test != TestState.TESTING,
                 ) { Text(stringResource(R.string.sink_option_test)) }
-                when (test) {
-                    TestState.TESTING -> CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    TestState.OK -> StatusLine(Icons.Default.CheckCircle, stringResource(R.string.sink_option_ok), MaterialTheme.colorScheme.primary)
-                    TestState.FAIL -> StatusLine(Icons.Default.ErrorOutline, stringResource(R.string.sink_option_fail), MaterialTheme.colorScheme.error)
-                    TestState.IDLE -> {}
-                }
+                TextButton(onClick = { openSettings() }) { Text(stringResource(R.string.sink_option_open_settings)) }
+                if (test == TestState.TESTING) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+            when (test) {
+                TestState.OK -> StatusLine(Icons.Default.CheckCircle, stringResource(R.string.sink_option_ok), MaterialTheme.colorScheme.primary)
+                TestState.FAIL -> StatusLine(Icons.Default.ErrorOutline, stringResource(R.string.sink_option_fail), MaterialTheme.colorScheme.error)
+                else -> {}
             }
         } else {
             Text(stringResource(R.string.sink_option_off), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { openSettings() }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                Text(stringResource(R.string.sink_option_open_settings))
+            }
         }
     }
 }
