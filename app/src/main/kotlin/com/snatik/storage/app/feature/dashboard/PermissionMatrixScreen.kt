@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,19 +69,26 @@ import androidx.lifecycle.viewModelScope
 import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.app.util.Intents
 import com.snatik.storage.core.apps.PermApp
 import com.snatik.storage.core.apps.PermCategory
 import com.snatik.storage.core.apps.PermInfo
 import com.snatik.storage.core.apps.PermissionData
 import com.snatik.storage.core.apps.PermissionMatrixRepository
+import com.snatik.storage.core.apps.auditCsv
 import com.snatik.storage.core.shell.PrivilegeManager
 import com.snatik.storage.core.shell.run
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 enum class PermView { OVERVIEW, MATRIX, PERMS, APPS, GROUPS }
 enum class PermFilter { DANGEROUS, SPECIAL, SIGNATURE, NORMAL, CUSTOM }
@@ -139,8 +148,15 @@ class PermissionMatrixViewModel(
         if (key in _ui.value.busy) return
         _ui.update { it.copy(busy = it.busy + key) }
         viewModelScope.launch {
-            val verb = if (grant) "grant" else "revoke"
-            val res = runCatching { exec.run("pm $verb $pkg $perm", timeoutMs = 15_000) }.getOrNull()
+            // Dangerous perms flip via `pm grant/revoke`; special app-op perms via `appops set`.
+            val info = _ui.value.data?.perms?.get(perm)
+            val op = info?.appOp
+            val command = if (info?.category == PermCategory.SPECIAL && op != null) {
+                "appops set $pkg $op ${if (grant) "allow" else "ignore"}"
+            } else {
+                "pm ${if (grant) "grant" else "revoke"} $pkg $perm"
+            }
+            val res = runCatching { exec.run(command, timeoutMs = 15_000) }.getOrNull()
             val ok = res?.ok == true
             if (ok) {
                 _ui.update { st ->
@@ -172,6 +188,10 @@ private fun PermFilter.matches(p: PermInfo): Boolean = when (this) {
 }
 
 private fun Set<PermFilter>.match(p: PermInfo): Boolean = isEmpty() || any { it.matches(p) }
+
+/** Whether this permission can be flipped from the app: dangerous (pm) or an app-op special (appops). */
+private fun PermInfo.toggleable(): Boolean =
+    category == PermCategory.DANGEROUS || (category == PermCategory.SPECIAL && appOp != null)
 
 @Composable
 private fun categoryColor(category: PermCategory): Color = when (category) {
@@ -208,12 +228,33 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
         scope.launch { snackbar.showSnackbar(msg) }
     }
 
+    val context = LocalContext.current
+    val exportFailed = stringResource(R.string.perm_export_failed)
+    fun exportCsv() {
+        val data = ui.data ?: return
+        scope.launch {
+            val path = withContext(Dispatchers.IO) {
+                runCatching {
+                    val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(System.currentTimeMillis())
+                    val file = File(context.cacheDir, "permissions-$stamp.csv")
+                    file.writeText(data.auditCsv())
+                    file.absolutePath
+                }.getOrNull()
+            }
+            if (path != null) Intents.share(context, listOf(path))
+            else snackbar.showSnackbar(exportFailed)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.matrix_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
                 actions = {
+                    IconButton(onClick = { exportCsv() }, enabled = ui.data != null) {
+                        Icon(Icons.Default.IosShare, contentDescription = stringResource(R.string.perm_export))
+                    }
                     IconButton(onClick = { showHelp = true }) {
                         Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.perm_help))
                     }
@@ -642,7 +683,7 @@ private fun PermDetailSheet(
     val perm = data.perms[name] ?: return
     val apps = remember(name, data) { data.apps.filter { name in it.requested } }
     // pm grant/revoke only works for runtime (dangerous) permissions.
-    val toggleable = perm.category == PermCategory.DANGEROUS
+    val toggleable = perm.toggleable()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(perm.label ?: perm.short, style = MaterialTheme.typography.titleLarge)
@@ -654,6 +695,7 @@ private fun PermDetailSheet(
                 if (perm.restricted) CountBadge(stringResource(R.string.perm_flag_restricted), MaterialTheme.colorScheme.error)
                 perm.group?.let { CountBadge(GROUP_LABELS[it] ?: it.lowercase(), MaterialTheme.colorScheme.onSurfaceVariant) }
             }
+            perm.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
             perm.definingLabel?.let { Text(stringResource(R.string.perm_defined_by, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text(stringResource(R.string.perm_req_grant, perm.requestedBy, perm.grantedBy), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (toggleable) {
@@ -703,7 +745,7 @@ private fun MatrixCellSheet(
     val app = data.apps.find { it.packageName == pkg } ?: return
     val granted = permName in app.granted
     val busy = "$pkg|$permName" in ui.busy
-    val toggleable = perm.category == PermCategory.DANGEROUS
+    val toggleable = perm.toggleable()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // App header
@@ -738,6 +780,7 @@ private fun MatrixCellSheet(
                 perm.group?.let { CountBadge(GROUP_LABELS[it] ?: it.lowercase(), MaterialTheme.colorScheme.onSurfaceVariant) }
                 CountBadge(if (granted) stringResource(R.string.perm_state_granted) else stringResource(R.string.perm_state_requested), if (granted) categoryColor(perm.category) else MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            perm.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
             if (toggleable && !ui.privileged) {
                 Text(stringResource(R.string.perm_grant_needs_shell), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }

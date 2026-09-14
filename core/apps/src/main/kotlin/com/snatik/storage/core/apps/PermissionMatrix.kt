@@ -17,12 +17,14 @@ data class PermInfo(
     val name: String,          // full permission string
     val short: String,         // last segment, e.g. CAMERA
     val label: String?,        // human label, when the platform provides one
+    val description: String?,  // longer platform description, when provided
     val group: String?,        // group id last segment, e.g. LOCATION
     val category: PermCategory,
     val privileged: Boolean,   // signature|privileged
     val restricted: Boolean,   // hard/soft restricted (SMS, call log …)
     val custom: Boolean,       // defined by an app rather than the platform
     val definingLabel: String?,// label of the defining app, when custom
+    val appOp: String?,        // for special perms with a togglable app-op, its op name
     val requestedBy: Int = 0,
     val grantedBy: Int = 0,
 )
@@ -116,7 +118,9 @@ class PermissionMatrixRepository(private val context: Context) {
         if (pi == null) {
             // Not resolvable (defined by an app that isn't installed, or a bespoke string).
             val custom = !name.startsWith("android.permission.")
-            return PermInfo(name, short, null, GROUP_BY_PERM[short], if (short in SPECIAL) PermCategory.SPECIAL else PermCategory.UNKNOWN, false, false, custom, null)
+            val category = if (short in SPECIAL) PermCategory.SPECIAL else PermCategory.UNKNOWN
+            val appOp = if (category == PermCategory.SPECIAL) APPOP_BY_PERM[short] else null
+            return PermInfo(name, short, null, null, GROUP_BY_PERM[short], category, false, false, custom, null, appOp)
         }
         val base = pi.protection
         val protFlags = pi.protectionFlags
@@ -135,10 +139,12 @@ class PermissionMatrixRepository(private val context: Context) {
         // pi.group is "…UNDEFINED" for most runtime perms on recent Android, so fall back to a known map.
         val group = pi.group?.substringAfterLast('.')?.takeIf { it != "UNDEFINED" } ?: GROUP_BY_PERM[short]
         val label = runCatching { pi.loadLabel(pm)?.toString()?.takeIf { it != short && it.isNotBlank() } }.getOrNull()
+        val description = runCatching { pi.loadDescription(pm)?.toString()?.takeIf { it.isNotBlank() } }.getOrNull()
         val definingLabel = if (custom && definingPkg != null) {
             labelCache.getOrPut(definingPkg) { runCatching { pm.getApplicationLabel(pm.getApplicationInfo(definingPkg, 0)).toString() }.getOrNull() }
         } else null
-        return PermInfo(name, short, label, group, category, privileged, restricted, custom, definingLabel)
+        val appOp = if (category == PermCategory.SPECIAL) APPOP_BY_PERM[short] else null
+        return PermInfo(name, short, label, description, group, category, privileged, restricted, custom, definingLabel, appOp)
     }
 
     companion object {
@@ -169,5 +175,45 @@ class PermissionMatrixRepository(private val context: Context) {
             "BIND_NOTIFICATION_LISTENER_SERVICE", "BIND_DEVICE_ADMIN", "MANAGE_APP_ALL_SERVICES",
             "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "ACCESS_MEDIA_LOCATION",
         )
+
+        /**
+         * Special permissions that map to a togglable app-op (`appops set <pkg> <op> allow|ignore`).
+         * Only entries with a well-known op are listed; the rest stay read-only in the UI because
+         * they're bound through a service/component, not an app-op.
+         */
+        val APPOP_BY_PERM: Map<String, String> = mapOf(
+            "SYSTEM_ALERT_WINDOW" to "SYSTEM_ALERT_WINDOW",
+            "MANAGE_EXTERNAL_STORAGE" to "MANAGE_EXTERNAL_STORAGE",
+            "REQUEST_INSTALL_PACKAGES" to "REQUEST_INSTALL_PACKAGES",
+            "WRITE_SETTINGS" to "WRITE_SETTINGS",
+            "PACKAGE_USAGE_STATS" to "GET_USAGE_STATS",
+            "SCHEDULE_EXACT_ALARM" to "SCHEDULE_EXACT_ALARM",
+            "MANAGE_MEDIA" to "MANAGE_MEDIA",
+            "LOADER_USAGE_STATS" to "LOADER_USAGE_STATS",
+        )
+    }
+}
+
+/**
+ * A flat CSV of every app × requested-permission, one row each, for export.
+ * Columns: app, package, permission, category, group, custom, granted.
+ */
+fun PermissionData.auditCsv(): String = buildString {
+    fun cell(s: String?): String {
+        val v = s.orEmpty()
+        return if (v.any { it == ',' || it == '"' || it == '\n' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+    }
+    appendLine("app,package,permission,category,group,custom,granted")
+    for (app in apps) {
+        for (p in app.requested.sorted()) {
+            val info = perms[p]
+            append(cell(app.label)); append(',')
+            append(cell(app.packageName)); append(',')
+            append(cell(p)); append(',')
+            append(cell(info?.category?.name?.lowercase())); append(',')
+            append(cell(info?.group?.lowercase())); append(',')
+            append(if (info?.custom == true) "yes" else "no"); append(',')
+            appendLine(if (p in app.granted) "granted" else "requested")
+        }
     }
 }
