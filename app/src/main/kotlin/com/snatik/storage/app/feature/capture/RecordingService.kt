@@ -46,7 +46,7 @@ class RecordingService : Service() {
                     name = intent.getStringExtra(EXTRA_NAME).orEmpty(),
                     sources = intent.getStringArrayExtra(EXTRA_SOURCES).orEmpty().map { RecordSource.valueOf(it) }.toSet(),
                     logcatFilter = intent.getStringExtra(EXTRA_LOGCAT_FILTER).orEmpty(),
-                    logcatPackage = intent.getStringExtra(EXTRA_LOGCAT_PACKAGE),
+                    logcatPackages = intent.getStringArrayExtra(EXTRA_LOGCAT_PACKAGES).orEmpty().toList(),
                     watchPaths = intent.getStringArrayExtra(EXTRA_WATCH_PATHS).orEmpty().toList(),
                 )
                 val wantsScreen = RecordSource.SCREEN in config.sources
@@ -113,7 +113,7 @@ class RecordingService : Service() {
         const val EXTRA_NAME = "name"
         const val EXTRA_SOURCES = "sources"
         const val EXTRA_LOGCAT_FILTER = "logcat_filter"
-        const val EXTRA_LOGCAT_PACKAGE = "logcat_package"
+        const val EXTRA_LOGCAT_PACKAGES = "logcat_packages"
         const val EXTRA_WATCH_PATHS = "watch_paths"
         const val EXTRA_PROJECTION_RESULT = "projection_result"
         const val EXTRA_PROJECTION_DATA = "projection_data"
@@ -125,7 +125,7 @@ class RecordingService : Service() {
                 .putExtra(EXTRA_NAME, config.name)
                 .putExtra(EXTRA_SOURCES, config.sources.map { it.name }.toTypedArray())
                 .putExtra(EXTRA_LOGCAT_FILTER, config.logcatFilter)
-                .putExtra(EXTRA_LOGCAT_PACKAGE, config.logcatPackage)
+                .putExtra(EXTRA_LOGCAT_PACKAGES, config.logcatPackages.toTypedArray())
                 .putExtra(EXTRA_WATCH_PATHS, config.watchPaths.toTypedArray())
                 .putExtra(EXTRA_PROJECTION_RESULT, projectionResult)
                 .putExtra(EXTRA_PROJECTION_DATA, projectionData)

@@ -28,8 +28,8 @@ data class RecordingConfig(
     val sources: Set<RecordSource>,
     /** logcat filter spec such as `MyTag:V *:S`, or empty for everything. */
     val logcatFilter: String = "",
-    /** Restrict logcat to one package's uid. */
-    val logcatPackage: String? = null,
+    /** Restrict logcat to these packages' uids; empty means every app. */
+    val logcatPackages: List<String> = emptyList(),
     val watchPaths: List<String> = emptyList(),
 )
 
@@ -69,7 +69,7 @@ class RecordingEngine(
             endedAt = null,
             sources = config.sources.joinToString(",") { it.name },
             logcatFilter = config.logcatFilter.ifBlank { null },
-            logcatPackage = config.logcatPackage,
+            logcatPackage = config.logcatPackages.joinToString(",").ifEmpty { null },
             watchPaths = config.watchPaths.joinToString("\n"),
             videoPath = videoPath,
             eventCount = 0,
@@ -163,10 +163,12 @@ class RecordingEngine(
             record(id, RecordSource.LOGCAT, "storage", "logcat needs shell access; connect Shizuku")
             return
         }
-        val uid = config.logcatPackage?.let { pkg -> runCatching { context.packageManager.getApplicationInfo(pkg, 0).uid }.getOrNull() }
+        val uids = config.logcatPackages
+            .mapNotNull { pkg -> runCatching { context.packageManager.getApplicationInfo(pkg, 0).uid }.getOrNull() }
+            .distinct()
         val command = buildString {
             append("logcat -v threadtime -T 1")
-            uid?.let { append(" --uid=").append(it) }
+            if (uids.isNotEmpty()) append(" --uid=").append(uids.joinToString(","))
             if (config.logcatFilter.isNotBlank()) append(' ').append(config.logcatFilter)
         }
         jobs += scope.launch(Dispatchers.IO) {

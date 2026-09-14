@@ -3,16 +3,19 @@ package com.snatik.storage.app.feature.capture
 import android.Manifest
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -23,16 +26,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -51,7 +62,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -63,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.navigation.Route
+import com.snatik.storage.app.ui.components.AppIcon
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
@@ -73,6 +87,7 @@ import com.snatik.storage.core.capture.RecordingEntity
 import com.snatik.storage.core.capture.SnapshotEntity
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,9 +99,12 @@ fun CaptureScreen(
     viewModel: CaptureViewModel = koinViewModel(parameters = { parametersOf(route) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val apps by viewModel.apps.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showAppPicker by remember { mutableStateOf(false) }
+    var showFolderPicker by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
     val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -150,7 +168,15 @@ fun CaptureScreen(
             ) {
                 Text(stringResource(R.string.snapshot_new), style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(R.string.snapshot_sheet_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = form.path, onValueChange = { viewModel.updateSnapshotForm(form.copy(path = it)) }, label = { Text(stringResource(R.string.snapshot_path)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = form.path,
+                    onValueChange = { viewModel.updateSnapshotForm(form.copy(path = it)) },
+                    label = { Text(stringResource(R.string.snapshot_path)) },
+                    singleLine = true,
+                    textStyle = MonoStyle,
+                    trailingIcon = { IconButton(onClick = { showFolderPicker = true }) { Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.snapshot_browse)) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 OutlinedTextField(value = form.label, onValueChange = { viewModel.updateSnapshotForm(form.copy(label = it)) }, label = { Text(stringResource(R.string.snapshot_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OptionRow(stringResource(R.string.snapshot_hash_label), stringResource(R.string.snapshot_hash_desc), form.hash) { viewModel.updateSnapshotForm(form.copy(hash = it)) }
                 OptionRow(stringResource(R.string.snapshot_copies_label), stringResource(R.string.snapshot_copies_desc), form.keepCopies) { viewModel.updateSnapshotForm(form.copy(keepCopies = it)) }
@@ -176,9 +202,17 @@ fun CaptureScreen(
 
                 OptionRow(stringResource(R.string.source_logcat), stringResource(R.string.source_logcat_desc), RecordSource.LOGCAT in form.sources) { viewModel.updateRecordingForm(form.copy(sources = form.sources.toggle(RecordSource.LOGCAT, it))) }
                 if (RecordSource.LOGCAT in form.sources) {
-                    Column(modifier = Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(modifier = Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!state.shellAvailable) Text(stringResource(R.string.logcat_needs_shell), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        OutlinedTextField(value = form.logcatPackage, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatPackage = it)) }, label = { Text(stringResource(R.string.logcat_package)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
+                        Row(modifier = Modifier.fillMaxWidth().clickable { showAppPicker = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.logcat_scope_title), style = MaterialTheme.typography.bodyLarge)
+                                val summary = if (form.logcatPackages.isEmpty()) stringResource(R.string.logcat_scope_all)
+                                else form.logcatPackages.joinToString(", ") { pkg -> apps.firstOrNull { it.packageName == pkg }?.label ?: pkg.substringAfterLast('.') }
+                                Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
                         OutlinedTextField(value = form.logcatFilter, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatFilter = it)) }, label = { Text(stringResource(R.string.logcat_filter)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -210,9 +244,105 @@ fun CaptureScreen(
             }
         }
     }
+
+    if (showAppPicker) {
+        val form = state.recordingForm
+        if (form == null) showAppPicker = false
+        else AppPickerSheet(
+            apps = apps,
+            selected = form.logcatPackages.toSet(),
+            onToggle = { pkg ->
+                val next = if (pkg in form.logcatPackages) form.logcatPackages - pkg else form.logcatPackages + pkg
+                viewModel.updateRecordingForm(form.copy(logcatPackages = next))
+            },
+            onClear = { viewModel.updateRecordingForm(form.copy(logcatPackages = emptyList())) },
+            onDismiss = { showAppPicker = false },
+        )
+    }
+
+    if (showFolderPicker) {
+        val form = state.snapshotForm
+        if (form == null) showFolderPicker = false
+        else FolderPickerSheet(
+            start = form.path,
+            onPick = { path ->
+                viewModel.updateSnapshotForm(form.copy(path = path, label = form.label.ifBlank { path.substringAfterLast('/') }))
+                showFolderPicker = false
+            },
+            onDismiss = { showFolderPicker = false },
+        )
+    }
 }
 
 private fun Set<RecordSource>.toggle(source: RecordSource, on: Boolean) = if (on) this + source else this - source
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppPickerSheet(apps: List<AppPick>, selected: Set<String>, onToggle: (String) -> Unit, onClear: () -> Unit, onDismiss: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(apps, query) { if (query.isBlank()) apps else apps.filter { it.label.contains(query, true) || it.packageName.contains(query, true) } }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, end = 4.dp)) {
+                Text(stringResource(R.string.app_picker_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (selected.isNotEmpty()) TextButton(onClick = onClear) { Text(stringResource(R.string.app_picker_all)) }
+            }
+            OutlinedTextField(value = query, onValueChange = { query = it }, placeholder = { Text(stringResource(R.string.app_picker_search)) }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            if (apps.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
+                    items(filtered, key = { it.packageName }) { app ->
+                        Row(modifier = Modifier.fillMaxWidth().clickable { onToggle(app.packageName) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AppIcon(app.packageName, size = 36.dp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(app.packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                            }
+                            Switch(checked = app.packageName in selected, onCheckedChange = { onToggle(app.packageName) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FolderPickerSheet(start: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val root = remember { Environment.getExternalStorageDirectory() }
+    var dir by remember { mutableStateOf(File(start.ifBlank { root.absolutePath }).let { if (it.isDirectory) it else root }) }
+    val subdirs = remember(dir) { dir.listFiles()?.filter { it.isDirectory && !it.isHidden }?.sortedBy { it.name.lowercase() } }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.folder_picker_title), style = MaterialTheme.typography.titleLarge)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = { dir.parentFile?.let { dir = it } }, enabled = dir.parentFile != null) { Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.folder_picker_up)) }
+                Text(dir.absolutePath, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.weight(1f))
+            }
+            HorizontalDivider()
+            when {
+                subdirs == null -> Text(stringResource(R.string.folder_picker_denied), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 16.dp))
+                subdirs.isEmpty() -> Text(stringResource(R.string.folder_picker_empty), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 16.dp))
+                else -> LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
+                    items(subdirs, key = { it.absolutePath }) { d ->
+                        Row(modifier = Modifier.fillMaxWidth().clickable { dir = d }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(d.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                Button(onClick = { onPick(dir.absolutePath) }) { Text(stringResource(R.string.folder_picker_use)) }
+            }
+        }
+    }
+}
 
 /** A labelled toggle with a description, for the capture form sheets. */
 @Composable

@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snatik.storage.app.navigation.Route
+import com.snatik.storage.core.apps.AppRepository
 import com.snatik.storage.core.capture.RecordSource
 import com.snatik.storage.core.capture.RecordingConfig
 import com.snatik.storage.core.capture.RecordingEngine
@@ -16,6 +17,7 @@ import com.snatik.storage.core.capture.SnapshotRepository
 import com.snatik.storage.core.shell.PrivilegeManager
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -29,7 +31,7 @@ data class SnapshotForm(val path: String = "", val label: String = "", val hash:
 data class RecordingForm(
     val name: String = "",
     val sources: Set<RecordSource> = setOf(RecordSource.LOGCAT, RecordSource.BROADCASTS),
-    val logcatPackage: String = "",
+    val logcatPackages: List<String> = emptyList(),
     val logcatFilter: String = "",
     val watchPaths: String = "",
 ) {
@@ -37,10 +39,13 @@ data class RecordingForm(
         name = name,
         sources = sources,
         logcatFilter = logcatFilter,
-        logcatPackage = logcatPackage.trim().ifEmpty { null },
+        logcatPackages = logcatPackages,
         watchPaths = watchPaths.lines().map { it.trim() }.filter { it.isNotEmpty() },
     )
 }
+
+/** A pickable installed app, for the recording form's app scope. */
+data class AppPick(val packageName: String, val label: String)
 
 data class CaptureUiState(
     val active: RecordingEntity? = null,
@@ -60,7 +65,16 @@ class CaptureViewModel(
     private val snapshots: SnapshotRepository,
     private val engine: RecordingEngine,
     private val privilege: PrivilegeManager,
+    private val appRepo: AppRepository,
 ) : ViewModel() {
+
+    private val _apps = MutableStateFlow<List<AppPick>>(emptyList())
+    val apps: StateFlow<List<AppPick>> = _apps.asStateFlow()
+
+    private fun ensureApps() {
+        if (_apps.value.isNotEmpty()) return
+        viewModelScope.launch { _apps.value = appRepo.list().map { AppPick(it.packageName, it.label) }.sortedBy { it.label.lowercase() } }
+    }
 
     private data class Local(
         val snapshotForm: SnapshotForm? = null,
@@ -117,7 +131,10 @@ class CaptureViewModel(
 
     // Recordings
 
-    fun openRecordingForm() = local.update { it.copy(recordingForm = RecordingForm()) }
+    fun openRecordingForm() {
+        ensureApps()
+        local.update { it.copy(recordingForm = RecordingForm()) }
+    }
     fun updateRecordingForm(form: RecordingForm) = local.update { it.copy(recordingForm = form) }
     fun closeRecordingForm() = local.update { it.copy(recordingForm = null) }
 

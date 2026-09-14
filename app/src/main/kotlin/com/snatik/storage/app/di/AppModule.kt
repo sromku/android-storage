@@ -199,7 +199,7 @@ val appModule = module {
     viewModel { BroadcastMonitorViewModel(androidContext(), get()) }
     viewModel { BroadcastHistoryViewModel(get(), get()) }
     viewModel { DeepLinkViewModel(get(), get(), get()) }
-    viewModel { (route: Route.Capture) -> CaptureViewModel(route, androidContext(), get(), get(), get()) }
+    viewModel { (route: Route.Capture) -> CaptureViewModel(route, androidContext(), get(), get(), get(), get()) }
     viewModel { (id: Long) -> SnapshotViewModel(id, get()) }
     viewModel { (route: Route.SnapshotDiff) -> SnapshotDiffViewModel(route, get()) }
     viewModel { (route: Route.FileDiff) -> FileDiffViewModel(route, get()) }
