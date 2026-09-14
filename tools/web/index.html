@@ -221,6 +221,8 @@
       <h2><span class="badge-letter">1</span> Start the collector</h2>
       <p>From the repo root, run the collector. It creates the SQLite database if it doesn't exist yet (in <span class="mono">tools/collector-data/</span>, which is gitignored) — no setup needed.</p>
       <div class="code" data-copy>python3 tools/collector.py</div>
+      <p class="muted" style="font-size:13px">Or do the USB tunnel and collector in one go — it asks which device if several are connected:</p>
+      <div class="code" data-copy>./tools/collect.sh</div>
       <div class="callout"><b>Expected:</b> it prints the web-tool URL and the app URL. Then open this page at <span class="mono" id="localUrl">http://localhost:8899</span>.</div>
     </div>
 
@@ -236,8 +238,8 @@
         </div>
         <div class="subcard">
           <div class="h"><span class="chip" style="background:var(--t-intents)">USB</span> adb tunnel</div>
-          <div class="why">Use this if your Wi-Fi blocks device-to-device connections.</div>
-          <div class="code" data-copy>adb reverse tcp:8899 tcp:8899</div>
+          <div class="why">Use this if your Wi-Fi blocks device-to-device connections. The script sets up the tunnel and asks which device if several are connected.</div>
+          <div class="code" data-copy>./tools/adb-reverse.sh</div>
           <div class="code" data-copy>http://127.0.0.1:8899</div>
         </div>
       </div>
