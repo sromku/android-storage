@@ -1,6 +1,5 @@
 package com.snatik.storage.app.feature.capture
 
-import android.app.DownloadManager
 import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -138,7 +137,7 @@ class RecordingViewModel(private val id: Long, private val engine: RecordingEngi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel = koinViewModel(parameters = { parametersOf(id) })) {
+fun RecordingScreen(id: Long, onBack: () -> Unit, onOpenFolder: (String) -> Unit, viewModel: RecordingViewModel = koinViewModel(parameters = { parametersOf(id) })) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -249,7 +248,11 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, viewModel: RecordingViewModel 
                 Text(zip.substringAfterLast('/'), style = MonoStyle, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(
-                        onClick = { runCatching { context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) } },
+                        onClick = {
+                            val folder = File(zip).parent ?: "/storage/emulated/0/Download"
+                            viewModel.dismissExport()
+                            onOpenFolder(folder)
+                        },
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))

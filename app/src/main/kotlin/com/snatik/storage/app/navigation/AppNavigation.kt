@@ -372,7 +372,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                 SnapshotDiffScreen(route = route, onBack = ::pop, onOpenFile = { path -> push(Route.FileDiff(route.aId, route.bId, path)) })
             }
             entry<Route.FileDiff> { route -> FileDiffScreen(route = route, onBack = ::pop) }
-            entry<Route.Recording> { route -> RecordingScreen(id = route.id, onBack = ::pop) }
+            entry<Route.Recording> { route -> RecordingScreen(id = route.id, onBack = ::pop, onOpenFolder = { path -> openBrowser(path.substringAfterLast('/'), path) }) }
             entry<Route.Api> { ApiScreen(onBack = ::pop) }
             entry<Route.Receive> { ReceiveScreen(onBack = ::pop, onOpenInbox = { path -> openBrowser("Storage Received", path) }) }
             entry<Route.SendTo> { route -> SendToScreen(route = route, onBack = ::pop) }
