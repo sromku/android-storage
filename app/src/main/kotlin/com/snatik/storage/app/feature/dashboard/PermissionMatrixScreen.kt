@@ -49,6 +49,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -184,8 +185,9 @@ private fun categoryColor(category: PermCategory): Color = when (category) {
 @Composable
 fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewModel: PermissionMatrixViewModel = koinViewModel()) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
-    var detailPerm by remember { mutableStateOf<String?>(null) }
-    var showHelp by remember { mutableStateOf(false) }
+    // Saveable so the open sheet is restored when returning from an app screen.
+    var detailPerm by rememberSaveable { mutableStateOf<String?>(null) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -245,7 +247,7 @@ fun PermissionMatrixScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, view
         PermDetailSheet(
             name = name,
             ui = ui,
-            onOpenApp = { detailPerm = null; onOpenApp(it) },
+            onOpenApp = { onOpenApp(it) }, // keep the sheet so it's here on the way back
             onToggle = { app, perm, grant -> viewModel.setGranted(app.packageName, perm.name, grant) { onGrantResult(perm.short, app.label, it) } },
             onDismiss = { detailPerm = null },
         )
@@ -645,10 +647,15 @@ private fun PermDetailSheet(
                         AppIcon(app.packageName, size = 30.dp)
                         Text(app.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    when {
-                        busy -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        toggleable && ui.privileged -> Switch(checked = granted, onCheckedChange = { onToggle(app, perm, it) })
-                        granted -> Icon(Icons.Default.Check, contentDescription = null, tint = categoryColor(perm.category), modifier = Modifier.size(18.dp))
+                    // Fixed-size slot (the Switch's M3 footprint) so swapping in the spinner
+                    // never changes the row height.
+                    Box(modifier = Modifier.size(width = 52.dp, height = 32.dp), contentAlignment = Alignment.Center) {
+                        when {
+                            toggleable && ui.privileged ->
+                                Switch(checked = granted, enabled = !busy, onCheckedChange = { onToggle(app, perm, it) })
+                            busy -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            granted -> Icon(Icons.Default.Check, contentDescription = null, tint = categoryColor(perm.category), modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }
