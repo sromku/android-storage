@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -111,6 +112,7 @@ fun CaptureScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showAppPicker by remember { mutableStateOf(false) }
     var showFolderPicker by remember { mutableStateOf(false) }
+    var showFilterPresets by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
     val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -225,7 +227,15 @@ fun CaptureScreen(
                                 }
                             }
                         }
-                        OutlinedTextField(value = form.logcatFilter, onValueChange = { viewModel.updateRecordingForm(form.copy(logcatFilter = it)) }, label = { Text(stringResource(R.string.logcat_filter)) }, singleLine = true, textStyle = MonoStyle, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            value = form.logcatFilter,
+                            onValueChange = { viewModel.updateRecordingForm(form.copy(logcatFilter = it)) },
+                            label = { Text(stringResource(R.string.logcat_filter)) },
+                            singleLine = true,
+                            textStyle = MonoStyle,
+                            trailingIcon = { IconButton(onClick = { showFilterPresets = true }) { Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.logcat_presets)) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
 
@@ -282,6 +292,18 @@ fun CaptureScreen(
                 showFolderPicker = false
             },
             onDismiss = { showFolderPicker = false },
+        )
+    }
+
+    if (showFilterPresets) {
+        val form = state.recordingForm
+        if (form == null) showFilterPresets = false
+        else FilterPresetsSheet(
+            onPick = { spec ->
+                viewModel.updateRecordingForm(form.copy(logcatFilter = spec))
+                showFilterPresets = false
+            },
+            onDismiss = { showFilterPresets = false },
         )
     }
 
@@ -369,6 +391,48 @@ private fun FolderPickerSheet(start: String, onPick: (String) -> Unit, onDismiss
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
                 Button(onClick = { onPick(dir.absolutePath) }) { Text(stringResource(R.string.folder_picker_use)) }
+            }
+        }
+    }
+}
+
+private data class LogcatPreset(val nameRes: Int, val descRes: Int, val spec: String)
+
+private val LOGCAT_PRESETS = listOf(
+    LogcatPreset(R.string.preset_error_name, R.string.preset_error_desc, "*:E"),
+    LogcatPreset(R.string.preset_crash_name, R.string.preset_crash_desc, "AndroidRuntime:E *:S"),
+    LogcatPreset(R.string.preset_exception_name, R.string.preset_exception_desc, "-e Exception"),
+    LogcatPreset(R.string.preset_anr_name, R.string.preset_anr_desc, "-e \"ANR in\""),
+    LogcatPreset(R.string.preset_native_name, R.string.preset_native_desc, "DEBUG:V *:S"),
+    LogcatPreset(R.string.preset_oom_name, R.string.preset_oom_desc, "-e OutOfMemoryError"),
+    LogcatPreset(R.string.preset_strictmode_name, R.string.preset_strictmode_desc, "StrictMode:V *:S"),
+    LogcatPreset(R.string.preset_fatal_name, R.string.preset_fatal_desc, "*:F"),
+    LogcatPreset(R.string.preset_warn_name, R.string.preset_warn_desc, "*:W"),
+    LogcatPreset(R.string.preset_activity_name, R.string.preset_activity_desc, "ActivityManager:I *:S"),
+    LogcatPreset(R.string.preset_okhttp_name, R.string.preset_okhttp_desc, "OkHttp:V *:S"),
+    LogcatPreset(R.string.preset_all_name, R.string.preset_all_desc, ""),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterPresetsSheet(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        LazyColumn(modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
+            item {
+                Text(stringResource(R.string.logcat_presets_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 4.dp))
+                Text(stringResource(R.string.logcat_presets_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+            }
+            items(LOGCAT_PRESETS) { preset ->
+                Column(modifier = Modifier.fillMaxWidth().clickable { onPick(preset.spec) }.padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(preset.nameRes), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        if (preset.spec.isNotEmpty()) {
+                            Text(preset.spec, style = MonoStyle, color = MaterialTheme.colorScheme.primary, modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                    Text(stringResource(preset.descRes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
         }
     }
