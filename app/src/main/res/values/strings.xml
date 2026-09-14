@@ -335,7 +335,12 @@
     <string name="perm_grant_failed">Couldn\'t change it: %1$s</string>
     <string name="perm_grant_needs_shell">Connect Shizuku or root to grant or revoke permissions.</string>
     <string name="timeline_title">App-ops timeline</string>
-    <string name="timeline_sensitive_only">Sensitive only</string>
+    <string name="timeline_sensitive_only">Sensitive operations only</string>
+    <string name="timeline_sensitive_hint">Location, camera, microphone, contacts and other privacy-sensitive access.</string>
+    <string name="timeline_filter">Filter</string>
+    <string name="timeline_filter_title">Filter</string>
+    <string name="timeline_filter_state">App state at access time</string>
+    <string name="timeline_filter_any">Any state</string>
     <string name="timeline_needs_shell">Shell access needed to read app-ops</string>
     <string name="timeline_empty">Nothing recorded</string>
     <string name="timeline_refresh">Refresh</string>

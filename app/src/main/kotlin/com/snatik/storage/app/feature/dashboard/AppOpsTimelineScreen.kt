@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,13 +29,15 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -90,7 +93,10 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     var sensitiveOnly by rememberSaveable { mutableStateOf(true) }
+    var stateFilter by rememberSaveable { mutableStateOf<AppOpState?>(null) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+    val filterActive = sensitiveOnly || stateFilter != null
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -103,8 +109,8 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                         if (loading && entries != null) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.timeline_refresh))
                     }
-                    IconToggleButton(checked = sensitiveOnly, onCheckedChange = { sensitiveOnly = it }) {
-                        Icon(Icons.Default.FilterAlt, contentDescription = stringResource(R.string.timeline_sensitive_only), tint = if (sensitiveOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    IconButton(onClick = { showFilters = true }) {
+                        Icon(Icons.Default.FilterAlt, contentDescription = stringResource(R.string.timeline_filter), tint = if (filterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { showHelp = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.timeline_help)) }
                 },
@@ -117,8 +123,8 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                 !viewModel.shell && list == null -> EmptyState(Icons.Default.Terminal, stringResource(R.string.timeline_needs_shell), null)
                 list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 else -> {
-                    val visible = remember(list, sensitiveOnly) {
-                        list.filter { !sensitiveOnly || it.sensitive }
+                    val visible = remember(list, sensitiveOnly, stateFilter) {
+                        list.filter { (!sensitiveOnly || it.sensitive) && (stateFilter == null || it.state == stateFilter) }
                     }
                     val bgCount = remember(visible) { visible.count { it.background } }
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -143,6 +149,15 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
     val sel = selectedKey?.let { key -> entries?.firstOrNull { "${it.packageName}|${it.op}|${it.absTime}" == key } }
     if (sel != null) {
         AccessDetailSheet(sel, onOpenApp = { onOpenApp(it) }, onDismiss = { selectedKey = null })
+    }
+    if (showFilters) {
+        FilterSheet(
+            sensitiveOnly = sensitiveOnly,
+            stateFilter = stateFilter,
+            onSensitiveChange = { sensitiveOnly = it },
+            onStateChange = { stateFilter = it },
+            onDismiss = { showFilters = false },
+        )
     }
     if (showHelp) TimelineHelpSheet(onDismiss = { showHelp = false })
 }
@@ -263,6 +278,60 @@ private fun DetailRow(label: String, value: String, valueColor: Color = Material
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 1.dp))
         Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor, modifier = Modifier.weight(1f))
     }
+}
+
+/* ---------- Filter sheet ---------- */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(
+    sensitiveOnly: Boolean,
+    stateFilter: AppOpState?,
+    onSensitiveChange: (Boolean) -> Unit,
+    onStateChange: (AppOpState?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(stringResource(R.string.timeline_filter_title), style = MaterialTheme.typography.titleLarge)
+
+            // Scope: sensitive vs all
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.timeline_sensitive_only), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.timeline_sensitive_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = sensitiveOnly, onCheckedChange = onSensitiveChange)
+            }
+
+            HorizontalDivider()
+
+            // App state
+            Text(stringResource(R.string.timeline_filter_state), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                StateChip(stringResource(R.string.timeline_filter_any), stateFilter == null) { onStateChange(null) }
+                StateChip(stringResource(R.string.timeline_state_background), stateFilter == AppOpState.BACKGROUND, MaterialTheme.colorScheme.error) { onStateChange(AppOpState.BACKGROUND) }
+                StateChip(stringResource(R.string.timeline_state_foreground), stateFilter == AppOpState.FOREGROUND) { onStateChange(AppOpState.FOREGROUND) }
+                StateChip(stringResource(R.string.timeline_state_fgservice), stateFilter == AppOpState.FOREGROUND_SERVICE) { onStateChange(AppOpState.FOREGROUND_SERVICE) }
+                StateChip(stringResource(R.string.timeline_state_system), stateFilter == AppOpState.PERSISTENT) { onStateChange(AppOpState.PERSISTENT) }
+            }
+            Spacer(Modifier.size(4.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StateChip(label: String, selected: Boolean, accent: Color = MaterialTheme.colorScheme.primary, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = accent.copy(alpha = 0.16f),
+            selectedLabelColor = accent,
+        ),
+    )
 }
 
 /* ---------- Help sheet ---------- */
