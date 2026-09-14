@@ -53,12 +53,26 @@ class DeepLinkCatalog {
         val out = shell.run(command, timeoutMs = 90_000).out
         return out.lineSequence()
             .map { it.trim() }
-            .filter { it.startsWith("$scheme://", ignoreCase = true) && it.length > scheme.length + 3 }
+            .filter { it.startsWith("$scheme://", ignoreCase = true) }
+            .map { cleanExampleUri(it) }
+            .filter { it.length > scheme.length + 3 }
             .distinct()
             .toList()
     }
 
     companion object {
+        // A trailing/embedded printf-style placeholder the app fills at runtime (%s, %d, %1$s …),
+        // matched only when not followed by another alphanumeric so real %XX percent-encoding is left alone.
+        private val formatSpecifier = Regex("""%(?:\d+\$)?[sdf](?![0-9A-Za-z])""")
+
+        /** Drop printf placeholders the app substitutes, and any separator they leave dangling. */
+        fun cleanExampleUri(uri: String): String {
+            var s = formatSpecifier.replace(uri, "")
+            s = s.trimEnd('&')
+            if (s.endsWith("?")) s = s.dropLast(1)
+            return s
+        }
+
         // http/https are web links (handled via domain verification), not custom deep-link schemes.
         private val WEB_SCHEMES = setOf("http", "https")
         // States under "Domain verification state:" that mean the app is approved to open the domain.

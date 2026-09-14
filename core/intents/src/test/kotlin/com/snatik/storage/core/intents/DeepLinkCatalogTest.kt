@@ -97,4 +97,15 @@ class DeepLinkCatalogTest {
         assertTrue("/watch" in studio)           // prefix
         assertTrue("/channel/UC" in studio)      // glob fixed prefix
     }
+
+    @Test
+    fun cleansPlaceholdersButKeepsEncoding() {
+        // Trailing/embedded printf placeholders go; dangling separators trimmed.
+        assertEquals("app://settings/device/matterRemoveDevice?hgs_device_id=&matter_instance_name=",
+            DeepLinkCatalog.cleanExampleUri("app://settings/device/matterRemoveDevice?hgs_device_id=%s&matter_instance_name=%s"))
+        assertEquals("app://open?ref=", DeepLinkCatalog.cleanExampleUri("app://open?ref=%s"))
+        assertEquals("app://home/", DeepLinkCatalog.cleanExampleUri("app://home/%s"))
+        // Real percent-encoding must survive (not a format specifier).
+        assertEquals("app://q?path=%2Fhome%20page", DeepLinkCatalog.cleanExampleUri("app://q?path=%2Fhome%20page"))
+    }
 }

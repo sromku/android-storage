@@ -392,7 +392,22 @@ private fun SchemeExamplesSheet(
                 examples.examples.isNullOrEmpty() -> Text(stringResource(R.string.deeplink_examples_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else -> {
                     Text(stringResource(R.string.deeplink_examples_source, appLabel(pkg)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    examples.examples.forEach { uri -> ExampleRow(uri, null) { onPick(uri) } }
+                    val prefix = scheme.scheme + "://"
+                    val groups = remember(examples.examples) {
+                        examples.examples.groupBy { it.removePrefix(prefix).takeWhile { c -> c != '/' && c != '?' && c != '#' } }
+                            .toList().sortedBy { it.first }
+                    }
+                    groups.forEach { (host, uris) ->
+                        if (uris.size >= 2) {
+                            Text(host, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+                            uris.forEach { uri ->
+                                val remainder = uri.removePrefix("$prefix$host")
+                                ExampleRow(remainder.ifEmpty { uri }, null, Modifier.padding(start = 8.dp)) { onPick(uri) }
+                            }
+                        } else {
+                            ExampleRow(uris.first(), null) { onPick(uris.first()) }
+                        }
+                    }
                 }
             }
         }
@@ -400,9 +415,9 @@ private fun SchemeExamplesSheet(
 }
 
 @Composable
-private fun ExampleRow(uri: String, subtitle: String?, onClick: () -> Unit) {
+private fun ExampleRow(uri: String, subtitle: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
