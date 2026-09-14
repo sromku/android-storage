@@ -273,6 +273,7 @@
     <string name="tools_dash_sub">Device health, storage, memory, battery.</string>
     <string name="tools_matrix_sub">Every app against the dangerous permissions.</string>
     <string name="tools_timeline_sub">Recent sensitive access across all apps.</string>
+    <string name="tools_recording">Recording</string>
     <string name="dashboard_title">Dashboard</string>
     <string name="dash_ram">Memory</string>
     <string name="dash_battery">Battery</string>

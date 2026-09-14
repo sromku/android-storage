@@ -39,7 +39,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -47,11 +52,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.navigation.TopLevel
 import com.snatik.storage.app.ui.components.TopLevelBar
+import org.koin.compose.koinInject
 
-private data class Tool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit)
+private data class Tool(val title: String, val subtitle: String, val icon: ImageVector, val onClick: () -> Unit, val recording: Boolean = false)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,15 +85,21 @@ fun ToolsScreen(
     onOpenPalette: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    // A card shows a "recording" badge when any monitor it contains is running.
+    val appOpsRec by koinInject<com.snatik.storage.core.apps.AppOpsRecorderStore>().running.collectAsStateWithLifecycle()
+    val intentRec by koinInject<com.snatik.storage.core.intents.IntentMonitorStore>().running.collectAsStateWithLifecycle()
+    val broadcastRec by koinInject<com.snatik.storage.core.intents.BroadcastStore>().running.collectAsStateWithLifecycle()
+
     val tools = listOf(
-        Tool(stringResource(R.string.intents_title), stringResource(R.string.tools_intents_sub), Icons.AutoMirrored.Filled.Send, onOpenIntents),
-        Tool(stringResource(R.string.capture_title), stringResource(R.string.tools_capture_sub), Icons.Default.FiberManualRecord, onOpenCapture),
+        Tool(stringResource(R.string.intents_title), stringResource(R.string.tools_intents_sub), Icons.AutoMirrored.Filled.Send, recording = intentRec || broadcastRec, onClick = onOpenIntents),
+        Tool(stringResource(R.string.capture_title), stringResource(R.string.tools_capture_sub), Icons.Default.FiberManualRecord, onClick = onOpenCapture),
         Tool(stringResource(R.string.receive_title), stringResource(R.string.tools_transfer_sub), Icons.Default.Wifi, onOpenReceive),
         Tool(stringResource(R.string.api_title), stringResource(R.string.tools_api_sub), Icons.Default.Api, onOpenApi),
         Tool(stringResource(R.string.net_title), stringResource(R.string.tools_net_sub), Icons.Default.Lan, onOpenNetwork),
         Tool(stringResource(R.string.dashboard_title), stringResource(R.string.tools_dash_sub), Icons.Default.Dashboard, onOpenDashboard),
         Tool(stringResource(R.string.matrix_title), stringResource(R.string.tools_matrix_sub), Icons.Default.GridOn, onOpenMatrix),
-        Tool(stringResource(R.string.timeline_title), stringResource(R.string.tools_timeline_sub), Icons.Default.History, onOpenTimeline),
+        Tool(stringResource(R.string.timeline_title), stringResource(R.string.tools_timeline_sub), Icons.Default.History, onOpenTimeline, recording = appOpsRec),
         Tool(stringResource(R.string.search_title), stringResource(R.string.tools_search_sub), Icons.Default.Search, onOpenSearch),
         Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications),
         Tool(stringResource(R.string.watch_title), stringResource(R.string.tools_watch_sub), Icons.Default.Sensors, onOpenProviderWatch),
@@ -113,12 +126,35 @@ fun ToolsScreen(
             items(tools) { tool ->
                 Card(onClick = tool.onClick, modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Icon(tool.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(40.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(tool.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(40.dp))
+                            Spacer(Modifier.weight(1f))
+                            if (tool.recording) RecordingBadge()
+                        }
                         Text(tool.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(tool.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RecordingBadge() {
+    Row(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Box(modifier = Modifier.size(7.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(50)))
+        Text(
+            stringResource(R.string.tools_recording),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }
