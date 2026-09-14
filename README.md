@@ -1,23 +1,147 @@
-android-storage
-======================
+# android-storage
 
-A small Kotlin library for files on Android: create, read, append, copy, move, delete, list, measure and encrypt on internal or external storage. Plus an app, being built on top of it, for exploring everything a device stores.
+A tiny file library from 2017, loved and then archived — brought back not as another library, but as
+one of the most capable **storage and device-inspection apps on Android**. Browse a phone like a file
+manager, then keep going: inspect apps and APKs, read content providers and databases, watch the
+intents and broadcasts moving through the system, reclaim space, and hand the whole thing to an AI
+agent over HTTP and MCP.
 
-The library is `com.snatik:storage`. Version 3.0 is a Kotlin rewrite of the 2017 Java library; see [CHANGELOG.md](CHANGELOG.md) for what changed and [docs/PLAN.md](docs/PLAN.md) for where the project is going.
+<p align="center">
+  <img src="assets/home.png" width="30%" alt="Home: volumes, usage and the app's own directories" />
+  <img src="assets/browser.png" width="30%" alt="File browser with breadcrumbs, thumbnails and multi-select" />
+  <img src="assets/hex.png" width="30%" alt="Binary inspector: hex, extracted strings and type detection" />
+</p>
 
-## Install
+The app is Kotlin and Jetpack Compose. The old library still ships underneath as `com.snatik:storage`,
+rewritten in Kotlin — see [the library](#the-library) below and [CHANGELOG.md](CHANGELOG.md).
 
-Maven Central publishing for 3.0.0 is being set up. Until then, include the `:storage` module from this repository.
+## The story
 
-```kotlin
-dependencies {
-    implementation("com.snatik:storage:3.0.0")
-}
+**2017.** `android-storage` was a small Java library — a friendly wrapper over `java.io.File` that made
+creating, reading, copying, listing, measuring and encrypting files a one-liner. It found its way into
+a lot of apps and a lot of stars.
+
+**Then it stopped.** Maintenance ended, jcenter died, and the repository was archived while Android
+moved on by a decade of API levels.
+
+**Then the world changed.** Today you can just ask an assistant to save a file, read a file, or do
+almost any storage chore for you. A thin convenience wrapper is no longer the thing that's missing.
+
+**2026 — the revival.** So this comes back as something new: an app that goes from the simplest need —
+browsing and managing your files — all the way to heavy, privileged, forensic work, and doubles as a
+companion for building and validating your *own* apps. The library stays underneath, rewritten in
+Kotlin, but the point now is the app, and it's built to live in the AI world: everything it can do is
+exposed over an HTTP and [MCP](https://modelcontextprotocol.io) API, so Claude Code and other agents
+can drive the device directly.
+
+## What it does
+
+Depending on how much access you grant it (see [how far it reaches](#how-far-it-reaches)), the app
+spans a lot of ground.
+
+### Browse & view
+
+- Volumes overview with usage, plus the app's own directories.
+- File browser with breadcrumbs, search, sort by name/date/size/type, and a hidden-files toggle.
+- Thumbnails for images and video, typed icons for everything else; multi-select copy / move / delete /
+  share, rename, new folder and file, with background operations that show progress and cancel.
+- A details sheet with path, size, permissions and on-demand SHA-256.
+- Viewers per type: syntax-highlighted code and text, JSON and XML trees, a binary inspector (hex,
+  extracted strings, magic-byte type detection, schema-less protobuf), images with pinch-zoom and an
+  EXIF sheet, an in-app video and audio player (Media3), and a zip archive browser.
+- Renders Android vector drawables (`<vector>`) on a canvas — paths, gradients, clip-paths, trim
+  strokes — with pinch-zoom, both from disk and decoded out of an APK.
+- Global search: find files by name or grep their text content anywhere the current tier can reach.
+
+### Measure & reclaim
+
+- Per-app app / data / cache sizes, and a drillable **sunburst** and **treemap** of where space goes.
+- **Storage insights**: duplicate files (grouped by size, confirmed by SHA-256), empty directories,
+  zero-byte files, and ghost footprints left under `Android/data` and `Android/obb` by uninstalled apps.
+- **App storage breakdown**: base APK, split APKs, OAT/ART artifacts, native libs, and private data,
+  cache and external data as a stacked bar.
+- A storage **benchmark** (sequential and random read/write throughput and IOPS) and a **Time Machine**
+  that records storage on a schedule, charts free space over time and forecasts when the device fills.
+
+### Apps & APKs
+
+- Every package with app / data / cache sizes, filters for user, system and debuggable, and sort.
+- App detail: storage breakdown, install facts, signing certificate, the decoded and searchable
+  `AndroidManifest.xml`, components with exported flags, and requested permissions with grant state.
+  With a shell: force stop, clear cache or data, uninstall, and grant or revoke runtime permissions.
+- **APK deep inspector**: open any package file without installing it — Overview (SDKs, component and
+  resource counts, DEX list, native ABIs), the full decoded manifest, Resources grouped by type,
+  Contents (every zip entry), and Signing (v1/v2/v3 with certificate hashes). Every entry is openable.
+- **APK Analyse**: a drillable sunburst over Code / Native libs / Resources / Assets / Signing / Other.
+- **Decompile** an APK's dex to readable Java (jadx), one class at a time, off the UI thread.
+- **ELF inspector**: architecture, stripped state, SONAME, build-id, per-section entropy, dependency
+  list, and flags for known packers or unusually high entropy. Opens automatically for `.so` files.
+- **App behavior**: what an app actually did — location, Bluetooth/Wi-Fi scans, camera, mic, clipboard
+  and contacts access with timestamps, running services, recently changed files, and a suspicion score.
+- **ART compilation**: recompile an app's dex to a chosen filter (speed, profile, verify, reset).
+
+### Read the device's data
+
+- Every content provider as a table, with projection, selection, sort and paging, exportable as CSV or
+  JSON; providers the app may not read directly are queried as the shell user when Shizuku is connected.
+- **SQLite** browser: tables with row counts, schema and foreign-key relationships, sortable paged rows,
+  a SQL console, and one-tap VACUUM and integrity check. Databases that can't be opened in place are
+  copied and can be saved back.
+- **Shared preferences**: open the XML of any app you can reach, edit typed values, add or delete keys.
+- **Permission matrix** (every app against the dangerous permissions), **permission-vs-footprint**
+  ranking, and an **app-ops timeline** of recent sensitive access device-wide.
+- **Network**: a live view of which apps are talking to the network, remote host, port, state and byte
+  totals, read from the kernel connection tables — no VPN.
+- **Device dashboard** and **System** view: model, build, kernel, SELinux, uptime, RAM, battery,
+  wakelocks, mounts, partitions, swap and ZRAM (some figures need root).
+
+### Watch & record
+
+- **Intents**: build any activity, broadcast or service intent with typed extras and flags, see which
+  components would receive it, send it or save it as a preset.
+- **Broadcast monitor** (live, in the background) with the system's recent broadcast history from
+  `dumpsys`, and an **intent monitor** of activity launches across the device.
+- **Deep-link tester**: discovers the real web App Links (with paths) and custom schemes the device
+  advertises, and mines each scheme's example URIs from the handling app's own code — nothing guessed.
+- **Notification** and **clipboard** monitors, and a **provider-change** watch.
+- **Capture**: freeze a folder into a snapshot and diff two snapshots (added / removed / modified /
+  moved, with a text diff); recording sessions capture logcat, broadcasts, file changes and optionally
+  the screen as a foreground service, and export as a zip.
+
+### For developers & agents
+
+- Read your **own debuggable app's** private files, databases and prefs via `run-as` — the dev loop.
+- **Receive files** from a browser (drop page with a pairing code and QR) or another phone, over Wi-Fi
+  or `adb forward`, with resume.
+- **Agent API**: the same engine exposed as 27 operations over REST (`/api/v1/{op}`) and Model Context
+  Protocol (`/mcp`) — list apps, read files, decode a manifest, query a provider, run SQL, take a
+  snapshot, run a shell command, read device stats and more. Behind a bearer token and two safety gates
+  (shell tools and device changes), both off by default, with an audit log.
+
+```bash
+adb forward tcp:8484 tcp:8484
+curl -s localhost:8484/api/v1/apps -H "Authorization: Bearer $TOKEN"
 ```
 
-Requires minSdk 28.
+## How far it reaches
 
-## Usage
+Nothing is faked. Each capability is honest about what it needs, and the app works at every tier — from
+no permissions at all, up to root when a device has it.
+
+| Capability | Needs |
+|---|---|
+| Browse your own app dirs, inspect any APK, list apps & components | **none** |
+| Browse all of shared storage, per-app storage sizes | **permission** (`MANAGE_EXTERNAL_STORAGE`, usage access) |
+| Other apps' `Android/data`, your debuggable app's private files, logcat, `pm`/`am`/`appops`, dumpsys history | **[Shizuku](https://shizuku.rikka.app/)** (shell UID over ADB / wireless debugging) |
+| Any app's private `/data/data`, non-exported providers, partitions & swap | **root** |
+
+Shizuku gives the app a shell UID without root, which unlocks most of the powerful features.
+
+## The library
+
+`com.snatik:storage` lives on as a thin, typed Kotlin module. Every operation returns `Result<T>`;
+a failure is always a `StorageException` (`NotFound`, `AlreadyExists`, `NotADirectory`/`NotAFile`,
+`Io`, `Crypto`, `Unsupported`). Calls block the calling thread — wrap them in `withContext(Dispatchers.IO)`.
 
 ```kotlin
 val storage = Storage(context)
@@ -34,164 +158,60 @@ storage.readTextFile(file)
     .onFailure { error -> println("could not read: $error") }
 ```
 
-Every operation returns `Result<T>`. A failure is always a `StorageException`:
-
-| Exception | Meaning |
-|---|---|
-| `NotFound` | the path does not exist |
-| `AlreadyExists` | the path exists and the operation refuses to overwrite |
-| `NotADirectory` / `NotAFile` | wrong kind of path |
-| `Io` | the file system refused; the cause is attached |
-| `Crypto` | wrong key, tampered data or unknown format |
-| `Unsupported` | not available in this configuration |
-
-Calls block the calling thread. Wrap them in `withContext(Dispatchers.IO)` from a coroutine.
-
-### Locations
+Directories, files, copy/move/rename, sizes and listings:
 
 ```kotlin
-storage.externalStorageDirectory            // /storage/emulated/0
-storage.externalPublicDirectory(Environment.DIRECTORY_PICTURES)
-storage.externalFilesDirectory              // Android/data/<pkg>/files, or null
-storage.internalFilesDirectory              // /data/user/0/<pkg>/files
-storage.internalCacheDirectory
-storage.isExternalWritable
-```
-
-Browsing shared storage on Android 11 and later needs `MANAGE_EXTERNAL_STORAGE` or the Storage Access Framework. Your own directories need nothing.
-
-### Directories
-
-```kotlin
-storage.createDirectory(path)                       // parents created, fails if it exists
 storage.createDirectory(path, override = true)      // wipes an existing directory first
-storage.deleteDirectory(path)
-storage.listFiles(path)
 storage.listFiles(path, nameMatches = Regex(".*\\.txt"), order = FileOrder.NEWEST_FIRST)
-storage.listFilesRecursively(path)                  // every regular file below path
-storage.directorySize(path)                         // Result<Long>
-```
+storage.listFilesRecursively(path)
+storage.directorySize(path)                          // Result<Long>
 
-`FileOrder`: `NAME`, `NEWEST_FIRST`, `SMALLEST_FIRST`, `LARGEST_FIRST`, `DIRECTORIES_FIRST`.
-
-### Files
-
-```kotlin
-storage.createFile(path, "text")
-storage.createFile(path, byteArray)
 storage.createFile(path, bitmap, Bitmap.CompressFormat.JPEG, quality = 90)
-storage.createFile(path, Storable { myObject.serialize() })
-storage.readFile(path)          // Result<ByteArray>
-storage.readTextFile(path)      // Result<String>
-storage.appendFile(path, bytes)
 storage.appendLine(path, "a line")
-storage.deleteFile(path)
-storage.exists(path); storage.isFile(path); storage.isDirectory(path)
+storage.copy(from, to)      // file or whole directory tree
+storage.move(from, to)      // rename when possible, else copy then delete
+storage.readableSize(path)  // "1.5 MB"
 ```
 
-### Copy, move, rename
-
-```kotlin
-storage.copy(from, to)      // file or whole directory tree, replaces existing files
-storage.move(from, to)      // rename when possible, otherwise copy then delete
-storage.rename(from, to)    // fails if `to` exists
-```
-
-### Sizes
-
-```kotlin
-storage.size(path, SizeUnit.MB)         // Double
-storage.readableSize(path)              // "1.5 MB"
-storage.freeSpace(path, SizeUnit.GB)
-storage.usedSpace(path)
-storage.totalSpace(path)
-1536L.toReadableSize()                  // "1.5 KB"
-```
-
-### Encryption
-
-Pass an `Encryption` to `Storage` and every `createFile` encrypts, every `readFile` decrypts. The scheme is AES-256-GCM with a fresh random nonce per file, so identical content never produces identical bytes and any tampering is detected.
+Encryption is AES-256-GCM with a fresh random nonce per file, so identical content never produces
+identical bytes and tampering is detected:
 
 ```kotlin
 // Hardware-backed key that never leaves the device
 val secure = Storage(context, Encryption.fromKeystore("my-files"))
 
-// Or a passphrase. Generate the salt once and keep it next to your data.
+// Or a passphrase — generate the salt once and keep it next to your data
 val salt = Encryption.generateSalt()
 val secure = Storage(context, Encryption.fromPassphrase("correct horse".toCharArray(), salt))
-
-// Or a raw 16, 24 or 32 byte key
-val secure = Storage(context, Encryption.fromKey(keyBytes))
 
 secure.createFile(path, "secret")
 secure.readTextFile(path)               // "secret"
 Storage(context).readTextFile(path)     // ciphertext, not readable
 ```
 
-`appendFile` is not available on encrypted storage, since an encrypted file is one authenticated message. Files written by the 2.x library (AES-CBC) cannot be read by 3.0.
+`appendFile` is not available on encrypted storage, since an encrypted file is one authenticated
+message. Files written by the 2.x library (AES-CBC) cannot be read by 3.0. Requires `minSdk 28`.
 
-## The app
+## Architecture
 
-The `app` module is a Jetpack Compose file explorer and the foundation of a device inspection tool: storage statistics, app and manifest inspection, content provider and database browsing, intent tooling, snapshots, transfers and an HTTP and MCP API for agents. The roadmap is in [docs/PLAN.md](docs/PLAN.md).
+Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API calls:
 
-What it does today:
+- `core/fs` — the file-system abstraction, volumes, operations and the disk scanner
+- `core/apps` — package inspection and the binary XML decoder
+- `core/data` — provider queries, the SQLite inspector and the preferences codec
+- `core/intents` — the intent model, sender, broadcast monitor, history and deep-link parsers
+- `core/capture` — the Room database, snapshots, diffs and the recording engine
+- `core/net` — the Ktor server, peer discovery and the transfer client
+- `core/shell` — the privilege layer and a `ShellExecutor` with plain, Shizuku and root backends
 
-- Volumes overview with usage, plus the app's own directories.
-- Browse any directory with breadcrumbs, search, sort by name, date, size or type, and hidden files toggle.
-- Thumbnails for images and videos, typed icons for everything else.
-- Multi-select with copy, move, delete and share. Rename, new folder, new file. Operations run in the background with progress and cancel.
-- Details sheet with path, size, permissions and on-demand SHA-256.
-- Viewers per file type: syntax-highlighted code and text, a JSON and an XML tree, a binary inspector (hex, extracted strings, magic-byte type detection and a schema-less protobuf decoder), images with pinch zoom and an EXIF sheet, a video and audio player, a deep APK inspector, and a zip archive browser.
-- Decompile (jadx): from an APK's viewer, decompile its dex to readable Java, one class at a time. When the APK has several dex files you pick one first (they are listed by size), so memory stays bounded even for very large apps; classes are listed and searchable, and each is decompiled on demand. Only the dex is extracted (after a free-space check), work runs off the UI thread with progress, and all temporary files are cleaned up on exit. Uses an Android-compatible XML security shim since jadx is desktop-oriented.
-- APK Analyse: a visual breakdown of an APK's composition — a drillable sunburst over Code (dex) / Native libs (per ABI) / Resources (per type) / Assets / Signing / Other, a stat header (unpacked size, entry count, zip savings), a composition bar and a tappable category list that focuses the sunburst. From the APK viewer's Analyse action.
-- APK deep inspector: opens any package file without installing it, across four tabs — Overview (identity, target/min/compile SDK, component counts, unpacked size, the DEX file list with sizes, native ABIs, resources.arsc and res/asset counts, required features and permissions), the full decoded and searchable AndroidManifest.xml, a Resources tab that groups res/ and assets/ files by type (drawable, layout, mipmap, anim, colour, …) with image resources openable and compiled XML (layouts, drawables) decoded on the fly into the XML tree viewer, Contents (every zip entry largest-first with size and compression), and Signing (v1/v2/v3 scheme detection from the APK Signing Block, with certificate SHA-256s). Every entry is openable — a native library in the ELF inspector, an image in the image viewer, compiled XML decoded into the XML tree, text in the text viewer, and anything else (resources.arsc, dex) in the hex viewer.
-- Media player: video and audio files open in an in-app player (Media3/ExoPlayer) with transport controls, a seek bar and skip, instead of the hex viewer. Audio shows the track name with a music-note placeholder.
-- Shell access through [Shizuku](https://shizuku.rikka.app/): browse the system root, other apps' `Android/data`, and the private data of your own debuggable apps via `run-as`. Root is used instead when the device has it and you turn it on.
-- Network: a live view of which apps are talking to the network, with remote host (reverse-DNS), port, connection state and per-app byte totals, read from the kernel connection tables through the shell. No VPN needed. Reachable from Tools or from an app's overview.
-- Device dashboard: a health view of the phone — model, Android release and API level, security patch, build and kernel, SELinux mode, uptime, RAM in use, battery level, temperature and health, and ZRAM swap, with the top kernel wakelocks. In Tools.
-- Permission matrix: every installed app as a row against the dangerous permissions as columns, each cell showing granted or merely requested, so an outlier stands out at a glance. In Tools.
-- App-ops timeline: the most recent sensitive access across every app — location, camera, mic, Bluetooth and Wi-Fi scans, clipboard — newest first, with a filter for the sensitive ones. Reads the device-wide app-ops log through the shell. In Tools.
-- Global search: find files by name or grep their text content anywhere on the device, choosing shared storage, the system root or app data. Uses the shell's `find` and `grep` to reach privileged paths, and falls back to walking the file system without one. In Tools.
-- Notification monitor: with notification access granted, logs every notification posted device-wide — package, title, text, time, and whether it is ongoing — newest first. In Tools.
-- Provider watch: register change observers on well-known content providers (media, contacts, SMS, call log, calendar, settings) and see each change as it is broadcast, with the exact URI. In Tools.
-- Clipboard: read the current clipboard and keep a session history of what passes through it. Android 10+ only exposes the clipboard to the foreground app, so this captures while the screen is open. In Tools.
-- Vector rendering: when an XML file is an Android vector drawable (`<vector>`), the XML viewer offers a Render action that actually draws the graphic — parsing the paths, groups, literal fill/stroke colours linear/radial/sweep gradients, clip-paths and trim-path strokes and painting them on a checkerboard with pinch-zoom. Works for vector XML on disk and for vectors decoded out of an APK's resources.
-- Sunburst: a drillable radial chart of where space goes under any folder, with a breadcrumb. Tap a ring to zoom in, tap the centre to go back up. Reached from the disk-usage screen.
-- Storage insights: scan a location for reclaimable space — duplicate files (grouped by size, confirmed by SHA-256), empty directories, zero-byte files, and ghost footprints left under Android/data and Android/obb by apps that are no longer installed. In Tools.
-- App storage breakdown: decompose an installed app's footprint into its base APK, split APKs, compiled OAT/ART artifacts, native libraries, and private data, cache and external data, as a stacked bar with sizes and shares. From an app's overview.
-- System: the kernel's own view of the device — mounted filesystems, block partitions, swap areas, ZRAM compression stats, and this app's memory-map rollup from smaps. Partition, swap and ZRAM figures need root and are shown when available. In Tools.
-- ELF inspector: open any shared library and see its class and architecture, whether it is stripped, its SONAME and GNU build-id, per-section Shannon entropy, and its dependency list, with a flag for known packers or unusually high entropy. Raw mode, owner and SELinux context are shown through the shell. Opens automatically for .so files.
-- Time Machine: record device and per-app storage on a schedule (every 6 hours through WorkManager) or on demand, then see free space over time, a least-squares forecast of when the device fills, the fastest-growing apps with version-change flags, and how fast cache accretes. In Tools.
-- Benchmark: measure sequential and random read/write throughput and IOPS on internal or shared storage by writing and reading a temporary file, which is deleted afterwards. In Tools.
-- SQLite power tools: on top of browsing tables and running SQL, a schema tab shows each table's row and column counts and the foreign-key relationships between tables, with one-tap VACUUM and integrity check.
-- ART compilation: recompile an app's dex to a chosen filter — full speed, profile-guided, verify-only, or reset — from its overview, with a shell.
-- Command palette: from the Tools screen, jump to any tool, tab or screen by typing part of its name. 
-- Permission vs footprint: every app ranked by how many dangerous permissions it holds, shown against its on-device size, so an app that is both heavily permissioned and large stands out. In Tools.
-- App behavior: for any app, a Behavior tab shows what it actually did — location, Bluetooth and Wi-Fi scans, camera, mic, clipboard and contacts access with timestamps from app-ops, its running services and processes, recently changed files, and a suspicion score that rolls the signals up. Needs shell access.
-- Apps tab: every package with app, data and cache sizes (usage access), filters for user, system and debuggable, sort by name, size or last update.
-- App detail: storage breakdown, install facts, signing certificate, the decoded `AndroidManifest.xml` with search, components with exported flags, requested permissions with grant state. With a shell: force stop, clear cache or data, uninstall, and grant or revoke runtime permissions.
-- Disk usage: scan any folder into a treemap you can drill into, plus the largest files. Works through the shell for privileged paths.
-- Data tab: every content provider on the device with its permissions, shortcuts for MediaStore, contacts, call log, SMS, calendar and settings. Query any URI with projection, selection, sort and paging, export the result as CSV or JSON. Providers the app may not read are queried as the shell user when Shizuku is connected.
-- SQLite: open any database the current access tier can reach, including a debuggable app's private one. Tables with row counts, schema, sortable paged rows, and a SQL console. Databases that cannot be opened in place are copied and can be saved back.
-- Shared preferences: open the XML of any app you can reach, edit typed values, add or delete keys, save back.
-- Capture tab: freeze any folder into a snapshot with sizes, mtimes, optional hashes and optional copies, then compare two snapshots into added, removed, modified and moved files with a line diff for text. Recording sessions capture logcat (through the shell, filtered by package or spec), broadcasts, file changes and optionally the screen, run as a foreground service, and export as a zip.
-- Agent API: the same server exposes 27 operations over REST (`/api/v1/{op}`) and Model Context Protocol (`/mcp`), so Claude Code and other tools can list apps, read files, decode a manifest, query a provider, run SQL, take a snapshot, run a shell command, read device stats, the permission matrix, the app-ops timeline, network connections, storage insights, an app's storage breakdown, an ELF report, the system report, or the storage-growth forecast. Behind a bearer token and two safety gates (shell tools and device changes), both off by default, with an audit log. Connect with `adb forward tcp:8484 tcp:8484` and one MCP config block.
-- Receive files: an embedded HTTP server with a browser drop page, a pairing code and a QR code. Works over Wi‑Fi or through `adb forward tcp:8484 tcp:8484` from a laptop. Other phones running the app appear over the network and can send files with resume; a manual host:port works too.
-- Intents tab: build any activity, broadcast or service intent with typed extras and flags, see which components would receive it, send it or save it as a preset. An optional intent sink appears in share sheets and link choosers, logs every intent it receives with all extras, and forwards it on. A live broadcast monitor, the system's recent broadcast history from dumpsys (shell), and a deep-link tester that shows every app claiming a URL.
-
-<p>
-<img src="assets/home.png" width="230"/>
-<img src="assets/browser.png" width="230"/>
-<img src="assets/hex.png" width="230"/>
-</p>
-
-Architecture: `core/fs` holds the file system abstraction, volumes, operations and the disk scanner; `core/apps` holds package inspection and the binary XML decoder; `core/data` holds provider queries, the SQLite inspector and the preferences codec; `core/intents` holds the intent model, sender, sink log, broadcast monitor and history parser; `core/capture` holds the Room database, snapshots, diffs and the recording engine; `core/net` holds the Ktor server, peer discovery and the transfer client; `core/shell` holds the privilege layer, a `ShellExecutor` with plain, Shizuku and root backends and a shell-backed file system, all without UI dependencies. The Shizuku side is a hand-written Kotlin `Binder`, so there is no AIDL and no generated Java. `app` is Compose only with Navigation 3, Koin and Coil. Everything the UI can do is reachable from `core`, which is what the HTTP and MCP API will call later.
+The Shizuku side is a hand-written Kotlin `Binder`, so there's no AIDL and no generated Java. `app` is
+Compose only, with Navigation 3, Koin and Coil. The roadmap is in [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 
 JDK 17 or newer and the Android SDK with platform 37.
 
-```
+```bash
 ./gradlew build
 ./gradlew :app:installDebug
 ```
