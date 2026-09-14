@@ -2,6 +2,7 @@ package com.snatik.storage.app.feature.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Info
@@ -51,11 +55,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,6 +80,7 @@ import com.snatik.storage.core.apps.AppOpsRecorderStore
 import com.snatik.storage.core.apps.AppOpsTimeline
 import com.snatik.storage.core.apps.ExternalSink
 import com.snatik.storage.core.shell.PrivilegeManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -81,10 +88,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
 /** Where the timeline reads from: a one-shot dumpsys snapshot, or the persisted recorder history. */
 enum class TimelineSource { LIVE, RECORDED }
+
+/** How the accesses are presented. */
+enum class TimelineView { OVERVIEW, TIMELINE, BY_APP, BY_OP }
 
 class AppOpsTimelineViewModel(
     private val context: Context,
@@ -169,8 +180,19 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var showRecord by rememberSaveable { mutableStateOf(false) }
+    var showExport by rememberSaveable { mutableStateOf(false) }
+    var view by rememberSaveable { mutableStateOf(TimelineView.OVERVIEW) }
     val filterActive = sensitiveOnly || stateFilter != null || deniedFilter != null
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Filtered rows, shared by every view and the export sheet. Null while the live snapshot loads.
+    val visible = remember(entries, sensitiveOnly, stateFilter, deniedFilter) {
+        entries?.filter {
+            (!sensitiveOnly || it.sensitive) &&
+                (stateFilter == null || it.state == stateFilter) &&
+                (deniedFilter == null || it.denied == deniedFilter)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -183,6 +205,9 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                             if (loading && entries != null) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.timeline_refresh))
                         }
+                    }
+                    IconButton(onClick = { showExport = true }, enabled = visible?.isNotEmpty() == true) {
+                        Icon(Icons.Default.IosShare, contentDescription = stringResource(R.string.timeline_export))
                     }
                     IconButton(onClick = { showFilters = true }) {
                         Icon(Icons.Default.FilterAlt, contentDescription = stringResource(R.string.timeline_filter), tint = if (filterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -202,27 +227,29 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
                 onRecordClick = { if (recording) viewModel.stopRecording() else showRecord = true },
                 onClear = viewModel::clearRecording,
             )
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ViewChip(stringResource(R.string.timeline_view_overview), view == TimelineView.OVERVIEW) { view = TimelineView.OVERVIEW }
+                ViewChip(stringResource(R.string.timeline_view_timeline), view == TimelineView.TIMELINE) { view = TimelineView.TIMELINE }
+                ViewChip(stringResource(R.string.timeline_view_apps), view == TimelineView.BY_APP) { view = TimelineView.BY_APP }
+                ViewChip(stringResource(R.string.timeline_view_ops), view == TimelineView.BY_OP) { view = TimelineView.BY_OP }
+            }
             HorizontalDivider()
             Box(modifier = Modifier.fillMaxSize()) {
                 val list = entries
                 when {
                     !viewModel.shell && list == null -> EmptyState(Icons.Default.Terminal, stringResource(R.string.timeline_needs_shell), null)
-                    source == TimelineSource.LIVE && list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     list == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     else -> {
-                        val visible = remember(list, sensitiveOnly, stateFilter, deniedFilter) {
-                            list.filter {
-                                (!sensitiveOnly || it.sensitive) &&
-                                    (stateFilter == null || it.state == stateFilter) &&
-                                    (deniedFilter == null || it.denied == deniedFilter)
-                            }
-                        }
-                        if (visible.isEmpty()) {
+                        val shown = visible.orEmpty()
+                        if (shown.isEmpty()) {
                             EmptyState(Icons.Default.FilterAlt, stringResource(if (source == TimelineSource.RECORDED && recordedCount == 0) R.string.timeline_empty_recorded else R.string.timeline_empty), null)
-                        } else {
-                            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                                items(visible, key = { it.key }) { e -> Entry(e) { selectedKey = e.key } }
+                        } else when (view) {
+                            TimelineView.TIMELINE -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                                items(shown, key = { it.key }) { e -> Entry(e) { selectedKey = e.key } }
                             }
+                            TimelineView.BY_APP -> ByAppView(shown, onOpenApp)
+                            TimelineView.BY_OP -> ByOpView(shown)
+                            TimelineView.OVERVIEW -> OverviewView(shown, onOpenApp)
                         }
                     }
                 }
@@ -253,7 +280,15 @@ fun AppOpsTimelineScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewMo
             onDismiss = { showRecord = false },
         )
     }
+    if (showExport) {
+        ExportSheet(rows = visible.orEmpty(), onDismiss = { showExport = false })
+    }
     if (showHelp) TimelineHelpSheet(onDismiss = { showHelp = false })
+}
+
+@Composable
+private fun ViewChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
 }
 
 @Composable
@@ -405,6 +440,273 @@ private fun DetailRow(label: String, value: String, valueColor: Color = Material
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 1.dp))
         Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor, modifier = Modifier.weight(1f))
+    }
+}
+
+/* ---------- Aggregate views ---------- */
+
+private data class AppAgg(val pkg: String, val label: String, val total: Int, val background: Int, val denied: Int, val sensitive: Int)
+private data class OpAgg(val op: String, val total: Int, val apps: Int, val background: Int, val denied: Int, val sensitive: Boolean)
+
+@Composable
+private fun ByAppView(rows: List<AppOpAccess>, onOpenApp: (String) -> Unit) {
+    val apps = remember(rows) {
+        rows.groupBy { it.packageName }.map { (pkg, list) ->
+            AppAgg(pkg, list.first().label, list.size, list.count { it.background }, list.count { it.denied }, list.count { it.sensitive })
+        }.sortedByDescending { it.total }
+    }
+    val max = remember(apps) { (apps.firstOrNull()?.total ?: 1).coerceAtLeast(1) }
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        items(apps, key = { it.pkg }) { a ->
+            Column(modifier = Modifier.fillMaxWidth().clickable { onOpenApp(a.pkg) }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AppIcon(a.pkg, size = 32.dp)
+                    Text(a.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(a.total.toString(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                Box(modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 6.dp, start = 44.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(2.dp))) {
+                    Box(modifier = Modifier.fillMaxWidth(a.total.toFloat() / max).height(4.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+                }
+                FlowRow(modifier = Modifier.padding(start = 44.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (a.background > 0) MiniBadge(stringResource(R.string.timeline_agg_background, a.background), MaterialTheme.colorScheme.error)
+                    if (a.denied > 0) MiniBadge(stringResource(R.string.timeline_agg_denied, a.denied), MaterialTheme.colorScheme.error)
+                    if (a.sensitive > 0) MiniBadge(stringResource(R.string.timeline_agg_sensitive, a.sensitive), MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        }
+    }
+}
+
+@Composable
+private fun ByOpView(rows: List<AppOpAccess>) {
+    val ops = remember(rows) {
+        rows.groupBy { it.op }.map { (op, list) ->
+            OpAgg(op, list.size, list.map { it.packageName }.distinct().size, list.count { it.background }, list.count { it.denied }, list.first().sensitive)
+        }.sortedByDescending { it.total }
+    }
+    val max = remember(ops) { (ops.firstOrNull()?.total ?: 1).coerceAtLeast(1) }
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        items(ops, key = { it.op }) { o ->
+            val color = if (o.sensitive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(o.op.lowercase(), style = MonoStyle.copy(color = color), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.timeline_agg_apps, o.apps), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(o.total.toString(), style = MaterialTheme.typography.titleMedium, color = color)
+                }
+                Box(modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 6.dp).background(color.copy(alpha = 0.12f), RoundedCornerShape(2.dp))) {
+                    Box(modifier = Modifier.fillMaxWidth(o.total.toFloat() / max).height(4.dp).background(color, RoundedCornerShape(2.dp)))
+                }
+                if (o.background > 0 || o.denied > 0) {
+                    FlowRow(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (o.background > 0) MiniBadge(stringResource(R.string.timeline_agg_background, o.background), MaterialTheme.colorScheme.error)
+                        if (o.denied > 0) MiniBadge(stringResource(R.string.timeline_agg_denied, o.denied), MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        }
+    }
+}
+
+@Composable
+private fun OverviewView(rows: List<AppOpAccess>, onOpenApp: (String) -> Unit) {
+    val total = rows.size
+    val apps = remember(rows) { rows.map { it.packageName }.distinct().size }
+    val background = remember(rows) { rows.count { it.background } }
+    val denied = remember(rows) { rows.count { it.denied } }
+    val topApps = remember(rows) {
+        rows.groupBy { it.packageName }.map { (p, l) -> AppAgg(p, l.first().label, l.size, l.count { it.background }, l.count { it.denied }, l.count { it.sensitive }) }
+            .sortedByDescending { it.total }.take(5)
+    }
+    val topDenied = remember(rows) {
+        rows.filter { it.denied }.groupBy { it.packageName }.map { (p, l) -> AppAgg(p, l.first().label, l.size, 0, l.size, 0) }
+            .sortedByDescending { it.total }.take(5)
+    }
+    val buckets = remember(rows) { hourlyBuckets(rows) }
+    val appMax = (topApps.firstOrNull()?.total ?: 1).coerceAtLeast(1)
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatTile(total.toString(), stringResource(R.string.timeline_stat_accesses), Modifier.weight(1f))
+                StatTile(apps.toString(), stringResource(R.string.timeline_stat_apps), Modifier.weight(1f))
+                StatTile(background.toString(), stringResource(R.string.timeline_stat_background), Modifier.weight(1f), MaterialTheme.colorScheme.error)
+                StatTile(denied.toString(), stringResource(R.string.timeline_stat_denied), Modifier.weight(1f), MaterialTheme.colorScheme.error)
+            }
+        }
+        if (buckets.any { it > 0 }) {
+            item { SectionHeader(stringResource(R.string.timeline_over_time)) }
+            item { HourlyChart(buckets, modifier = Modifier.padding(horizontal = 16.dp)) }
+        }
+        item { SectionHeader(stringResource(R.string.timeline_top_apps)) }
+        items(topApps, key = { "a:" + it.pkg }) { a ->
+            Row(modifier = Modifier.fillMaxWidth().clickable { onOpenApp(a.pkg) }.padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppIcon(a.pkg, size = 28.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(a.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Box(modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 4.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(2.dp))) {
+                        Box(modifier = Modifier.fillMaxWidth(a.total.toFloat() / appMax).height(4.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+                    }
+                }
+                Text(a.total.toString(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (topDenied.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.timeline_top_denied)) }
+            items(topDenied, key = { "d:" + it.pkg }) { a ->
+                Row(modifier = Modifier.fillMaxWidth().clickable { onOpenApp(a.pkg) }.padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AppIcon(a.pkg, size = 28.dp)
+                    Text(a.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(a.denied.toString(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+/** 24 one-hour buckets ending now; value = number of accesses in that hour. */
+private fun hourlyBuckets(rows: List<AppOpAccess>): IntArray {
+    val out = IntArray(24)
+    val hourMs = 3_600_000L
+    for (r in rows) {
+        val h = (r.agoMs / hourMs).toInt()
+        if (h in 0..23) out[23 - h]++
+    }
+    return out
+}
+
+@Composable
+private fun HourlyChart(buckets: IntArray, modifier: Modifier = Modifier) {
+    val max = (buckets.maxOrNull() ?: 1).coerceAtLeast(1)
+    val color = MaterialTheme.colorScheme.primary
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth().height(96.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            buckets.forEach { v ->
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(if (max == 0) 0f else (v.toFloat() / max).coerceAtLeast(if (v > 0) 0.04f else 0f))
+                        .background(if (v > 0) color else color.copy(alpha = 0.12f), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)),
+                )
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(stringResource(R.string.timeline_chart_24h), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.timeline_chart_now), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun StatTile(value: String, label: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
+    Column(
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp)).padding(vertical = 12.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+}
+
+@Composable
+private fun MiniBadge(text: String, color: Color) {
+    Text(text, style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.background(color.copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+}
+
+/* ---------- Export sheet ---------- */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExportSheet(rows: List<AppOpAccess>, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    fun export(kind: String) {
+        scope.launch {
+            val path = withContext(Dispatchers.IO) {
+                runCatching {
+                    val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(System.currentTimeMillis())
+                    val now = System.currentTimeMillis()
+                    val file = java.io.File(context.cacheDir, "appops-$stamp.${if (kind == "json") "jsonl" else if (kind == "csv") "csv" else "txt"}")
+                    file.writeText(when (kind) { "csv" -> rowsToCsv(rows, now); "json" -> rowsToJsonl(rows, now); else -> rowsToReport(rows) })
+                    file.absolutePath
+                }.getOrNull()
+            }
+            if (path != null) com.snatik.storage.app.util.Intents.share(context, listOf(path))
+            onDismiss()
+        }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(R.string.timeline_export_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.timeline_export_body, rows.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExportRow("CSV", stringResource(R.string.timeline_export_csv)) { export("csv") }
+            ExportRow("JSON", stringResource(R.string.timeline_export_json)) { export("json") }
+            ExportRow(stringResource(R.string.timeline_export_report_label), stringResource(R.string.timeline_export_report)) { export("report") }
+            Spacer(Modifier.size(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun ExportRow(title: String, sub: String, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(Icons.Default.IosShare, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun csvCell(s: String?): String {
+    val v = s.orEmpty()
+    return if (v.any { it == ',' || it == '"' || it == '\n' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+}
+
+private fun rowsToCsv(rows: List<AppOpAccess>, now: Long): String = buildString {
+    appendLine("app,package,op,category,state,denied,duration_ms,at_iso")
+    val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+    for (r in rows) {
+        append(csvCell(r.label)); append(',')
+        append(csvCell(r.packageName)); append(',')
+        append(csvCell(r.op)); append(',')
+        append(if (r.sensitive) "sensitive" else "other"); append(',')
+        append(r.state.name.lowercase()); append(',')
+        append(if (r.denied) "denied" else "allowed"); append(',')
+        append(r.durationMs?.toString().orEmpty()); append(',')
+        appendLine(fmt.format(now - r.agoMs))
+    }
+}
+
+private fun rowsToJsonl(rows: List<AppOpAccess>, now: Long): String = buildString {
+    for (r in rows) {
+        append(
+            org.json.JSONObject()
+                .put("app", r.label).put("package", r.packageName).put("op", r.op)
+                .put("sensitive", r.sensitive).put("state", r.state.name.lowercase())
+                .put("denied", r.denied).put("duration_ms", r.durationMs ?: org.json.JSONObject.NULL)
+                .put("at_ms", now - r.agoMs).toString(),
+        )
+        append('\n')
+    }
+}
+
+private fun rowsToReport(rows: List<AppOpAccess>): String = buildString {
+    appendLine("App-ops report — ${rows.size} accesses")
+    appendLine("Denied: ${rows.count { it.denied }}   Background: ${rows.count { it.background }}   Apps: ${rows.map { it.packageName }.distinct().size}")
+    appendLine()
+    appendLine("Top apps:")
+    rows.groupBy { it.packageName }.map { (p, l) -> l.first().label to l.size }.sortedByDescending { it.second }.take(15).forEach {
+        appendLine("  ${it.second.toString().padStart(5)}  ${it.first}")
+    }
+    appendLine()
+    appendLine("Top operations:")
+    rows.groupBy { it.op }.map { it.key to it.value.size }.sortedByDescending { it.second }.take(15).forEach {
+        appendLine("  ${it.second.toString().padStart(5)}  ${it.first.lowercase()}")
     }
 }
 
