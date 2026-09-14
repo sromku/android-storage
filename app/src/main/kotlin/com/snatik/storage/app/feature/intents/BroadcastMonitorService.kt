@@ -88,7 +88,7 @@ class BroadcastMonitorService : Service() {
                 captured++
                 val spec = IntentSpec.describe(intent)
                 val nowMs = System.currentTimeMillis()
-                scope.launch { store.add(spec) }
+                scope.launch { store.add(spec, nowMs) }  // same timestamp the stream uses, so the key matches on backfill
                 if (sink.enabled) scope.launch { runCatching { sink.send("broadcasts", listOf(broadcastJson(nowMs, spec))) } }
                 val now = System.currentTimeMillis()
                 if (now - lastNotified > 1_000) {

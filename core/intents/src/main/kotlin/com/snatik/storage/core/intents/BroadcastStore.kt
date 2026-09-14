@@ -85,8 +85,8 @@ class BroadcastStore(context: Context) {
 
     val count: Flow<Int> = dao.count()
 
-    suspend fun add(spec: IntentSpec) {
-        val entity = BroadcastEventEntity(time = System.currentTimeMillis(), action = spec.action, data = spec.data, extrasCount = spec.extras.size, specJson = spec.toJson())
+    suspend fun add(spec: IntentSpec, timeMs: Long = System.currentTimeMillis()) {
+        val entity = BroadcastEventEntity(time = timeMs, action = spec.action, data = spec.data, extrasCount = spec.extras.size, specJson = spec.toJson())
         dao.insert(entity)
         if (++addsSinceTrim >= TRIM_EVERY) {
             addsSinceTrim = 0
