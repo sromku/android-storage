@@ -396,7 +396,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                 XmlViewerScreen(path = route.path, onBack = ::pop, onViewAsText = { push(Route.TextViewer(route.path)) }, onRender = { push(Route.VectorRender(route.path)) })
             }
             entry<Route.ApkViewer> { route -> ApkViewerScreen(path = route.path, onBack = ::pop, onOpenPath = ::openPath, onDecompile = { push(Route.Decompile(route.path)) }, onAnalyze = { push(Route.ApkAnalyze(route.path)) }) }
-            entry<Route.ArchiveViewer> { route -> ArchiveViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.ArchiveViewer> { route -> ArchiveViewerScreen(path = route.path, onBack = ::pop, onOpenEntry = { p -> openPath(p) }) }
         },
     )
 }

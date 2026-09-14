@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +38,6 @@ import androidx.lifecycle.viewModelScope
 import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.components.EmptyState
 import com.snatik.storage.app.ui.theme.MonoStyle
-import com.snatik.storage.app.util.Intents
 import com.snatik.storage.app.util.readableSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,7 +72,8 @@ class ArchiveViewModel(private val path: String, private val context: Context) :
         }
     }
 
-    fun extractAndOpen(entry: ArchiveEntry) {
+    /** Extract an entry to the cache and hand its path back so the app's own viewer can open it. */
+    fun open(entry: ArchiveEntry, onOpen: (String) -> Unit) {
         if (entry.isDirectory) return
         viewModelScope.launch {
             val target = withContext(Dispatchers.IO) {
@@ -89,7 +88,7 @@ class ArchiveViewModel(private val path: String, private val context: Context) :
                 }.getOrNull()
             }
             if (target != null) {
-                Intents.openWith(context, target.absolutePath)
+                onOpen(target.absolutePath)
             } else {
                 android.widget.Toast.makeText(context, R.string.cannot_open_entry, android.widget.Toast.LENGTH_SHORT).show()
             }
@@ -99,9 +98,8 @@ class ArchiveViewModel(private val path: String, private val context: Context) :
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchiveViewerScreen(path: String, onBack: () -> Unit, viewModel: ArchiveViewModel = koinViewModel(parameters = { parametersOf(path) })) {
+fun ArchiveViewerScreen(path: String, onBack: () -> Unit, onOpenEntry: (String) -> Unit, viewModel: ArchiveViewModel = koinViewModel(parameters = { parametersOf(path) })) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -122,7 +120,7 @@ fun ArchiveViewerScreen(path: String, onBack: () -> Unit, viewModel: ArchiveView
                 else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(state.entries, key = { it.name }) { entry ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable(enabled = !entry.isDirectory) { viewModel.extractAndOpen(entry) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth().clickable(enabled = !entry.isDirectory) { viewModel.open(entry, onOpenEntry) }.padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
