@@ -338,6 +338,32 @@
     <string name="timeline_sensitive_only">Sensitive only</string>
     <string name="timeline_needs_shell">Shell access needed to read app-ops</string>
     <string name="timeline_empty">Nothing recorded</string>
+    <string name="timeline_refresh">Refresh</string>
+    <string name="timeline_help">About the timeline</string>
+    <string name="timeline_held">held %1$s</string>
+    <string name="timeline_bg_banner">%1$d access(es) happened while the app was in the background</string>
+    <string name="timeline_bg_show">Show only</string>
+    <string name="timeline_bg_showing">Showing</string>
+    <string name="timeline_bg_note">This access happened while the app was in the background — worth a look if you didn\'t expect it.</string>
+    <string name="timeline_state_background">background</string>
+    <string name="timeline_state_foreground">foreground</string>
+    <string name="timeline_state_fgservice">foreground service</string>
+    <string name="timeline_state_system">system</string>
+    <string name="timeline_state_unknown">unknown</string>
+    <string name="timeline_detail_op">Operation</string>
+    <string name="timeline_detail_state">App state</string>
+    <string name="timeline_detail_when">When</string>
+    <string name="timeline_detail_exact">Timestamp</string>
+    <string name="timeline_detail_duration">Duration</string>
+    <string name="timeline_open_app">Open %1$s</string>
+    <string name="timeline_help_title">About the timeline</string>
+    <string name="timeline_help_intro">Every time an app touches a protected resource — location, camera, microphone, contacts and so on — Android records it as an app-op access. This is a device-wide log of those accesses, newest first, read live from the system.</string>
+    <string name="timeline_help_states_title">App state at access time</string>
+    <string name="timeline_help_background">The app was not on screen and had no visible service. A background camera, microphone or location hit is the thing most worth questioning.</string>
+    <string name="timeline_help_foreground">The app was open and on screen when it made the access.</string>
+    <string name="timeline_help_fgservice">The app was running a foreground service (an ongoing notification), e.g. navigation or music.</string>
+    <string name="timeline_help_system">A persistent system process. Expected for the platform itself.</string>
+    <string name="timeline_help_note">The log is what the system currently holds — it trims over time and resets on reboot, so it shows recent activity rather than a complete history. Pull Refresh to re-read it.</string>
 
     <!-- Data tab -->
     <string name="data_title">Data</string>

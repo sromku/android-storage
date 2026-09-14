@@ -7,7 +7,22 @@ import com.snatik.storage.core.shell.run
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-data class AppOpAccess(val packageName: String, val label: String, val op: String, val agoMs: Long, val absTime: String, val sensitive: Boolean)
+/** The process state the app was in when it made the access — the key forensic signal. */
+enum class AppOpState { FOREGROUND, FOREGROUND_SERVICE, BACKGROUND, PERSISTENT, UNKNOWN }
+
+data class AppOpAccess(
+    val packageName: String,
+    val label: String,
+    val op: String,
+    val agoMs: Long,
+    val absTime: String,
+    val sensitive: Boolean,
+    val state: AppOpState = AppOpState.UNKNOWN,
+    val durationMs: Long? = null,
+) {
+    /** True when the app was not in the foreground — a background camera/mic/location hit is a red flag. */
+    val background: Boolean get() = state == AppOpState.BACKGROUND
+}
 
 /** Device-wide sensitive-access timeline from a single `dumpsys appops` call. */
 class AppOpsTimeline(private val context: Context, private val privilege: PrivilegeManager) {
@@ -33,7 +48,18 @@ class AppOpsTimeline(private val context: Context, private val privilege: Privil
         )
         private val PACKAGE = Regex("""^Package (\S+):""")
         private val OP = Regex("""^([A-Z_]+) \(""")
-        private val ACCESS = Regex("""Access: \[[^\]]*] (\S+ \S+) \(-([0-9dhms]+)\)""")
+        // Access: [<uidstate>-<flag>] <date> <time> (-<rel>) [duration=+<dur>]
+        private val ACCESS = Regex("""Access: \[([^\]]*)] (\S+ \S+) \(-([0-9dhms]+)\)(?: duration=\+([0-9dhms]+))?""")
+
+        /** Map the appops uid-state tag (before the `-`) to a coarse process state. */
+        fun stateOf(tag: String): AppOpState = when (tag.substringBefore('-')) {
+            "top" -> AppOpState.FOREGROUND
+            "fg" -> AppOpState.FOREGROUND
+            "fgsvc" -> AppOpState.FOREGROUND_SERVICE
+            "bg", "cch" -> AppOpState.BACKGROUND
+            "pers" -> AppOpState.PERSISTENT
+            else -> AppOpState.UNKNOWN
+        }
 
         /** Walk the Uid Op State: `Package pkg:` then `OP (...)` then `Access: [..] <abs> (-rel)`. */
         fun parse(text: String): List<AppOpAccess> {
@@ -46,8 +72,18 @@ class AppOpsTimeline(private val context: Context, private val privilege: Privil
                 OP.find(t)?.let { op = it.groupValues[1] }
                 val access = ACCESS.find(t)
                 if (access != null && pkg != null && op != null) {
-                    val ago = AppWatchRepository.parseRelativeMs(access.groupValues[2]) ?: continue
-                    out += AppOpAccess(pkg!!, pkg!!, op!!, ago, access.groupValues[1], op!! in SENSITIVE)
+                    val ago = AppWatchRepository.parseRelativeMs(access.groupValues[3]) ?: continue
+                    val duration = access.groupValues[4].takeIf { it.isNotEmpty() }?.let { AppWatchRepository.parseRelativeMs(it) }
+                    out += AppOpAccess(
+                        packageName = pkg!!,
+                        label = pkg!!,
+                        op = op!!,
+                        agoMs = ago,
+                        absTime = access.groupValues[2],
+                        sensitive = op!! in SENSITIVE,
+                        state = stateOf(access.groupValues[1]),
+                        durationMs = duration,
+                    )
                 }
             }
             return out
