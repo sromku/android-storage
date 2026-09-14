@@ -13,7 +13,7 @@
     <string name="settings_collector_enable">Stream to external collector</string>
     <string name="settings_collector_url">Collector URL</string>
     <string name="settings_collector_test">Test connection</string>
-    <string name="settings_collector_hint">Run tools/collector.py on your computer, then enter its http://&lt;your-ip&gt;:&lt;port&gt; here. If your Wi-Fi blocks device-to-device connections, tunnel over USB instead: run \"adb reverse tcp:8899 tcp:8899\" and use http://127.0.0.1:8899.</string>
+    <string name="settings_collector_hint">Run tools/collector.py on your computer and open http://localhost:8899 for guided setup, copy-paste URLs and live results. Then enter its http://&lt;your-ip&gt;:&lt;port&gt; here — or, if your Wi-Fi blocks device-to-device connections, run \"adb reverse tcp:8899 tcp:8899\" and use http://127.0.0.1:8899.</string>
     <string name="settings_collector_ok">Connected — the collector is reachable.</string>
     <string name="settings_collector_fail">Couldn\'t reach the collector. Check the URL, that it\'s running, and that both devices are on the same network.</string>
     <string name="settings_color">Color</string>

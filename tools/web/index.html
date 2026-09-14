@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>android-storage — Collector</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e4e7eb;
+    --border-strong: #d5d9df;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --faint: #8b929c;
+    --accent: #3b5bdb;
+    --accent-soft: #edf0fe;
+    --green: #2f7d4f;
+    --green-soft: #e7f4ec;
+    --amber: #b7791f;
+    --amber-soft: #fbf3e2;
+    --red: #c33b3b;
+    --red-soft: #fbecec;
+    --code-bg: #f6f8fa;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    /* tool accents */
+    --t-appops: #b83280;
+    --t-intents: #6b46c1;
+    --t-broadcasts: #2c7a7b;
+    --t-notifications: #2f7a4f;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #2a2f37;
+    --border-strong: #3a4048;
+    --text: #e6edf3;
+    --muted: #9aa4b2;
+    --faint: #6e7681;
+    --accent: #6b8afd;
+    --accent-soft: #1b2338;
+    --green: #4bb377;
+    --green-soft: #14271c;
+    --amber: #d6a54a;
+    --amber-soft: #2a2213;
+    --red: #e06666;
+    --red-soft: #2a1717;
+    --code-bg: #0e131a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+    --t-appops: #e06aa8;
+    --t-intents: #a48cf0;
+    --t-broadcasts: #5cc0c1;
+    --t-notifications: #6cc98d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, kbd, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--card); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+  .brand .dot.on { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .brand .dot.off { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+  .spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 7px 12px; font-size: 13.5px; font-weight: 500; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn svg { width: 15px; height: 15px; }
+  .btn.small { padding: 5px 9px; font-size: 12.5px; }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 26px 20px 80px; }
+
+  .title { font-size: 26px; font-weight: 700; letter-spacing: -.01em; margin: 4px 0 4px; }
+  .title .sub { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+  .toolrow { display: flex; gap: 10px; margin: 16px 0 18px; flex-wrap: wrap; }
+
+  /* status strip */
+  .strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); background: var(--card);
+    border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 500; color: var(--muted);
+  }
+  .pill b { color: var(--text); font-weight: 700; }
+  .pill .swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* cards */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 20px 22px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .badge-letter {
+    width: 24px; height: 24px; border-radius: 7px; background: var(--accent-soft); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  }
+  .card p { color: var(--muted); margin: 8px 0; }
+  .card p.lead { color: var(--text); }
+  .step { color: var(--text); margin: 6px 0; }
+  .muted { color: var(--muted); }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+  }
+  .chip {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 5px; color: #fff;
+  }
+
+  /* code block with copy */
+  .code {
+    position: relative; background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 9px; padding: 12px 46px 12px 14px; margin: 12px 0;
+    font-size: 13px; overflow-x: auto; white-space: pre; color: var(--text);
+  }
+  .copy {
+    position: absolute; top: 8px; right: 8px;
+    border: 1px solid var(--border-strong); background: var(--card); color: var(--muted);
+    border-radius: 6px; padding: 4px 7px; font-size: 11.5px; cursor: pointer;
+  }
+  .copy:hover { color: var(--text); }
+  .copy.ok { color: var(--green); border-color: var(--green); }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--code-bg);
+    border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 12px 0; font-size: 13.5px;
+  }
+  .callout b { color: var(--text); }
+
+  .row2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 720px) { .row2 { grid-template-columns: 1fr 1fr; } }
+  .subcard { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .subcard .h { font-size: 13px; font-weight: 600; margin-bottom: 6px; display:flex; align-items:center; gap:8px; }
+  .subcard .why { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+
+  .test-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+  .status { font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .status.ok { color: var(--green); }
+  .status.bad { color: var(--red); }
+
+  /* results */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .tab {
+    border: 1px solid var(--border-strong); background: var(--card); color: var(--muted);
+    border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td {
+    text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  }
+  th { color: var(--faint); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; position: sticky; top: 0; background: var(--card); }
+  tbody tr:hover { background: var(--code-bg); }
+  td.mono { font-family: ui-monospace, monospace; }
+  .empty { padding: 26px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  .foot { text-align: center; color: var(--faint); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span id="conndot" class="dot off"></span>android-storage collector</div>
+    <div class="spacer"></div>
+    <button class="btn small" id="themeBtn" title="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 108.5 12A7 7 0 0112 3z"/></svg>
+      Theme
+    </button>
+  </div>
+
+  <div class="wrap">
+    <div class="title">android-storage <span style="color:var(--muted)">—</span> Collector<span class="sub">External collector setup &amp; live results</span></div>
+    <div class="toolrow">
+      <button class="btn" id="refreshBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5"/></svg>
+        Refresh
+      </button>
+      <button class="btn" id="copyAppBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+        Copy app URL
+      </button>
+    </div>
+
+    <div class="strip" id="strip">
+      <span class="pill"><span class="swatch" style="background:var(--faint)"></span> connecting…</span>
+    </div>
+
+    <!-- How it works -->
+    <div class="card">
+      <h2><span class="badge-letter">?</span> How this works</h2>
+      <p class="lead">This page talks to the <b>collector</b> running on this computer. The phone streams every monitor's events to it over HTTP, and they're kept in a local SQLite database with no row limit — ideal for long capture runs.</p>
+      <p>Set the collector running (step&nbsp;1), point the app at it (step&nbsp;2), then watch the data land (step&nbsp;3). Each monitor writes its own table:</p>
+      <div class="tags">
+        <span class="tag"><span class="chip" style="background:var(--t-appops)">APP-OPS</span> sensitive access &amp; denials</span>
+        <span class="tag"><span class="chip" style="background:var(--t-intents)">INTENTS</span> activity intents</span>
+        <span class="tag"><span class="chip" style="background:var(--t-broadcasts)">BROADCASTS</span> received broadcasts</span>
+        <span class="tag"><span class="chip" style="background:var(--t-notifications)">NOTIFICATIONS</span> posted notifications</span>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="card">
+      <h2><span class="badge-letter">1</span> Start the collector</h2>
+      <p>From the repo root, run the collector. It creates the SQLite database if it doesn't exist yet — no setup needed.</p>
+      <div class="code" data-copy>python3 tools/collector.py --port 8899 --db monitor.db</div>
+      <div class="callout"><b>Expected:</b> it prints the web-tool URL and the app URL. Then open this page at <span class="mono" id="localUrl">http://localhost:8899</span>.</div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="card">
+      <h2><span class="badge-letter">2</span> Connect the app</h2>
+      <p>In the app: <b>Settings → External collector</b>, turn it on and paste one of these URLs. Then hit <b>Test connection</b> in the app (or below).</p>
+      <div class="row2">
+        <div class="subcard">
+          <div class="h"><span class="chip" style="background:var(--t-broadcasts)">WI-FI</span> Same network</div>
+          <div class="why">Phone and computer on the same Wi-Fi.</div>
+          <div class="code" data-copy id="wifiUrl">http://…:8899</div>
+        </div>
+        <div class="subcard">
+          <div class="h"><span class="chip" style="background:var(--t-intents)">USB</span> adb tunnel</div>
+          <div class="why">Use this if your Wi-Fi blocks device-to-device connections.</div>
+          <div class="code" data-copy>adb reverse tcp:8899 tcp:8899</div>
+          <div class="code" data-copy>http://127.0.0.1:8899</div>
+        </div>
+      </div>
+      <div class="test-row">
+        <button class="btn" id="testBtn">Test from here</button>
+        <span id="testStatus" class="status muted">—</span>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="card">
+      <h2><span class="badge-letter">3</span> Live results</h2>
+      <p>Start recording a monitor in the app (with streaming on). Rows appear here as they arrive.</p>
+      <div class="tabs" id="tabs"></div>
+      <div class="tablewrap"><div id="results"><div class="empty">No data yet — pick a monitor above once it has rows.</div></div></div>
+    </div>
+
+    <div class="foot">android-storage · local collector web tool</div>
+  </div>
+
+<script>
+(function () {
+  var API = (location.protocol === "http:" || location.protocol === "https:") ? location.origin : "http://localhost:8899";
+  var currentTool = null;
+  var toolColors = { appops: "--t-appops", intents: "--t-intents", broadcasts: "--t-broadcasts", notifications: "--t-notifications" };
+
+  // theme
+  var root = document.documentElement;
+  try { if (localStorage.getItem("collector-theme") === "dark") root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themeBtn").onclick = function () {
+    var dark = root.getAttribute("data-theme") === "dark";
+    if (dark) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", "dark");
+    try { localStorage.setItem("collector-theme", dark ? "light" : "dark"); } catch (e) {}
+  };
+
+  // copy buttons on [data-copy] code blocks
+  function addCopy(el) {
+    var b = document.createElement("button");
+    b.className = "copy"; b.textContent = "Copy";
+    b.onclick = function () {
+      navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+        b.textContent = "Copied"; b.classList.add("ok");
+        setTimeout(function () { b.textContent = "Copy"; b.classList.remove("ok"); }, 1200);
+      });
+    };
+    el.appendChild(b);
+  }
+  document.querySelectorAll(".code[data-copy]").forEach(addCopy);
+
+  var appUrl = "http://localhost:8899";
+  document.getElementById("copyAppBtn").onclick = function () {
+    navigator.clipboard.writeText(appUrl);
+    var b = this; var t = b.querySelector("svg"); b.childNodes[b.childNodes.length-1].textContent = " Copied";
+    setTimeout(function(){ b.childNodes[b.childNodes.length-1].textContent = " Copy app URL"; }, 1200);
+  };
+
+  function setConn(ok) {
+    var d = document.getElementById("conndot");
+    d.className = "dot " + (ok ? "on" : "off");
+  }
+
+  function fmtTime(v) {
+    if (!v || isNaN(v)) return v;
+    try { return new Date(Number(v)).toLocaleTimeString(); } catch (e) { return v; }
+  }
+
+  function renderStrip(h) {
+    var strip = document.getElementById("strip");
+    strip.innerHTML = "";
+    var conn = document.createElement("span");
+    conn.className = "pill";
+    conn.innerHTML = '<span class="swatch" style="background:var(--green)"></span> <b>Connected</b>';
+    strip.appendChild(conn);
+    var tools = h.tools || {};
+    var names = Object.keys(tools);
+    if (!names.length) {
+      var none = document.createElement("span"); none.className = "pill"; none.textContent = "no data yet";
+      strip.appendChild(none);
+    }
+    names.forEach(function (n) {
+      var color = toolColors[n] ? "var(" + toolColors[n] + ")" : "var(--faint)";
+      var p = document.createElement("span"); p.className = "pill";
+      p.innerHTML = '<span class="swatch" style="background:' + color + '"></span> ' + n + ' <b>' + tools[n].toLocaleString() + '</b>';
+      strip.appendChild(p);
+    });
+    var db = document.createElement("span"); db.className = "pill";
+    db.innerHTML = '<span class="mono" style="font-size:12px">' + (h.db || "") + '</span>';
+    strip.appendChild(db);
+  }
+
+  function renderTabs(tools) {
+    var tabs = document.getElementById("tabs");
+    var names = Object.keys(tools || {});
+    tabs.innerHTML = "";
+    if (!names.length) { return; }
+    if (!currentTool || names.indexOf(currentTool) < 0) currentTool = names[0];
+    names.forEach(function (n) {
+      var t = document.createElement("button");
+      t.className = "tab"; t.textContent = n + " · " + tools[n].toLocaleString();
+      t.setAttribute("aria-selected", n === currentTool ? "true" : "false");
+      t.onclick = function () { currentTool = n; renderTabs(tools); loadRows(n); };
+      tabs.appendChild(t);
+    });
+    loadRows(currentTool);
+  }
+
+  function loadRows(tool) {
+    fetch(API + "/api/rows?tool=" + encodeURIComponent(tool) + "&limit=100")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var box = document.getElementById("results");
+        if (!d.rows || !d.rows.length) { box.innerHTML = '<div class="empty">No rows in ' + tool + ' yet.</div>'; return; }
+        var cols = d.columns.filter(function (c) { return c !== "_id"; });
+        var html = "<table><thead><tr>" + cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>";
+        d.rows.forEach(function (row) {
+          html += "<tr>" + cols.map(function (c) {
+            var v = row[c];
+            if (c === "at_ms" || c === "received_at" || c === "postedAt") v = fmtTime(v);
+            var cls = (typeof row[c] === "number" || c === "package" || c === "op" || c === "key") ? " class='mono'" : "";
+            return "<td" + cls + ">" + (v === null || v === undefined ? "" : String(v)) + "</td>";
+          }).join("") + "</tr>";
+        });
+        html += "</tbody></table>";
+        box.innerHTML = html;
+      })
+      .catch(function () {});
+  }
+
+  function health() {
+    fetch(API + "/api/health").then(function (r) { return r.json(); }).then(function (h) {
+      setConn(true);
+      renderStrip(h);
+      renderTabs(h.tools);
+      if (h.lan_ip && h.port) {
+        appUrl = "http://" + h.lan_ip + ":" + h.port;
+        document.getElementById("wifiUrl").firstChild.textContent = appUrl;
+        document.getElementById("localUrl").textContent = "http://localhost:" + h.port;
+      }
+    }).catch(function () {
+      setConn(false);
+      document.getElementById("strip").innerHTML = '<span class="pill"><span class="swatch" style="background:var(--red)"></span> <b>Not reachable</b> — is the collector running?</span>';
+    });
+  }
+
+  document.getElementById("refreshBtn").onclick = health;
+  document.getElementById("testBtn").onclick = function () {
+    var s = document.getElementById("testStatus");
+    s.className = "status muted"; s.textContent = "testing…";
+    fetch(API + "/api/health").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function () {
+      s.className = "status ok"; s.textContent = "✓ Collector reachable";
+    }).catch(function () {
+      s.className = "status bad"; s.textContent = "✗ Not reachable — check step 1";
+    });
+  };
+
+  health();
+  setInterval(health, 3000);
+})();
+</script>
+</body>
+</html>
