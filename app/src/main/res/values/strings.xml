@@ -8,6 +8,14 @@
     <string name="settings_network">Network tool</string>
     <string name="settings_resolve_hosts">Resolve host names</string>
     <string name="settings_resolve_hosts_sub">Affects only what the Network tool displays — no app feature depends on it. When on, the IP of each connection is looked up to show a host name (a reverse-DNS query); those lookups are the only network traffic this app itself sends. When off, connections just show the owner (e.g. Google) and the IP, and the app sends nothing.</string>
+    <string name="settings_collector">External collector</string>
+    <string name="settings_collector_sub">Stream recordings to a machine on your network running the collector script — kept in SQLite with no on-device row limit. Great for long capture runs. When on, each monitor tool can choose to also stream to it while recording.</string>
+    <string name="settings_collector_enable">Stream to external collector</string>
+    <string name="settings_collector_url">Collector URL</string>
+    <string name="settings_collector_test">Test connection</string>
+    <string name="settings_collector_hint">Run tools/collector.py on your computer, then enter its http://&lt;your-ip&gt;:&lt;port&gt; here. If your Wi-Fi blocks device-to-device connections, tunnel over USB instead: run \"adb reverse tcp:8899 tcp:8899\" and use http://127.0.0.1:8899.</string>
+    <string name="settings_collector_ok">Connected — the collector is reachable.</string>
+    <string name="settings_collector_fail">Couldn\'t reach the collector. Check the URL, that it\'s running, and that both devices are on the same network.</string>
     <string name="settings_color">Color</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>
