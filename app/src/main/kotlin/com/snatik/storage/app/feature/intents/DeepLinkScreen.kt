@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
@@ -38,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,12 +61,12 @@ import com.snatik.storage.app.ui.components.Tag
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.core.intents.DeepLinkCatalog
 import com.snatik.storage.core.intents.DeepLinkData
+import com.snatik.storage.core.intents.HostPaths
 import com.snatik.storage.core.intents.IntentSender
 import com.snatik.storage.core.intents.IntentSpec
 import com.snatik.storage.core.intents.ResolvedTarget
 import com.snatik.storage.core.intents.SchemeLink
 import com.snatik.storage.core.intents.SendAs
-import com.snatik.storage.core.intents.WebLink
 import com.snatik.storage.core.shell.PrivilegeManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +79,9 @@ data class DeepLinkUiState(val url: String = "https://", val targets: List<Resol
 
 data class DiscoveryUiState(val loading: Boolean = false, val error: String? = null, val data: DeepLinkData? = null)
 
+/** Lazily-loaded per-app web hosts with their example paths, keyed by package in the VM. */
+data class AppLinksUi(val loading: Boolean = false, val error: String? = null, val hosts: List<HostPaths>? = null)
+
 class DeepLinkViewModel(
     private val sender: IntentSender,
     private val catalog: DeepLinkCatalog,
@@ -85,6 +92,9 @@ class DeepLinkViewModel(
 
     private val _discovery = MutableStateFlow(DiscoveryUiState())
     val discovery: StateFlow<DiscoveryUiState> = _discovery.asStateFlow()
+
+    private val _appLinks = MutableStateFlow<Map<String, AppLinksUi>>(emptyMap())
+    val appLinks: StateFlow<Map<String, AppLinksUi>> = _appLinks.asStateFlow()
 
     private fun spec() = IntentSpec(action = Intent.ACTION_VIEW, data = _state.value.url.trim(), categories = listOf(Intent.CATEGORY_BROWSABLE), sendAs = SendAs.ACTIVITY)
 
@@ -110,6 +120,25 @@ class DeepLinkViewModel(
             }
         }
     }
+
+    fun loadAppLinks(packageName: String) {
+        val current = _appLinks.value[packageName]
+        if (current?.loading == true || current?.hosts != null) return
+        viewModelScope.launch {
+            _appLinks.update { it + (packageName to AppLinksUi(loading = true)) }
+            val shell = privilege.executor.value
+            if (shell == null) {
+                _appLinks.update { it + (packageName to AppLinksUi(error = "no-shell")) }
+                return@launch
+            }
+            try {
+                val hosts = catalog.fetchAppLinks(shell, packageName)
+                _appLinks.update { it + (packageName to AppLinksUi(hosts = hosts)) }
+            } catch (e: Exception) {
+                _appLinks.update { it + (packageName to AppLinksUi(error = e.message ?: e.toString())) }
+            }
+        }
+    }
 }
 
 private enum class DeepLinkMode { COMPOSE, DISCOVER }
@@ -119,6 +148,7 @@ private enum class DeepLinkMode { COMPOSE, DISCOVER }
 fun DeepLinkScreen(onBack: () -> Unit, viewModel: DeepLinkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val discovery by viewModel.discovery.collectAsStateWithLifecycle()
+    val appLinks by viewModel.appLinks.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val chooserTitle = stringResource(R.string.deeplink_open_chooser)
     var mode by remember { mutableStateOf(DeepLinkMode.COMPOSE) }
@@ -149,7 +179,12 @@ fun DeepLinkScreen(onBack: () -> Unit, viewModel: DeepLinkViewModel = koinViewMo
             }
             when (mode) {
                 DeepLinkMode.COMPOSE -> ComposeTab(state, context, chooserTitle, viewModel)
-                DeepLinkMode.DISCOVER -> Discover(discovery) { url -> viewModel.setUrl(url); mode = DeepLinkMode.COMPOSE }
+                DeepLinkMode.DISCOVER -> Discover(
+                    state = discovery,
+                    appLinks = appLinks,
+                    onLoadAppLinks = viewModel::loadAppLinks,
+                    onPick = { url -> viewModel.setUrl(url); mode = DeepLinkMode.COMPOSE },
+                )
             }
         }
     }
@@ -193,8 +228,14 @@ private fun ComposeTab(state: DeepLinkUiState, context: android.content.Context,
 }
 
 @Composable
-private fun Discover(state: DiscoveryUiState, onPick: (String) -> Unit) {
+private fun Discover(
+    state: DiscoveryUiState,
+    appLinks: Map<String, AppLinksUi>,
+    onLoadAppLinks: (String) -> Unit,
+    onPick: (String) -> Unit,
+) {
     var query by remember { mutableStateOf("") }
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -207,7 +248,7 @@ private fun Discover(state: DiscoveryUiState, onPick: (String) -> Unit) {
                     data.webLinks
                         .filter { q.isBlank() || it.domain.contains(q, true) || it.packageName.contains(q, true) }
                         .groupBy { it.packageName }
-                        .toList()
+                        .map { (pkg, links) -> pkg to links.map { it.domain }.distinct().sorted() }
                         .sortedByDescending { it.second.size }
                 }
                 val schemes = remember(data, q) {
@@ -226,7 +267,22 @@ private fun Discover(state: DiscoveryUiState, onPick: (String) -> Unit) {
                     }
                     if (webGroups.isNotEmpty()) {
                         item(key = "web-header") { SectionHeader(stringResource(R.string.deeplink_web_links), stringResource(R.string.deeplink_web_count, domainTotal, webGroups.size)) }
-                        items(webGroups, key = { "web:" + it.first }) { (pkg, links) -> WebLinkGroup(pkg, links, onPick) }
+                        items(webGroups, key = { "web:" + it.first }) { (pkg, domains) ->
+                            val isOpen = expanded[pkg] == true
+                            WebLinkGroup(
+                                packageName = pkg,
+                                domains = domains,
+                                expanded = isOpen,
+                                appLinks = appLinks[pkg],
+                                query = q,
+                                onToggle = {
+                                    val next = !isOpen
+                                    expanded[pkg] = next
+                                    if (next) onLoadAppLinks(pkg)
+                                },
+                                onPick = onPick,
+                            )
+                        }
                     }
                     if (schemes.isNotEmpty()) {
                         item(key = "scheme-header") { SectionHeader(stringResource(R.string.deeplink_schemes), stringResource(R.string.deeplink_scheme_count, schemes.size)) }
@@ -247,13 +303,63 @@ private fun SectionHeader(title: String, subtitle: String) {
 }
 
 @Composable
-private fun WebLinkGroup(packageName: String, links: List<WebLink>, onPick: (String) -> Unit) {
+private fun WebLinkGroup(
+    packageName: String,
+    domains: List<String>,
+    expanded: Boolean,
+    appLinks: AppLinksUi?,
+    query: String,
+    onToggle: () -> Unit,
+    onPick: (String) -> Unit,
+) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            AppHeader(packageName)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                links.forEach { link ->
-                    AssistChip(onClick = { onPick("https://" + link.domain + "/") }, label = { Text(link.domain, style = MonoStyle) })
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AppIcon(packageName, size = 36.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(appLabel(packageName), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.deeplink_domains, domains.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = stringResource(if (expanded) R.string.deeplink_collapse else R.string.deeplink_expand),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (expanded) {
+                val pathsByHost = appLinks?.hosts?.associate { it.host to it.paths } ?: emptyMap()
+                Column(modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (appLinks?.loading == true) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text(packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                        }
+                    }
+                    domains.forEach { domain ->
+                        HostRow(domain, pathsByHost[domain].orEmpty(), query, onPick)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One verified host with a chip for the bare host and a chip per concrete example path. */
+@Composable
+private fun HostRow(host: String, paths: List<String>, query: String, onPick: (String) -> Unit) {
+    val concrete = remember(paths, query) {
+        paths.filter { it.isNotEmpty() }.filter { query.isBlank() || it.contains(query, true) || host.contains(query, true) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        AssistChip(onClick = { onPick("https://$host/") }, label = { Text(host, style = MonoStyle) })
+        if (concrete.isNotEmpty()) {
+            FlowRow(modifier = Modifier.padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                concrete.forEach { path ->
+                    AssistChip(onClick = { onPick("https://$host$path") }, label = { Text(path, style = MonoStyle) })
                 }
             }
         }
@@ -269,17 +375,6 @@ private fun SchemeRow(scheme: SchemeLink, onPick: (String) -> Unit) {
                 Text(scheme.scheme + "://", style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurface))
                 Text(appLabel(scheme.packages.first()) + (if (scheme.packages.size > 1) "  ·  " + stringResource(R.string.deeplink_scheme_apps, scheme.packages.size) else ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-        }
-    }
-}
-
-@Composable
-private fun AppHeader(packageName: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        AppIcon(packageName, size = 36.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(appLabel(packageName), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(packageName, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
         }
     }
 }

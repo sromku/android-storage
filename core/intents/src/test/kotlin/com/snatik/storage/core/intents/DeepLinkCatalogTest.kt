@@ -50,4 +50,51 @@ class DeepLinkCatalogTest {
         assertTrue("notyet.com" !in domains)
         assertEquals("com.google.android.youtube", data.webLinks.first { it.domain == "youtu.be" }.packageName)
     }
+
+    @Test
+    fun parsesAppLinkHostsAndPaths() {
+        val dump = """
+            Activity Resolver Table:
+              Full MIME Types:
+              http:
+                4d98575 com.google.android.youtube/.UrlActivity filter 4c5a90a
+                  Action: "android.intent.action.VIEW"
+                  Action: "android.media.action.MEDIA_PLAY_FROM_SEARCH"
+                  Category: "android.intent.category.DEFAULT"
+                  Category: "android.intent.category.BROWSABLE"
+                  Scheme: "http"
+                  Scheme: "https"
+                  Authority: "youtube.com": -1
+                  Authority: "youtu.be": -1
+                  Path: "PatternMatcher{GLOB: .*}"
+                  AutoVerify=true
+                4d98575 com.google.android.youtube/.UrlActivity filter 8ca03f1
+                  Action: "android.intent.action.VIEW"
+                  Category: "android.intent.category.DEFAULT"
+                  Category: "android.intent.category.BROWSABLE"
+                  Scheme: "https"
+                  Authority: "studio.youtube.com": -1
+                  Path: "PatternMatcher{GLOB: /channel/UC.*/promotions.*}"
+                  Path: "PatternMatcher{LITERAL: /channel-appeal}"
+                  Path: "PatternMatcher{PREFIX: /watch}"
+                  AutoVerify=true
+                deadbeef com.example/.NotBrowsable filter 1
+                  Action: "android.intent.action.VIEW"
+                  Category: "android.intent.category.DEFAULT"
+                  Scheme: "https"
+                  Authority: "internal.example.com": -1
+        """.trimIndent()
+
+        val hosts = DeepLinkCatalog.parseAppLinks(dump)
+
+        // Non-browsable filter excluded.
+        assertTrue(hosts.none { it.host == "internal.example.com" })
+        // Bare host is always offered.
+        assertEquals(listOf(""), hosts.first { it.host == "youtube.com" }.paths)
+        val studio = hosts.first { it.host == "studio.youtube.com" }.paths
+        assertTrue("" in studio)                 // root
+        assertTrue("/channel-appeal" in studio)  // literal
+        assertTrue("/watch" in studio)           // prefix
+        assertTrue("/channel/UC" in studio)      // glob fixed prefix
+    }
 }

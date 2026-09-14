@@ -11,6 +11,9 @@ data class WebLink(val domain: String, val packageName: String, val state: Strin
 /** A custom URI scheme registered on the device and the packages whose activities handle it. */
 data class SchemeLink(val scheme: String, val packages: List<String>)
 
+/** A host and the concrete example paths its declared intent filters accept ("" = the bare host). */
+data class HostPaths(val host: String, val paths: List<String>)
+
 /** What the device actually advertises as openable, rather than a guessed list. */
 data class DeepLinkData(val webLinks: List<WebLink>, val schemes: List<SchemeLink>)
 
@@ -25,6 +28,13 @@ class DeepLinkCatalog {
         val result = shell.run("dumpsys package", timeoutMs = 60_000)
         if (!result.ok && result.out.isBlank()) throw IllegalStateException(result.err.ifBlank { "dumpsys failed (${result.exitCode})" })
         return withContext(Dispatchers.Default) { parse(result.out) }
+    }
+
+    /** The web hosts and their example paths one package declares, from `dumpsys package <pkg>`. */
+    suspend fun fetchAppLinks(shell: ShellExecutor, packageName: String): List<HostPaths> {
+        val result = shell.run("dumpsys package $packageName", timeoutMs = 30_000)
+        if (!result.ok && result.out.isBlank()) throw IllegalStateException(result.err.ifBlank { "dumpsys failed (${result.exitCode})" })
+        return withContext(Dispatchers.Default) { parseAppLinks(result.out) }
     }
 
     companion object {
@@ -92,6 +102,63 @@ class DeepLinkCatalog {
                 .map { SchemeLink(it.key, it.value.toList()) }
                 .sortedBy { it.scheme }
             return DeepLinkData(webLinks = webLinks.distinct(), schemes = schemes)
+        }
+
+        private val filterAttr = Regex("""^ +(Action|Category|Scheme|Authority|Path): (.*)$""")
+        private val quoted = Regex(""""([^"]*)"""")
+        private val patternMatcher = Regex("""PatternMatcher\{(\w+): (.*)\}""")
+        private val globMeta = ".*?[]()^$+{}|\\".toSet()
+
+        /**
+         * Pull the web hosts and example paths a package advertises from its `dumpsys package <pkg>`
+         * intent filters. Only VIEW + BROWSABLE http/https filters count. Each host gets the bare
+         * host ("") plus any concrete paths (literal, prefix, or a glob's fixed prefix).
+         */
+        fun parseAppLinks(text: String): List<HostPaths> {
+            val hostPaths = LinkedHashMap<String, LinkedHashSet<String>>()
+            var view = false
+            var browsable = false
+            val schemes = HashSet<String>()
+            val authorities = ArrayList<String>()
+            val paths = ArrayList<String>()
+
+            fun flush() {
+                if (view && browsable && schemes.any { it in WEB_SCHEMES } && authorities.isNotEmpty()) {
+                    for (host in authorities) {
+                        val set = hostPaths.getOrPut(host) { LinkedHashSet() }
+                        set += ""
+                        set += paths
+                    }
+                }
+                view = false; browsable = false; schemes.clear(); authorities.clear(); paths.clear()
+            }
+
+            for (line in text.lineSequence()) {
+                val attr = filterAttr.find(line)
+                if (attr == null) { flush(); continue }
+                val key = attr.groupValues[1]
+                val value = quoted.find(attr.groupValues[2])?.groupValues?.get(1) ?: continue
+                when (key) {
+                    "Action" -> if (value.endsWith(".VIEW")) view = true
+                    "Category" -> if (value.endsWith(".BROWSABLE")) browsable = true
+                    "Scheme" -> schemes += value.lowercase()
+                    "Authority" -> authorities += value.lowercase()
+                    "Path" -> pathExample(value)?.let { paths += it }
+                }
+            }
+            flush()
+            return hostPaths.entries.map { HostPaths(it.key, it.value.toList()) }.sortedBy { it.host }
+        }
+
+        /** A concrete, launchable path from a PatternMatcher, or null when it can't be made literal. */
+        private fun pathExample(pattern: String): String? {
+            val m = patternMatcher.find(pattern) ?: return null
+            val value = m.groupValues[2]
+            return when (m.groupValues[1]) {
+                "LITERAL", "PREFIX" -> value.takeIf { it.startsWith("/") }
+                "GLOB" -> if (value == ".*") null else value.takeWhile { it !in globMeta }.takeIf { it.length > 1 && it.startsWith("/") }
+                else -> null
+            }
         }
     }
 }

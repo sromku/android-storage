@@ -656,6 +656,9 @@
     <string name="deeplink_scheme_apps">%1$d apps</string>
     <string name="deeplink_discover_empty">Nothing matched</string>
     <string name="deeplink_search">Filter domains &amp; schemes</string>
+    <string name="deeplink_domains">%1$d domains</string>
+    <string name="deeplink_expand">Expand</string>
+    <string name="deeplink_collapse">Collapse</string>
 
     <string name="tab_capture">Capture</string>
     <string name="snapshot_folder">Snapshot this folder</string>
