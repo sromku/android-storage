@@ -61,6 +61,7 @@ import com.snatik.storage.app.feature.intents.DeepLinkViewModel
 import com.snatik.storage.app.feature.intents.IntentBuilderViewModel
 import com.snatik.storage.app.feature.intents.IntentsViewModel
 import com.snatik.storage.core.intents.BroadcastHistory
+import com.snatik.storage.core.intents.DeepLinkCatalog
 import com.snatik.storage.core.intents.BroadcastStore
 import com.snatik.storage.core.intents.IntentPresets
 import com.snatik.storage.core.intents.IntentSender
@@ -157,6 +158,7 @@ val appModule = module {
     single { IntentPresets(androidContext()) }
     single { BroadcastStore(androidContext()) }
     single { BroadcastHistory() }
+    single { DeepLinkCatalog() }
     single { CaptureDatabase.create(androidContext()) }
     single { SnapshotRepository(androidContext(), get(), get()) }
     single { RecordingEngine(androidContext(), get(), get(), get(), get()) }
@@ -196,7 +198,7 @@ val appModule = module {
     viewModel { (route: Route.IntentBuilder) -> IntentBuilderViewModel(route, get(), get(), get()) }
     viewModel { BroadcastMonitorViewModel(androidContext(), get()) }
     viewModel { BroadcastHistoryViewModel(get(), get()) }
-    viewModelOf(::DeepLinkViewModel)
+    viewModel { DeepLinkViewModel(get(), get(), get()) }
     viewModel { (route: Route.Capture) -> CaptureViewModel(route, androidContext(), get(), get(), get()) }
     viewModel { (id: Long) -> SnapshotViewModel(id, get()) }
     viewModel { (route: Route.SnapshotDiff) -> SnapshotDiffViewModel(route, get()) }

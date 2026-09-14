@@ -519,7 +519,7 @@
     <string name="broadcast_monitor_card_actions">%1$d actions subscribed</string>
     <string name="intents_monitor_status">%1$d actions on · %2$d events</string>
     <string name="intents_deeplink_title">Deep link tester</string>
-    <string name="intents_deeplink_body">Paste a URL, see which apps claim it and launch one directly.</string>
+    <string name="intents_deeplink_body">Discover the real links this device handles, or paste your own and launch it.</string>
     <string name="open">Open</string>
 
     <!-- Builder -->
@@ -645,6 +645,17 @@
     <string name="deeplink_open_chooser">Open with chooser</string>
     <string name="deeplink_none">No app handles this link</string>
     <string name="deeplink_launch">Launch</string>
+    <string name="deeplink_mode_compose">Compose</string>
+    <string name="deeplink_mode_discover">Discover</string>
+    <string name="deeplink_discover_hint">Real deep links this device advertises — parsed from its registered intent filters, not guessed. Tap one to load it above, then edit and launch.</string>
+    <string name="deeplink_discover_needs_shell">Discovery reads the device\'s intent filters through the shell. Connect Shizuku to use it.</string>
+    <string name="deeplink_web_links">Web links (App Links)</string>
+    <string name="deeplink_schemes">Custom schemes</string>
+    <string name="deeplink_web_count">%1$d verified domains · %2$d apps</string>
+    <string name="deeplink_scheme_count">%1$d schemes</string>
+    <string name="deeplink_scheme_apps">%1$d apps</string>
+    <string name="deeplink_discover_empty">Nothing matched</string>
+    <string name="deeplink_search">Filter domains &amp; schemes</string>
 
     <string name="tab_capture">Capture</string>
     <string name="snapshot_folder">Snapshot this folder</string>
