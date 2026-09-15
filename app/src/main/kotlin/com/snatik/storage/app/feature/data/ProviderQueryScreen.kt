@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TableRows
 import androidx.compose.material3.Button
@@ -86,7 +87,7 @@ import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, onOpenFolder: (String) -> Unit = {}, viewModel: ProviderQueryViewModel = koinViewModel(parameters = { parametersOf(route) })) {
+fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, onOpenFolder: (String) -> Unit = {}, onWatch: (uri: String, label: String) -> Unit = { _, _ -> }, viewModel: ProviderQueryViewModel = koinViewModel(parameters = { parametersOf(route) })) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resources = LocalResources.current
     val context = LocalContext.current
@@ -123,6 +124,11 @@ fun ProviderQueryScreen(route: Route.ProviderQuery, onBack: () -> Unit, onOpenFo
                             text = { Text(stringResource(R.string.uri_details)) },
                             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
                             onClick = { more = false; viewModel.openDetails() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.prov_watch_changes)) },
+                            leadingIcon = { Icon(Icons.Default.Sensors, contentDescription = null) },
+                            onClick = { more = false; onWatch(state.form.uri.trim(), viewModel.title) },
                         )
                         DropdownMenuItem(text = { Text(stringResource(R.string.export_csv)) }, leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = false) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.export_json)) }, leadingIcon = { Icon(Icons.Default.DataObject, contentDescription = null) }, enabled = state.result != null, onClick = { more = false; viewModel.export(asJson = true) })
