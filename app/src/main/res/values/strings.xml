@@ -1552,16 +1552,6 @@
     <string name="tm_cache_velocity">Cache growing %1$s per day</string>
     <string name="tm_growers">Fastest growing apps</string>
     <!-- Round J: power tools -->
-    <string name="bench_title">Benchmark</string>
-    <string name="tools_bench_sub">Measure read and write throughput.</string>
-    <string name="bench_body">Writes and reads a temporary file to measure sequential and random throughput. The file is deleted afterwards.</string>
-    <string name="bench_run">Run benchmark</string>
-    <string name="bench_running">Running…</string>
-    <string name="bench_result">Results (%1$d MB file)</string>
-    <string name="bench_seq_write">Sequential write</string>
-    <string name="bench_seq_read">Sequential read</string>
-    <string name="bench_rand_read">Random read (4 KB)</string>
-    <string name="bench_iops">Random read IOPS</string>
     <string name="db_schema_tables">Tables (%1$d)</string>
     <string name="db_schema_meta">%1$d rows · %2$d cols</string>
     <string name="db_relationships">Relationships (%1$d)</string>

@@ -175,10 +175,6 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object TimeMachine : Route
-
-    @Serializable
-    data object Benchmark : Route
-
     @Serializable
     data object CommandPalette : Route
     @Serializable

@@ -36,8 +36,6 @@ import com.snatik.storage.core.apps.AppEventLog
 import com.snatik.storage.app.feature.history.AppHistoryViewModel
 import com.snatik.storage.core.apps.TelemetryRepository
 import com.snatik.storage.app.feature.timemachine.TimeMachineViewModel
-import com.snatik.storage.core.apps.StorageBenchmark
-import com.snatik.storage.app.feature.benchmark.BenchmarkViewModel
 import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
@@ -148,7 +146,6 @@ val appModule = module {
     single { TelemetryRepository(androidContext(), get(), get()) }
     single { AppEventDatabase.create(androidContext()) }
     single { AppEventLog(androidContext(), get(), get()) }
-    single { StorageBenchmark() }
     single { DiskScanner(get()) }
     single { ProviderRepository(androidContext()) }
     single { ProviderQuery(androidContext(), get()) }
@@ -228,6 +225,5 @@ val appModule = module {
     viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.FontViewerViewModel(path, get(), androidContext()) }
     viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.PdfViewerViewModel(path, get(), androidContext()) }
     viewModelOf(::TimeMachineViewModel)
-    viewModel { BenchmarkViewModel(androidContext(), get()) }
     viewModelOf(::AppHistoryViewModel)
 }

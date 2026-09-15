@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Wifi
@@ -77,7 +76,6 @@ fun ToolsScreen(
     onOpenInsights: () -> Unit,
     onOpenSystem: () -> Unit,
     onOpenTimeMachine: () -> Unit,
-    onOpenBenchmark: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenPalette: () -> Unit,
 ) {
@@ -105,7 +103,6 @@ fun ToolsScreen(
         Tool(stringResource(R.string.insights_title), stringResource(R.string.tools_insights_sub), Icons.Default.Insights, onOpenInsights),
         Tool(stringResource(R.string.system_title), stringResource(R.string.tools_system_sub), Icons.Default.Memory, onOpenSystem),
         Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine),
-        Tool(stringResource(R.string.bench_title), stringResource(R.string.tools_bench_sub), Icons.Default.Speed, onOpenBenchmark),
         Tool(stringResource(R.string.app_history_title), stringResource(R.string.tools_history_sub), Icons.Default.History, onOpenHistory),
     )
     Scaffold(

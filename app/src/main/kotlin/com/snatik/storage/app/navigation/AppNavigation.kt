@@ -39,7 +39,6 @@ import com.snatik.storage.app.feature.apps.AppStorageScreen
 import com.snatik.storage.app.feature.system.SystemScreen
 import com.snatik.storage.app.feature.viewer.ElfViewerScreen
 import com.snatik.storage.app.feature.timemachine.TimeMachineScreen
-import com.snatik.storage.app.feature.benchmark.BenchmarkScreen
 import com.snatik.storage.app.feature.palette.Command
 import com.snatik.storage.app.feature.palette.CommandPaletteScreen
 import com.snatik.storage.app.feature.history.AppHistoryScreen
@@ -54,7 +53,6 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Wifi
@@ -286,7 +284,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenInsights = { push(Route.Insights) },
                     onOpenSystem = { push(Route.System) },
                     onOpenTimeMachine = { push(Route.TimeMachine) },
-                    onOpenBenchmark = { push(Route.Benchmark) },
                     onOpenHistory = { push(Route.AppHistory) },
                     onOpenPalette = { push(Route.CommandPalette) },
                 )
@@ -306,7 +303,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.System> { SystemScreen(onBack = ::pop, onOpenProcesses = { push(Route.ProcessMonitor(it)) }) }
             entry<Route.ProcessMonitor> { route -> com.snatik.storage.app.feature.system.ProcessMonitorScreen(focus = route.focus, onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
-            entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
             entry<Route.AppHistory> { AppHistoryScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Settings> { com.snatik.storage.app.feature.settings.SettingsScreen(onBack = ::pop) }
             entry<Route.CommandPalette> {
@@ -326,7 +322,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     Command("System", "Mounts, ZRAM, smaps", "mounts partitions zram smaps kernel", Icons.Default.Memory) { open(Route.System) },
                     Command("Time Machine", "Storage growth forecast", "telemetry growth forecast", Icons.Default.Timeline) { open(Route.TimeMachine) },
                     Command("App history", "Installs, updates & removals", "history installed uninstalled timeline", Icons.Default.History) { open(Route.AppHistory) },
-                    Command("Benchmark", "Read/write throughput", "benchmark speed iops", Icons.Default.Speed) { open(Route.Benchmark) },
                     Command("Intents", "Build and watch intents", "intents broadcast deeplink", Icons.AutoMirrored.Filled.Send) { open(Route.Intents) },
                     Command("Capture", "Snapshots and recording", "snapshot diff record", Icons.Default.FiberManualRecord) { open(Route.Capture()) },
                     Command("Receive files", "HTTP drop and transfer", "transfer receive files", Icons.Default.Wifi) { open(Route.Receive) },
