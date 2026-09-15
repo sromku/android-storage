@@ -137,7 +137,7 @@ val appModule = module {
     single { com.snatik.storage.core.apps.NotificationRecorderStore(androidContext()) }
     single { PermissionMatrixRepository(androidContext()) }
     single { FileSearch(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
-    single { ProviderWatcher(androidContext(), get(), get(), get()) }
+    single { ProviderWatcher(androidContext(), get(), get(), get(), get()) }
     single { com.snatik.storage.core.apps.ProviderRecorderStore(androidContext()) }
     single { ClipboardInspector(androidContext()) }
     single { StorageInsights(get<com.snatik.storage.core.fs.FileSystem>(), get()) }

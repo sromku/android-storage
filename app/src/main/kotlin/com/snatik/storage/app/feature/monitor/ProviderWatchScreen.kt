@@ -117,6 +117,9 @@ class ProviderWatchViewModel(
 
     val hasShell: Boolean get() = watcher.hasShell
 
+    /** Curated well-known providers, from the shared catalogue (same as the Data tab). */
+    val shortcuts: List<com.snatik.storage.core.data.ProviderShortcut> = watcher.shortcuts()
+
     init {
         watcher.ensureObservers()
         viewModelScope.launch {
@@ -126,21 +129,20 @@ class ProviderWatchViewModel(
 
     fun setSource(s: PwSource) { _source.value = s }
 
-    /** Toggle a well-known target; self-grants its permission via Shizuku when starting. */
-    fun toggle(target: WatchTarget) {
+    /** Toggle watching a URI; self-grants its permission via Shizuku when starting. */
+    fun toggle(uri: String, label: String) {
         viewModelScope.launch {
-            if (target.uri in watcher.watching.value) watcher.unwatch(target.uri) else watcher.watch(target)
+            if (uri in watcher.watching.value) watcher.unwatch(uri) else watcher.watch(uri, label)
         }
     }
 
     fun addCustom(uri: String) {
         val u = uri.trim()
-        if (u.startsWith("content://")) viewModelScope.launch { watcher.watch(WatchTarget(u, u)) }
+        if (u.startsWith("content://")) viewModelScope.launch { watcher.watch(u, u) }
     }
 
     fun unwatch(uri: String) = watcher.unwatch(uri)
-    fun granted(target: WatchTarget) = watcher.granted(target)
-    suspend fun installedProviders() = withContext(Dispatchers.IO) { watcher.installedProviders() }
+    suspend fun providers() = watcher.providers()
 
     fun startRecording(capacity: Int) {
         store.setCapacity(capacity)
@@ -209,13 +211,13 @@ fun ProviderWatchScreen(onBack: () -> Unit, viewModel: ProviderWatchViewModel = 
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             SourceBar(source, recording, recordedCount, oldest, viewModel::setSource, { if (recording) viewModel.stopRecording() else showRecord = true }, viewModel::clearRecording, viewModel::clearLive)
-            // Provider chips: quick-toggle the well-known providers.
+            // Provider chips: quick-toggle the well-known providers from the shared catalogue.
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                COMMON_PROVIDERS.forEach { t ->
-                    FilterChip(selected = t.uri in watching, onClick = { viewModel.toggle(t) }, label = { Text(t.label) })
+                viewModel.shortcuts.forEach { s ->
+                    FilterChip(selected = s.uri in watching, onClick = { viewModel.toggle(s.uri, s.title) }, label = { Text(s.title) })
                 }
-                // Any custom URIs the user added that aren't in the common list.
-                watching.filter { uri -> COMMON_PROVIDERS.none { it.uri == uri } }.forEach { uri ->
+                // Any custom / discovered URIs the user added that aren't in the shortcut list.
+                watching.filter { uri -> viewModel.shortcuts.none { it.uri == uri } }.forEach { uri ->
                     FilterChip(selected = true, onClick = { viewModel.unwatch(uri) }, label = { Text(uri.removePrefix("content://").take(24), maxLines = 1) })
                 }
                 FilterChip(selected = false, onClick = { showAdd = true }, label = { Text(stringResource(R.string.pw_add_short)) }, leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) })
@@ -548,8 +550,13 @@ private fun RecordSheet(store: ProviderRecorderStore, sink: ExternalSink, noProv
 @Composable
 private fun AddProvidersSheet(viewModel: ProviderWatchViewModel, watching: Set<String>, onDismiss: () -> Unit) {
     var custom by remember { mutableStateOf("") }
-    var discovered by remember { mutableStateOf<List<ProviderTarget>?>(null) }
+    var discovered by remember { mutableStateOf<List<com.snatik.storage.core.data.ProviderEntry>?>(null) }
+    var qsearch by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val shown = remember(discovered, qsearch) {
+        val q = qsearch.trim().lowercase()
+        discovered.orEmpty().filter { q.isBlank() || it.authority.lowercase().contains(q) || it.appLabel.lowercase().contains(q) }
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(modifier = Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             item {
@@ -560,18 +567,21 @@ private fun AddProvidersSheet(viewModel: ProviderWatchViewModel, watching: Set<S
                     HorizontalDivider()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.pw_discover), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                        if (discovered == null) TextButton(onClick = { scope.launch { discovered = viewModel.installedProviders() } }) { Text(stringResource(R.string.pw_discover_load)) }
+                        if (discovered == null) TextButton(onClick = { scope.launch { discovered = viewModel.providers() } }) { Text(stringResource(R.string.pw_discover_load)) }
                     }
+                    if (discovered != null) OutlinedTextField(value = qsearch, onValueChange = { qsearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.pw_discover_search)) })
                 }
             }
-            items(discovered.orEmpty(), key = { it.authority }) { p ->
-                val uri = "content://${p.authority}"
+            items(shown, key = { it.authority }) { p ->
+                val uri = p.uri
                 Row(modifier = Modifier.fillMaxWidth().clickable { if (uri in watching) viewModel.unwatch(uri) else viewModel.addCustom(uri) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(p.authority, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(p.pkg, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                        Text(p.appLabel, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(p.authority, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
                     }
-                    if (uri in watching) MiniBadge(stringResource(R.string.pw_watching), MaterialTheme.colorScheme.primary)
+                    if (p.queryableNow) MiniBadge(stringResource(R.string.pw_readable), MaterialTheme.colorScheme.primary)
+                    else if (p.readPermission != null) MiniBadge(stringResource(R.string.pw_needs_perm), MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (uri in watching) MiniBadge(stringResource(R.string.pw_watching), MaterialTheme.colorScheme.tertiary)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             }

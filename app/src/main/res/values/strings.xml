@@ -1311,6 +1311,9 @@
     <string name="pw_add_watch">Watch this URI</string>
     <string name="pw_discover">Installed providers</string>
     <string name="pw_discover_load">Discover</string>
+    <string name="pw_discover_search">Filter by app or authority</string>
+    <string name="pw_readable">readable</string>
+    <string name="pw_needs_perm">needs permission</string>
     <string name="pw_watching">watching</string>
     <string name="pw_export_title">Export</string>
     <string name="pw_export_body">%1$d changes in the current view.</string>
