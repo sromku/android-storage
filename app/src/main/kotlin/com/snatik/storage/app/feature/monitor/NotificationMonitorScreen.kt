@@ -405,7 +405,11 @@ private fun CategoryTag(category: String) {
 private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -> Unit, onDismiss: () -> Unit) {
     val images = remember(r.key) { NotificationImageCache.get(r.key) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // A LazyColumn (not Column+verticalScroll) owns the scrolling so its nested-scroll
+        // cooperates with the sheet's drag — otherwise the sheet jitters at full expansion.
+        LazyColumn(modifier = Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
+          item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val largeIcon = images?.largeIcon
                 if (largeIcon != null) {
@@ -454,6 +458,8 @@ private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.size(4.dp))
+            }
+          }
         }
     }
 }
