@@ -87,6 +87,7 @@ const val NAV_TARGET_EXTRA = "nav_target"
 const val NAV_INTENT_MONITOR = "intent_monitor"
 const val NAV_BROADCAST_MONITOR = "broadcast_monitor"
 const val NAV_APPOPS_TIMELINE = "appops_timeline"
+const val NAV_PROVIDER_WATCH = "provider_watch"
 const val NAV_SETTINGS = "settings"
 
 @Composable
@@ -103,6 +104,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             NAV_INTENT_MONITOR -> Route.IntentMonitor
             NAV_BROADCAST_MONITOR -> Route.BroadcastMonitor
             NAV_APPOPS_TIMELINE -> Route.AppOpsTimeline
+            NAV_PROVIDER_WATCH -> Route.ProviderWatch
             NAV_SETTINGS -> Route.Settings
             else -> null
         }

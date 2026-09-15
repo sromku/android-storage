@@ -26,6 +26,16 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
+    <!-- Provider watch: read permissions self-granted via Shizuku so the observers on these
+         restricted providers actually deliver changes. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.READ_SMS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <application
         android:largeHeap="true"
         android:name=".StorageApp"
@@ -83,6 +93,15 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Developer tooling: records the app-op access timeline from the system in the background" />
+        </service>
+
+        <service
+            android:name=".feature.monitor.ProviderRecorderService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: records content-provider change notifications in the background" />
         </service>
 
         <receiver
