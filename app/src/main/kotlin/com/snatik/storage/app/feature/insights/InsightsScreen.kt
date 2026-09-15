@@ -129,41 +129,13 @@ class InsightsViewModel(
         }
     }
 
-    fun deleteDuplicateSet(set: DuplicateSet) {
-        val extras = set.paths.drop(1)  // keep the first copy
-        delete(extras, set.wasted) {
-            val r = _report.value ?: return@delete
-            val remaining = r.duplicateSets.filterNot { it.hash == set.hash && it.size == set.size }
-            _report.value = r.copy(duplicateSets = remaining, wastedByDuplicates = remaining.sumOf { it.wasted })
-        }
-    }
-
-    fun deleteAllDuplicates() {
-        val r = _report.value ?: return
-        val extras = r.duplicateSets.flatMap { it.paths.drop(1) }
-        delete(extras, r.wastedByDuplicates) {
-            _report.value = _report.value?.copy(duplicateSets = emptyList(), wastedByDuplicates = 0)
-        }
-    }
-
-    fun deleteZeroByte() {
-        val r = _report.value ?: return
-        delete(r.zeroByteFiles, 0) { _report.value = _report.value?.copy(zeroByteFiles = emptyList()) }
-    }
-
-    fun deleteEmptyDirs() {
-        val r = _report.value ?: return
-        delete(r.emptyDirs, 0) { _report.value = _report.value?.copy(emptyDirs = emptyList()) }
-    }
-
+    /**
+     * The only delete offered: leftover data from an uninstalled app. Everything else the scan
+     * finds (duplicates, zero-byte files, empty dirs, large files) is review-only — the user opens
+     * it in the file browser and decides there, so we never blind-delete path-sensitive files.
+     */
     fun deleteGhost(g: GhostFootprint) {
         delete(listOf(g.path), g.bytes) { _ghosts.value = _ghosts.value.filterNot { it.path == g.path } }
-    }
-
-    fun deleteLargest(file: LargeFile) {
-        delete(listOf(file.path), file.size) {
-            _report.value = _report.value?.let { it.copy(largest = it.largest.filterNot { l -> l.path == file.path }) }
-        }
     }
 
     fun clearFreed() { _freed.value = null }
@@ -219,30 +191,16 @@ fun InsightsScreen(onBack: () -> Unit, onOpenPath: (String) -> Unit, viewModel: 
                     else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         item { ReclaimCard(r, ghosts) }
                         if (r.categories.isNotEmpty()) item { CategoryCard(r.categories, r.totalBytes) }
-                        if (r.duplicateSets.isNotEmpty()) item {
-                            DuplicatesCard(
-                                r.duplicateSets, r.wastedByDuplicates, busy, onOpenPath,
-                                onDeleteAll = { confirm = Confirm(R.string.insights_confirm_dupes, listOf(r.duplicateSets.sumOf { it.paths.size - 1 }, human(r.wastedByDuplicates))) { viewModel.deleteAllDuplicates() } },
-                                onDeleteSet = { s -> confirm = Confirm(R.string.insights_confirm_dupes, listOf(s.paths.size - 1, human(s.wasted))) { viewModel.deleteDuplicateSet(s) } },
-                            )
-                        }
+                        if (r.duplicateSets.isNotEmpty()) item { DuplicatesCard(r.duplicateSets, r.wastedByDuplicates, onOpenPath) }
                         if (ghosts.isNotEmpty()) item {
                             GhostsCard(ghosts, busy) { g -> confirm = Confirm(R.string.insights_confirm_ghost, listOf(g.packageName, human(g.bytes))) { viewModel.deleteGhost(g) } }
                         }
-                        if (r.largest.isNotEmpty()) item {
-                            LargestCard(r.largest, busy, onOpenPath) { f -> confirm = Confirm(R.string.insights_confirm_file, listOf(f.path.substringAfterLast('/'))) { viewModel.deleteLargest(f) } }
-                        }
+                        if (r.largest.isNotEmpty()) item { LargestCard(r.largest, onOpenPath) }
                         if (r.zeroByteFiles.isNotEmpty()) item {
-                            ListCard(
-                                stringResource(R.string.insights_zero, r.zeroByteFiles.size), Icons.Default.DeleteOutline, r.zeroByteFiles.take(50), busy, onOpenPath,
-                                onDeleteAll = { confirm = Confirm(R.string.insights_confirm_zero, listOf(r.zeroByteFiles.size)) { viewModel.deleteZeroByte() } },
-                            )
+                            ListCard(stringResource(R.string.insights_zero, r.zeroByteFiles.size), Icons.Default.DeleteOutline, r.zeroByteFiles.take(50), onOpenPath)
                         }
                         if (r.emptyDirs.isNotEmpty()) item {
-                            ListCard(
-                                stringResource(R.string.insights_empty_dirs, r.emptyDirs.size), Icons.Default.Folder, r.emptyDirs.take(50), busy, onOpenPath,
-                                onDeleteAll = { confirm = Confirm(R.string.insights_confirm_empty, listOf(r.emptyDirs.size)) { viewModel.deleteEmptyDirs() } },
-                            )
+                            ListCard(stringResource(R.string.insights_empty_dirs, r.emptyDirs.size), Icons.Default.Folder, r.emptyDirs.take(50), onOpenPath)
                         }
                     }
                 }
@@ -316,34 +274,27 @@ private fun CategoryCard(cats: List<CategoryStat>, totalBytes: Long) {
 /* ---------- duplicates ---------- */
 
 @Composable
-private fun DuplicatesCard(sets: List<DuplicateSet>, wasted: Long, busy: Boolean, onOpenPath: (String) -> Unit, onDeleteAll: () -> Unit, onDeleteSet: (DuplicateSet) -> Unit) {
+private fun DuplicatesCard(sets: List<DuplicateSet>, wasted: Long, onOpenPath: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.ContentCopy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(stringResource(R.string.insights_dupes, sets.size, human(wasted)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             }
-            TextButton(onClick = onDeleteAll, enabled = !busy) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.insights_clean_dupes, human(wasted)), color = MaterialTheme.colorScheme.error)
-            }
-            sets.take(20).forEach { set -> DuplicateRow(set, busy, onOpenPath, onDeleteSet) }
+            Text(stringResource(R.string.insights_review_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            sets.take(20).forEach { set -> DuplicateRow(set, onOpenPath) }
         }
     }
 }
 
 @Composable
-private fun DuplicateRow(set: DuplicateSet, busy: Boolean, onOpenPath: (String) -> Unit, onDeleteSet: (DuplicateSet) -> Unit) {
+private fun DuplicateRow(set: DuplicateSet, onOpenPath: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column {
         Row(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(set.paths.first().substringAfterLast('/'), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(stringResource(R.string.insights_dupe_copies, set.paths.size, human(set.size)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = { onDeleteSet(set) }, enabled = !busy) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = stringResource(R.string.insights_delete), tint = MaterialTheme.colorScheme.error)
             }
             Icon(Icons.Default.ExpandMore, contentDescription = null)
         }
@@ -383,20 +334,17 @@ private fun GhostsCard(ghosts: List<GhostFootprint>, busy: Boolean, onDelete: (G
 /* ---------- largest ---------- */
 
 @Composable
-private fun LargestCard(largest: List<LargeFile>, busy: Boolean, onOpenPath: (String) -> Unit, onDelete: (LargeFile) -> Unit) {
+private fun LargestCard(largest: List<LargeFile>, onOpenPath: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(R.string.insights_largest), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 4.dp))
             largest.take(15).forEach { f ->
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(modifier = Modifier.weight(1f).clickable { onOpenPath(f.path) }.padding(vertical = 4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().clickable { onOpenPath(f.path) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(f.path.substringAfterLast('/'), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(f.path, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Text(human(f.size), style = MonoStyle, fontWeight = FontWeight.Medium)
-                    IconButton(onClick = { onDelete(f) }, enabled = !busy) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = stringResource(R.string.insights_delete), tint = MaterialTheme.colorScheme.error)
-                    }
                 }
             }
         }
@@ -406,15 +354,12 @@ private fun LargestCard(largest: List<LargeFile>, busy: Boolean, onOpenPath: (St
 /* ---------- generic list card with a "delete all" action ---------- */
 
 @Composable
-private fun ListCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, paths: List<String>, busy: Boolean, onOpenPath: (String) -> Unit, onDeleteAll: () -> Unit) {
+private fun ListCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, paths: List<String>, onOpenPath: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                TextButton(onClick = onDeleteAll, enabled = !busy) {
-                    Text(stringResource(R.string.insights_delete_all_short), color = MaterialTheme.colorScheme.error)
-                }
             }
             paths.forEach { p ->
                 Text(p, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth().clickable { onOpenPath(p) }.padding(vertical = 2.dp))

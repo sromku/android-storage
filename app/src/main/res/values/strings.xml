@@ -1429,15 +1429,10 @@
     <string name="insights_breakdown">Where the space goes</string>
     <string name="insights_largest">Largest files</string>
     <string name="insights_delete">Delete</string>
-    <string name="insights_delete_all_short">Delete all</string>
-    <string name="insights_clean_dupes">Remove copies · free %1$s</string>
     <string name="insights_freed">Freed %1$s</string>
     <string name="insights_confirm_title">Delete?</string>
-    <string name="insights_confirm_dupes">Delete %1$d duplicate copies and free %2$s? One copy of each is kept.</string>
-    <string name="insights_confirm_zero">Delete %1$d zero-byte files?</string>
-    <string name="insights_confirm_empty">Delete %1$d empty directories?</string>
+    <string name="insights_review_hint">Found copies — tap one to open it in the file browser and decide there.</string>
     <string name="insights_confirm_ghost">Delete leftover data for %1$s (%2$s)?</string>
-    <string name="insights_confirm_file">Delete %1$s?</string>
     <string name="insights_cat_count">%1$d files</string>
     <string name="insights_cat_images">Images</string>
     <string name="insights_cat_video">Video</string>
