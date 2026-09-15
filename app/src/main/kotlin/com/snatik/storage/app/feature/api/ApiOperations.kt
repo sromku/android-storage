@@ -256,14 +256,18 @@ class ApiOperations(
                 put("sections", buildJsonArray { r.sections.take(50).forEach { sec -> add(buildJsonObject { put("name", sec.name); put("size", sec.size); put("entropy", sec.entropy) }) } })
             }
         },
-        Op("system_report", "Kernel view: mounts, partitions, swap, ZRAM, this app's smaps", false, false, schemaOf()) { _ ->
+        Op("system_report", "Kernel view: device/kernel, CPU, memory, block devices, swap, ZRAM, mounts", false, false, schemaOf()) { _ ->
             val r = system.report()
             buildJsonObject {
-                put("mounts", buildJsonArray { r.mounts.take(200).forEach { m -> add(buildJsonObject { put("mountPoint", m.mountPoint); put("device", m.device); put("type", m.type) }) } })
+                put("device", buildJsonObject { put("model", r.device.model); put("kernel", r.device.kernel); put("android", r.device.androidVersion); put("selinux", r.device.selinux); put("uptimeSec", r.device.uptimeSec); put("load1", r.device.load1) })
+                put("cpu", buildJsonObject { put("model", r.cpu.model); put("cores", r.cpu.cores); put("usagePercent", r.cpu.usagePercent ?: -1.0) })
+                put("memory", buildJsonObject { put("totalKb", r.mem.totalKb); put("availableKb", r.mem.availableKb); put("cachedKb", r.mem.cachedKb) })
+                put("mounts", buildJsonArray { r.mounts.take(200).forEach { m -> add(buildJsonObject { put("mountPoint", m.mountPoint); put("device", m.device); put("type", m.type); put("totalBytes", m.totalBytes); put("freeBytes", m.freeBytes) }) } })
+                put("blocks", buildJsonArray { r.blocks.forEach { b -> add(buildJsonObject { put("name", b.name); put("model", b.model); put("sizeBytes", b.sizeBytes); put("rotational", b.rotational) }) } })
                 put("partitions", buildJsonArray { r.partitions.forEach { pt -> add(buildJsonObject { put("name", pt.name); put("bytes", pt.bytes) }) } })
                 put("swaps", buildJsonArray { r.swaps.forEach { sw -> add(buildJsonObject { put("name", sw.name); put("sizeKb", sw.sizeKb); put("usedKb", sw.usedKb) }) } })
                 r.zram?.let { z -> put("zram", buildJsonObject { put("disksizeBytes", z.disksizeBytes); put("originalBytes", z.originalBytes); put("compressedBytes", z.compressedBytes) }) }
-                r.smaps?.let { m -> put("smaps", buildJsonObject { put("rssKb", m.rssKb); put("pssKb", m.pssKb); put("privateDirtyKb", m.privateDirtyKb); put("regions", m.regions) }) }
+                r.appMem?.let { a -> put("appMemory", buildJsonObject { put("totalPssKb", a.totalPssKb); put("javaHeapKb", a.javaHeapKb); put("nativeHeapKb", a.nativeHeapKb) }) }
             }
         },
         Op("telemetry_forecast", "Storage growth trend and a forecast of when free space runs out", false, false, schemaOf()) { _ ->
