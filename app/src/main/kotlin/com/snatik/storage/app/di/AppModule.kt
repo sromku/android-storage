@@ -16,7 +16,6 @@ import com.snatik.storage.core.apps.DeviceStatsRepository
 import com.snatik.storage.core.apps.AppOpsTimeline
 import com.snatik.storage.core.apps.PermissionMatrixRepository
 import com.snatik.storage.core.apps.FileSearch
-import com.snatik.storage.app.feature.search.SearchViewModel
 import com.snatik.storage.app.feature.monitor.ProviderWatcher
 import com.snatik.storage.app.feature.monitor.ClipboardInspector
 import com.snatik.storage.app.feature.monitor.NotificationMonitorViewModel
@@ -213,7 +212,6 @@ val appModule = module {
     viewModelOf(::DashboardViewModel)
     viewModelOf(::PermissionMatrixViewModel)
     viewModel { AppOpsTimelineViewModel(androidContext(), get(), get(), get(), get()) }
-    viewModelOf(::SearchViewModel)
     viewModelOf(::NotificationMonitorViewModel)
     viewModelOf(::ProviderWatchViewModel)
     viewModelOf(::ClipboardViewModel)

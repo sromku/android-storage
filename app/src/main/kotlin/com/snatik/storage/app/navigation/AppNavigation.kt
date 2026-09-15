@@ -30,7 +30,6 @@ import com.snatik.storage.app.feature.network.NetworkScreen
 import com.snatik.storage.app.feature.dashboard.DashboardScreen
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixScreen
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineScreen
-import com.snatik.storage.app.feature.search.SearchScreen
 import com.snatik.storage.app.feature.monitor.NotificationMonitorScreen
 import com.snatik.storage.app.feature.monitor.ProviderWatchScreen
 import com.snatik.storage.app.feature.monitor.ClipboardScreen
@@ -50,7 +49,6 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.ContentPaste
@@ -280,7 +278,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenDashboard = { push(Route.Dashboard) },
                     onOpenMatrix = { push(Route.PermissionMatrix) },
                     onOpenTimeline = { push(Route.AppOpsTimeline) },
-                    onOpenSearch = { push(Route.Search) },
                     onOpenNotifications = { push(Route.Notifications) },
                     onOpenProviderWatch = { push(Route.ProviderWatch) },
                     onOpenClipboard = { push(Route.Clipboard) },
@@ -299,7 +296,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
-            entry<Route.Search> { SearchScreen(onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop) }
             entry<Route.ProviderWatch> { ProviderWatchScreen(onBack = ::pop) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
@@ -323,7 +319,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     Command("Permission vs footprint", "Rank apps by permissions and size", "permissions size risk", Icons.Default.GridOn) { open(Route.PermissionFootprint) },
                     Command("App-ops timeline", "Recent sensitive access", "location camera mic appops", Icons.Default.History) { open(Route.AppOpsTimeline) },
                     Command("Network", "Per-app connections", "network sockets connections", Icons.Default.Lan) { open(Route.Network()) },
-                    Command("Search", "Find files by name or content", "search find grep", Icons.Default.Search) { open(Route.Search) },
                     Command("Notification monitor", "Log notifications", "notifications", Icons.Default.NotificationsActive) { open(Route.Notifications) },
                     Command("Provider watch", "Watch content providers", "provider observer changes", Icons.Default.Sensors) { open(Route.ProviderWatch) },
                     Command("Clipboard", "Clipboard history", "clipboard clip", Icons.Default.ContentPaste) { open(Route.Clipboard) },

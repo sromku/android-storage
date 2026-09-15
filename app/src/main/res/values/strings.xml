@@ -1156,7 +1156,6 @@
     </plurals>
     <!-- Round F: search + monitors -->
     <string name="refresh">Refresh</string>
-    <string name="search_title">Search</string>
     <string name="search_hint">Find files</string>
     <string name="search_prompt">Search the device</string>
     <string name="search_prompt_body">Find files by name, or grep their text content. Uses the shell to reach privileged paths when available.</string>
@@ -1167,7 +1166,6 @@
     <string name="search_root_shared">Shared storage</string>
     <string name="search_root_system">System</string>
     <string name="search_root_data">App data</string>
-    <string name="tools_search_sub">Find files by name or content, anywhere.</string>
     <string name="notif_title">Notification monitor</string>
     <string name="notif_needs_access">Notification access needed</string>
     <string name="notif_needs_access_body">Grant this app notification access to log every notification posted on the device.</string>

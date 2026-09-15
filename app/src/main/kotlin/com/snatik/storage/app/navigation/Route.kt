@@ -140,9 +140,6 @@ sealed interface Route : NavKey {
     data object AppOpsTimeline : Route
 
     @Serializable
-    data object Search : Route
-
-    @Serializable
     data object Notifications : Route
 
     @Serializable

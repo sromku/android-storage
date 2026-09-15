@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.ContentPaste
@@ -72,7 +71,6 @@ fun ToolsScreen(
     onOpenDashboard: () -> Unit,
     onOpenMatrix: () -> Unit,
     onOpenTimeline: () -> Unit,
-    onOpenSearch: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenProviderWatch: () -> Unit,
     onOpenClipboard: () -> Unit,
@@ -100,7 +98,6 @@ fun ToolsScreen(
         Tool(stringResource(R.string.dashboard_title), stringResource(R.string.tools_dash_sub), Icons.Default.Dashboard, onOpenDashboard),
         Tool(stringResource(R.string.matrix_title), stringResource(R.string.tools_matrix_sub), Icons.Default.GridOn, onOpenMatrix),
         Tool(stringResource(R.string.timeline_title), stringResource(R.string.tools_timeline_sub), Icons.Default.History, onOpenTimeline, recording = appOpsRec),
-        Tool(stringResource(R.string.search_title), stringResource(R.string.tools_search_sub), Icons.Default.Search, onOpenSearch),
         Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications),
         Tool(stringResource(R.string.watch_title), stringResource(R.string.tools_watch_sub), Icons.Default.Sensors, onOpenProviderWatch),
         Tool(stringResource(R.string.clip_title), stringResource(R.string.tools_clip_sub), Icons.Default.ContentPaste, onOpenClipboard),
