@@ -101,6 +101,11 @@ fun ClipboardScreen(onBack: () -> Unit, onOpenQuery: (title: String, uri: String
         viewModel.start()
         onDispose { viewModel.stop() }
     }
+    // Re-read the clipboard every time the app returns to the foreground — Android only lets us read
+    // it then, so this captures whatever was last copied in another app while we were away.
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.capture()
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var showMenu by rememberSaveable { mutableStateOf(false) }
     var showSet by rememberSaveable { mutableStateOf(false) }
