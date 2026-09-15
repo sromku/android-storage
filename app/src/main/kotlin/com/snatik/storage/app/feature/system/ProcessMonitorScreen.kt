@@ -626,11 +626,11 @@ private fun StatTileP(value: String, label: String, modifier: Modifier = Modifie
 
 @Composable
 private fun SectionCardP(title: String, content: @Composable () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-            content()
-        }
+    // Flat section (no card): its background would match the sheet anyway, and a card's inset would
+    // push this content further in than the header/tiles above it. Align flush at the sheet padding.
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
+        content()
     }
 }
 
