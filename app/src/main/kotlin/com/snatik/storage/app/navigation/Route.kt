@@ -181,10 +181,6 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object CommandPalette : Route
-
-    @Serializable
-    data object PermissionFootprint : Route
-
     @Serializable
     data object AppHistory : Route
 

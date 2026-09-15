@@ -42,7 +42,6 @@ import com.snatik.storage.app.feature.timemachine.TimeMachineScreen
 import com.snatik.storage.app.feature.benchmark.BenchmarkScreen
 import com.snatik.storage.app.feature.palette.Command
 import com.snatik.storage.app.feature.palette.CommandPaletteScreen
-import com.snatik.storage.app.feature.dashboard.PermissionFootprintScreen
 import com.snatik.storage.app.feature.history.AppHistoryScreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
@@ -288,7 +287,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenSystem = { push(Route.System) },
                     onOpenTimeMachine = { push(Route.TimeMachine) },
                     onOpenBenchmark = { push(Route.Benchmark) },
-                    onOpenPermFootprint = { push(Route.PermissionFootprint) },
                     onOpenHistory = { push(Route.AppHistory) },
                     onOpenPalette = { push(Route.CommandPalette) },
                 )
@@ -309,7 +307,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.ProcessMonitor> { route -> com.snatik.storage.app.feature.system.ProcessMonitorScreen(focus = route.focus, onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
-            entry<Route.PermissionFootprint> { PermissionFootprintScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppHistory> { AppHistoryScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Settings> { com.snatik.storage.app.feature.settings.SettingsScreen(onBack = ::pop) }
             entry<Route.CommandPalette> {
@@ -320,7 +317,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     Command("Data", "Content providers", "providers sqlite data", Icons.Default.Dashboard) { pop(); switchTab(TopLevel.DATA) },
                     Command("Dashboard", "Device health", "battery memory selinux uptime", Icons.Default.Dashboard) { open(Route.Dashboard) },
                     Command("Permission matrix", "Apps vs dangerous permissions", "permissions grant", Icons.Default.GridOn) { open(Route.PermissionMatrix) },
-                    Command("Permission vs footprint", "Rank apps by permissions and size", "permissions size risk", Icons.Default.GridOn) { open(Route.PermissionFootprint) },
                     Command("App-ops timeline", "Recent sensitive access", "location camera mic appops", Icons.Default.History) { open(Route.AppOpsTimeline) },
                     Command("Network", "Per-app connections", "network sockets connections", Icons.Default.Lan) { open(Route.Network()) },
                     Command("Notification monitor", "Log notifications", "notifications", Icons.Default.NotificationsActive) { open(Route.Notifications) },
