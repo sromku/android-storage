@@ -3,6 +3,7 @@ package com.snatik.storage.app.feature.monitor
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -33,17 +34,22 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.NotificationAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,7 +72,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -160,6 +169,7 @@ fun NotificationMonitorScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, v
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var showRecord by rememberSaveable { mutableStateOf(false) }
     var showExport by rememberSaveable { mutableStateOf(false) }
+    var showMenu by rememberSaveable { mutableStateOf(false) }
     var view by rememberSaveable { mutableStateOf(NotifView.OVERVIEW) }
     var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
     val filterActive = query.isNotBlank() || ongoingOnly || categoryFilter != null
@@ -184,10 +194,35 @@ fun NotificationMonitorScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, v
                     IconButton(onClick = { showExport = true }, enabled = visible.isNotEmpty()) {
                         Icon(Icons.Default.IosShare, contentDescription = stringResource(R.string.notif_export))
                     }
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(Icons.Default.FilterAlt, contentDescription = stringResource(R.string.notif_filter), tint = if (filterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.notif_menu), tint = if (filterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.notif_filter)) },
+                                onClick = { showMenu = false; showFilters = true },
+                                leadingIcon = { Icon(Icons.Default.FilterAlt, contentDescription = null, tint = if (filterActive) MaterialTheme.colorScheme.primary else LocalContentColor.current) },
+                                trailingIcon = if (filterActive) { { Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))) } } else null,
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.notif_test)) },
+                                onClick = {
+                                    showMenu = false
+                                    TestNotification.send(context)
+                                    viewModel.setSource(NotifSource.LIVE)
+                                    view = NotifView.TIMELINE
+                                    android.widget.Toast.makeText(context, context.getString(R.string.notif_test_sent), android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.NotificationAdd, contentDescription = null) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.notif_help)) },
+                                onClick = { showMenu = false; showHelp = true },
+                                leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+                            )
+                        }
                     }
-                    IconButton(onClick = { showHelp = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.notif_help)) }
                 },
             )
         },
@@ -368,21 +403,46 @@ private fun CategoryTag(category: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -> Unit, onDismiss: () -> Unit) {
+    val images = remember(r.key) { NotificationImageCache.get(r.key) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AppIcon(r.packageName, size = 40.dp)
+                val largeIcon = images?.largeIcon
+                if (largeIcon != null) {
+                    Image(bitmap = largeIcon.asImageBitmap(), contentDescription = null, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                } else {
+                    AppIcon(r.packageName, size = 40.dp)
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(r.display(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(r.packageName, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
                 }
                 if (r.ongoing) MiniBadge(stringResource(R.string.notif_tag_ongoing), MaterialTheme.colorScheme.tertiary)
             }
+            // Big-picture attachment, when present and still cached.
+            images?.bigPicture?.let { pic ->
+                Image(
+                    bitmap = pic.asImageBitmap(),
+                    contentDescription = stringResource(R.string.notif_detail_picture),
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.FillWidth,
+                )
+            }
             HorizontalDivider()
             if (r.title.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_title_label), r.title) }
-            if (r.text.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_text), r.text) }
+            if (r.subText.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_subtext), r.subText) }
+            // Prefer the expanded big text as the body when it carries more than the collapsed text.
+            val body = if (r.bigText.isNotEmpty()) r.bigText else r.text
+            if (body.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_text), body) }
+            if (r.summaryText.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_summary), r.summaryText) }
+            if (r.infoText.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_info), r.infoText) }
+            if (r.actions.isNotEmpty()) DetailRow(stringResource(R.string.notif_detail_actions), r.actions)
+            if (r.progress.isNotEmpty()) DetailRow(stringResource(R.string.notif_detail_progress), r.progress)
             DetailRow(stringResource(R.string.notif_detail_category), r.category?.let { prettyCategory(it) } ?: stringResource(R.string.notif_uncategorized))
             if (r.channelId.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_channel), r.channelId) }
+            if ((r.hasLargeIcon || r.hasBigPicture) && images == null) {
+                DetailRow(stringResource(R.string.notif_detail_media), stringResource(R.string.notif_detail_media_uncached))
+            }
             DetailRow(stringResource(R.string.notif_detail_when), humanTime(r.postedAt))
             SelectionContainer { DetailRow(stringResource(R.string.notif_detail_exact), absTime(r.postedAt)) }
             HorizontalDivider()

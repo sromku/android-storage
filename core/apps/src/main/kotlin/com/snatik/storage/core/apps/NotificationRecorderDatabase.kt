@@ -29,6 +29,15 @@ data class NotificationRecord(
     val postedAt: Long,
     val ongoing: Boolean,
     val removed: Boolean = false,
+    // Rich content parsed from the notification's extras.
+    val subText: String = "",
+    val bigText: String = "",
+    val summaryText: String = "",
+    val infoText: String = "",
+    val actions: String = "",       // action button titles, joined by " · "
+    val progress: String = "",      // "3/10", "45%" or "…" for indeterminate
+    val hasLargeIcon: Boolean = false,
+    val hasBigPicture: Boolean = false,
 )
 
 /**
@@ -47,6 +56,14 @@ data class NotificationEntity(
     val channelId: String,
     val postedAt: Long,
     val ongoing: Boolean,
+    val subText: String = "",
+    val bigText: String = "",
+    val summaryText: String = "",
+    val infoText: String = "",
+    val actions: String = "",
+    val progress: String = "",
+    val hasLargeIcon: Boolean = false,
+    val hasBigPicture: Boolean = false,
 )
 
 @Dao
@@ -80,12 +97,15 @@ interface NotificationRecorderDao {
     suspend fun clear()
 }
 
-@Database(entities = [NotificationEntity::class], version = 1, exportSchema = false)
+@Database(entities = [NotificationEntity::class], version = 2, exportSchema = false)
 abstract class NotificationRecorderDatabase : RoomDatabase() {
     abstract fun dao(): NotificationRecorderDao
 
     companion object {
         fun create(context: Context): NotificationRecorderDatabase =
-            Room.databaseBuilder(context, NotificationRecorderDatabase::class.java, "notification-recorder.db").build()
+            Room.databaseBuilder(context, NotificationRecorderDatabase::class.java, "notification-recorder.db")
+                // Rich-content columns were added in v2; recorded history is disposable, so wipe on upgrade.
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
     }
 }

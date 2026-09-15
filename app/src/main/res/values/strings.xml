@@ -1209,6 +1209,27 @@
     <string name="notif_detail_channel">Channel</string>
     <string name="notif_detail_title_label">Title</string>
     <string name="notif_detail_text">Text</string>
+    <string name="notif_detail_subtext">Sub-text</string>
+    <string name="notif_detail_summary">Summary</string>
+    <string name="notif_detail_info">Info</string>
+    <string name="notif_detail_actions">Actions</string>
+    <string name="notif_detail_progress">Progress</string>
+    <string name="notif_detail_picture">Notification image</string>
+    <string name="notif_detail_media">Media</string>
+    <string name="notif_detail_media_uncached">Image no longer cached</string>
+    <!-- overflow menu -->
+    <string name="notif_menu">More</string>
+    <string name="notif_test">Send test notification</string>
+    <string name="notif_test_sent">Test notification sent</string>
+    <!-- test notification content -->
+    <string name="notif_test_channel">Test notifications</string>
+    <string name="notif_test_title">Rich test notification</string>
+    <string name="notif_test_text">A deliberately maximal notification with an image attachment, sub-text, actions and a progress bar — to verify the monitor parses every field.</string>
+    <string name="notif_test_subtext">Storage · diagnostics</string>
+    <string name="notif_test_summary">Expanded summary shown under the big picture.</string>
+    <string name="notif_test_picture_caption">ATTACHMENT</string>
+    <string name="notif_test_action_open">Open</string>
+    <string name="notif_test_action_dismiss">Dismiss</string>
     <string name="notif_detail_when">When</string>
     <string name="notif_detail_exact">Exact time</string>
     <string name="notif_open_app">Open %1$s</string>

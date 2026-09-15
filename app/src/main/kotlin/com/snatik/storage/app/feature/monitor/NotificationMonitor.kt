@@ -1,6 +1,12 @@
 package com.snatik.storage.app.feature.monitor
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
+import android.os.Build
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -45,11 +51,32 @@ object NotificationLog {
     }
 }
 
+/** The rich bitmaps a notification carries: its large icon and its expanded big picture. */
+data class NotificationImages(val largeIcon: Bitmap?, val bigPicture: Bitmap?)
+
+/**
+ * A small LRU cache of notification bitmaps keyed by record key. Bitmaps are heavy and not
+ * persistable, so instead of holding them in the 500-entry log we keep only the most recent handful
+ * here — enough for the detail sheet of anything you just tapped, without unbounded memory.
+ */
+object NotificationImageCache {
+    private const val MAX = 24
+    private val map = object : LinkedHashMap<String, NotificationImages>(MAX, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, NotificationImages>) = size > MAX
+    }
+
+    @Synchronized fun put(key: String, images: NotificationImages) {
+        if (images.largeIcon != null || images.bigPicture != null) map[key] = images
+    }
+
+    @Synchronized fun get(key: String): NotificationImages? = map[key]
+}
+
 /**
  * System-bound listener that mirrors posted notifications into the live [NotificationLog] and, while
  * recording is on, into the persisted [NotificationRecorderStore] (and the external collector when
- * one is configured). The listener is always bound by the system when access is granted, so the
- * persisted record keeps growing even after the app's UI is gone.
+ * one is configured). Parses each notification's rich content — sub-text, expanded text, actions,
+ * progress and images — so the monitor can show the whole notification, not just title and text.
  */
 class NotificationMonitorService : NotificationListenerService(), KoinComponent {
 
@@ -59,7 +86,6 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
 
     override fun onListenerConnected() {
         NotificationLog.connected.value = true
-        // Backfill whatever is currently posted so a fresh recording isn't empty; de-dup handles repeats.
         runCatching { activeNotifications }.getOrNull()?.let { active ->
             val records = active.map { it.toRecord() }
             records.forEach { NotificationLog.add(it) }
@@ -92,22 +118,81 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
     }
 
     private fun StatusBarNotification.toRecord(): NotificationRecord {
-        val extras = notification?.extras
-        val title = extras?.getCharSequence("android.title")?.toString().orEmpty()
-        val text = extras?.getCharSequence("android.text")?.toString()
-            ?: extras?.getCharSequence("android.bigText")?.toString().orEmpty()
+        val n = notification
+        val extras = n?.extras
+        fun str(key: String) = extras?.getCharSequence(key)?.toString().orEmpty()
+        val title = str("android.title")
+        val text = str("android.text")
+        val bigText = str("android.bigText")
+        val actions = n?.actions?.mapNotNull { it.title?.toString() }?.filter { it.isNotBlank() }?.joinToString(" · ").orEmpty()
+        val progress = run {
+            val max = extras?.getInt("android.progressMax", 0) ?: 0
+            val cur = extras?.getInt("android.progress", 0) ?: 0
+            val indeterminate = extras?.getBoolean("android.progressIndeterminate", false) ?: false
+            when {
+                indeterminate -> "…"
+                max > 0 -> "$cur/$max"
+                else -> ""
+            }
+        }
+        val largeIcon = n?.let { iconToBitmap(it.getLargeIcon()) } ?: (extras?.get("android.largeIcon") as? Bitmap)
+        // BigPictureStyle stores a Bitmap under "android.picture" on older releases and an Icon under
+        // "android.pictureIcon" from Android 12+ — try both.
+        val bigPicture = bitmapExtra(extras, "android.picture") ?: iconToBitmap(iconExtra(extras, "android.pictureIcon"))
+        val key = (key ?: (packageName + postTime)) + "|" + postTime
+        NotificationImageCache.put(key, NotificationImages(largeIcon, bigPicture))
+
         return NotificationRecord(
-            // key = smbKey + postTime so each repost is a distinct row, but a re-fed identical
-            // posting (e.g. on reconnect) de-dups.
-            key = (key ?: (packageName + postTime)) + "|" + postTime,
+            key = key,
             packageName = packageName,
             title = title,
-            text = text,
-            category = notification?.category,
-            channelId = notification?.channelId.orEmpty(),
+            text = text.ifEmpty { bigText },
+            category = n?.category,
+            channelId = n?.channelId.orEmpty(),
             postedAt = postTime,
             ongoing = isOngoing,
+            subText = str("android.subText"),
+            bigText = bigText,
+            summaryText = str("android.summaryText"),
+            infoText = str("android.infoText"),
+            actions = actions,
+            progress = progress,
+            hasLargeIcon = largeIcon != null,
+            hasBigPicture = bigPicture != null,
         )
+    }
+
+    private fun iconToBitmap(icon: Icon?): Bitmap? {
+        icon ?: return null
+        val drawable = runCatching { icon.loadDrawable(this) }.getOrNull() ?: return null
+        return drawable.toBitmapOrNull()
+    }
+
+    private fun Drawable.toBitmapOrNull(max: Int = 256): Bitmap? {
+        (this as? BitmapDrawable)?.bitmap?.let { return it }
+        val w = intrinsicWidth.takeIf { it > 0 } ?: max
+        val h = intrinsicHeight.takeIf { it > 0 } ?: max
+        return runCatching {
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            setBounds(0, 0, w, h)
+            draw(canvas)
+            bmp
+        }.getOrNull()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun bitmapExtra(extras: android.os.Bundle?, key: String): Bitmap? {
+        extras ?: return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) extras.getParcelable(key, Bitmap::class.java)
+        else extras.getParcelable(key) as? Bitmap
+    }
+
+    @Suppress("DEPRECATION")
+    private fun iconExtra(extras: android.os.Bundle?, key: String): Icon? {
+        extras ?: return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) extras.getParcelable(key, Icon::class.java)
+        else extras.getParcelable(key) as? Icon
     }
 
     private fun NotificationRecord.toJson() = org.json.JSONObject()
@@ -115,6 +200,12 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
         .put("package", packageName)
         .put("title", title)
         .put("text", text)
+        .put("sub_text", subText)
+        .put("big_text", bigText)
+        .put("summary", summaryText)
+        .put("actions", actions)
+        .put("progress", progress)
+        .put("has_image", hasLargeIcon || hasBigPicture)
         .put("category", category ?: org.json.JSONObject.NULL)
         .put("channel", channelId)
         .put("ongoing", ongoing)

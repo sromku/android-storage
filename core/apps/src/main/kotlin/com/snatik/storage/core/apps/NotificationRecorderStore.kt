@@ -71,6 +71,14 @@ class NotificationRecorderStore(context: Context) {
         channelId = channelId,
         postedAt = postedAt,
         ongoing = ongoing,
+        subText = subText,
+        bigText = bigText,
+        summaryText = summaryText,
+        infoText = infoText,
+        actions = actions,
+        progress = progress,
+        hasLargeIcon = hasLargeIcon,
+        hasBigPicture = hasBigPicture,
     )
 
     private fun NotificationEntity.toModel() = NotificationRecord(
@@ -83,6 +91,14 @@ class NotificationRecorderStore(context: Context) {
         channelId = channelId,
         postedAt = postedAt,
         ongoing = ongoing,
+        subText = subText,
+        bigText = bigText,
+        summaryText = summaryText,
+        infoText = infoText,
+        actions = actions,
+        progress = progress,
+        hasLargeIcon = hasLargeIcon,
+        hasBigPicture = hasBigPicture,
     )
 
     companion object {
