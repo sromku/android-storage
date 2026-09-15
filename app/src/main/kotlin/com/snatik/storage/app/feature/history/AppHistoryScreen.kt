@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -175,7 +176,7 @@ fun AppHistoryScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, viewModel:
                 if (!state.loading && visible.isEmpty()) {
                     EmptyState(Icons.Default.History, stringResource(R.string.history_empty), null)
                 } else when (view) {
-                    HistView.OVERVIEW -> OverviewView(visible)
+                    HistView.OVERVIEW -> OverviewView(visible, type)
                     HistView.TIMELINE -> TimelineView(visible) { selectedId = it.id }
                     HistView.BY_APP -> ByAppView(visible) { perAppPkg = it }
                 }
@@ -221,11 +222,8 @@ private fun DayHeader(text: String) {
 @Composable
 private fun EventRow(event: AppEvent, onClick: () -> Unit) {
     val context = LocalContext.current
-    val (icon, tint) = eventVisual(event.type)
     Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(modifier = Modifier.size(38.dp).background(tint.copy(alpha = 0.15f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        }
+        AppEventAvatar(event.packageName, event.type, 38.dp)
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(event.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f, fill = false))
@@ -277,17 +275,23 @@ private fun ByAppView(events: List<AppEvent>, onOpenAppHistory: (String) -> Unit
 /* ---------- Overview ---------- */
 
 @Composable
-private fun OverviewView(events: List<AppEvent>) {
+private fun OverviewView(events: List<AppEvent>, type: HistType) {
     val installs = remember(events) { events.count { it.type == "installed" } }
     val updates = remember(events) { events.count { it.type == "updated" } }
     val removals = remember(events) { events.count { it.type == "uninstalled" } }
     val apps = remember(events) { events.map { it.packageName }.distinct().size }
     val buckets = remember(events) { dailyBuckets(events, 30) }
-    val topUpdated = remember(events) {
-        events.filter { it.type == "updated" }.groupBy { it.packageName }
-            .map { (p, l) -> Triple(p, l.first().label, l.size) }.sortedByDescending { it.third }.take(6)
+    // Top apps for the *current* view: most events of whatever type is selected (ties broken by
+    // recency), so the list always reflects the filter instead of disappearing.
+    val topApps = remember(events) {
+        events.groupBy { it.packageName }.map { (p, l) ->
+            val newest = l.maxByOrNull { it.ts }!!
+            TopApp(p, newest.label, l.size, newest.ts)
+        }.sortedWith(compareByDescending<TopApp> { it.count }.thenByDescending { it.lastTs }).take(8)
     }
-    val updMax = (topUpdated.firstOrNull()?.third ?: 1).coerceAtLeast(1)
+    val topMax = (topApps.firstOrNull()?.count ?: 1).coerceAtLeast(1)
+    val updated = type == HistType.UPDATED
+    val topColor = if (updated) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -301,23 +305,25 @@ private fun OverviewView(events: List<AppEvent>) {
             item { SectionHeader(stringResource(R.string.hist_over_time)) }
             item { DailyChart(buckets, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
-        if (topUpdated.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.hist_most_updated)) }
-            items(topUpdated, key = { "u:" + it.first }) { (pkg, label, n) ->
+        if (topApps.isNotEmpty()) {
+            item { SectionHeader(stringResource(if (updated) R.string.hist_most_updated else R.string.hist_top_apps)) }
+            items(topApps, key = { "t:" + it.pkg }) { a ->
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AppIcon(pkg, size = 28.dp)
+                    AppIcon(a.pkg, size = 28.dp)
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(a.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Box(modifier = Modifier.fillMaxWidth().height(4.dp).padding(top = 4.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(2.dp))) {
-                            Box(modifier = Modifier.fillMaxWidth(n.toFloat() / updMax).height(4.dp).background(MaterialTheme.colorScheme.tertiary, RoundedCornerShape(2.dp)))
+                            Box(modifier = Modifier.fillMaxWidth(a.count.toFloat() / topMax).height(4.dp).background(topColor, RoundedCornerShape(2.dp)))
                         }
                     }
-                    Text(n.toString(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+                    Text(a.count.toString(), style = MaterialTheme.typography.labelLarge, color = topColor)
                 }
             }
         }
     }
 }
+
+private data class TopApp(val pkg: String, val label: String, val count: Int, val lastTs: Long)
 
 /** [days] one-day buckets ending today; value = events that day. */
 private fun dailyBuckets(events: List<AppEvent>, days: Int): IntArray {
@@ -358,8 +364,8 @@ private fun EventDetailSheet(e: AppEvent, onOpenApp: () -> Unit, onAppHistory: (
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        val (icon, tint) = eventVisual(e.type)
-                        Box(modifier = Modifier.size(40.dp).background(tint.copy(alpha = 0.15f), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp)) }
+                        val (_, tint) = eventVisual(e.type)
+                        AppEventAvatar(e.packageName, e.type, 40.dp)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(e.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(eventLabel(e.type), style = MaterialTheme.typography.bodySmall, color = tint)
@@ -509,6 +515,23 @@ private fun SectionHeader(text: String) {
 @Composable
 private fun MiniBadge(text: String, color: Color) {
     Text(text, style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.background(color.copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+}
+
+@Composable
+private fun AppEventAvatar(pkg: String, type: String, size: Dp) {
+    val (icon, tint) = eventVisual(type)
+    val badge = size * 0.52f
+    Box(modifier = Modifier.size(size)) {
+        AppIcon(pkg, size = size)
+        Box(
+            modifier = Modifier.align(Alignment.BottomEnd).size(badge)
+                .background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.5.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(tint, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(badge * 0.62f))
+            }
+        }
+    }
 }
 
 @Composable

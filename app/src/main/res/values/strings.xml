@@ -159,6 +159,7 @@
     <string name="hist_stat_apps">Apps</string>
     <string name="hist_over_time">Over the last 30 days</string>
     <string name="hist_most_updated">Most updated</string>
+    <string name="hist_top_apps">Top apps</string>
     <string name="hist_chart_30d">30d ago</string>
     <string name="hist_chart_today">today</string>
     <string name="hist_detail_package">Package</string>
