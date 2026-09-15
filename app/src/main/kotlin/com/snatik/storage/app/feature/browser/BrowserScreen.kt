@@ -113,6 +113,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -289,6 +290,7 @@ private enum class AdvMode { NAME, CONTENT, REGEX }
 private fun AdvancedSearchSheet(folderLabel: String, onDismiss: () -> Unit, onSearch: (SearchMode, Boolean, String) -> Unit) {
     var mode by rememberSaveable { mutableStateOf(AdvMode.NAME) }
     var pattern by rememberSaveable { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
@@ -318,10 +320,14 @@ private fun AdvancedSearchSheet(folderLabel: String, onDismiss: () -> Unit, onSe
                 label = { Text(stringResource(if (mode == AdvMode.REGEX) R.string.advanced_search_pattern else R.string.search)) },
                 singleLine = true,
                 textStyle = if (mode == AdvMode.REGEX) MonoStyle else LocalTextStyle.current,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    if (pattern.isNotBlank()) { keyboard?.hide(); onSearch(if (mode == AdvMode.NAME) SearchMode.NAME else SearchMode.CONTENT, mode == AdvMode.REGEX, pattern) }
+                }),
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = { onSearch(if (mode == AdvMode.NAME) SearchMode.NAME else SearchMode.CONTENT, mode == AdvMode.REGEX, pattern) },
+                onClick = { keyboard?.hide(); onSearch(if (mode == AdvMode.NAME) SearchMode.NAME else SearchMode.CONTENT, mode == AdvMode.REGEX, pattern) },
                 enabled = pattern.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -339,6 +345,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
     var sortMenu by remember { mutableStateOf(false) }
     var pathMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     TopAppBar(
         title = {
             if (state.searchActive) {
@@ -354,7 +361,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                         unfocusedIndicatorColor = Color.Transparent,
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {}),
+                    keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
                 LaunchedEffect(Unit) { focus.requestFocus() }
@@ -378,7 +385,10 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
         },
         actions = {
             if (state.searchActive) {
-                IconButton(onClick = { viewModel.setQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
+                IconButton(onClick = {
+                    // Empty query -> close the search; otherwise just clear it.
+                    if (state.query.isBlank()) { keyboard?.hide(); viewModel.setSearchActive(false) } else viewModel.setQuery("")
+                }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
             } else {
                 IconButton(onClick = { viewModel.setSearchActive(true) }) { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) }
                 IconButton(onClick = onDiskUsage) { Icon(Icons.Default.DonutLarge, contentDescription = stringResource(R.string.analyze)) }
