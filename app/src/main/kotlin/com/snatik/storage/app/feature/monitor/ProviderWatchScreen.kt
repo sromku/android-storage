@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.IosShare
@@ -162,14 +163,29 @@ class ProviderWatchViewModel(
         viewModelScope.launch { if (!watcher.watch(uri, label)) watchFailed(label) }
     }
 
-    /** Make sure the Images provider is watched, then fire a harmless insert+delete on it. */
-    fun runTestChange() {
+    private val _hasTestRow = MutableStateFlow(watcher.hasTestRow)
+    val hasTestRow: StateFlow<Boolean> = _hasTestRow.asStateFlow()
+
+    /** Make sure the Images provider is watched, then insert a lingering throwaway row (an INSERT). */
+    fun addTestRow() {
         _source.value = PwSource.LIVE
         viewModelScope.launch {
             if (watcher.testUri !in watcher.watching.value && !watcher.watch(watcher.testUri, "Images")) {
                 watchFailed("Images"); return@launch
             }
-            _message.value = context.getString(if (watcher.testChange()) R.string.pw_test_done else R.string.pw_test_failed)
+            val uri = watcher.addTestRow()
+            _hasTestRow.value = watcher.hasTestRow
+            _message.value = if (uri != null) context.getString(R.string.pw_test_added, uri) else context.getString(R.string.pw_test_failed)
+        }
+    }
+
+    /** Delete the throwaway row added earlier (a DELETE). */
+    fun deleteTestRow() {
+        _source.value = PwSource.LIVE
+        viewModelScope.launch {
+            val ok = watcher.deleteTestRow()
+            _hasTestRow.value = watcher.hasTestRow
+            _message.value = context.getString(if (ok) R.string.pw_test_deleted else R.string.pw_test_none)
         }
     }
 
@@ -211,6 +227,7 @@ fun ProviderWatchScreen(
     val recordedCount by viewModel.recordedCount.collectAsStateWithLifecycle()
     val oldest by viewModel.oldest.collectAsStateWithLifecycle()
     val watching by viewModel.watching.collectAsStateWithLifecycle()
+    val hasTestRow by viewModel.hasTestRow.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }
     var opFilter by rememberSaveable { mutableStateOf<String?>(null) }
@@ -248,7 +265,8 @@ fun ProviderWatchScreen(
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_filter)) }, onClick = { showMenu = false; showFilters = true }, leadingIcon = { Icon(Icons.Default.FilterAlt, contentDescription = null) })
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_add)) }, onClick = { showMenu = false; showAdd = true }, leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.pw_test)) }, onClick = { showMenu = false; view = PwView.TIMELINE; viewModel.runTestChange() }, leadingIcon = { Icon(Icons.Default.Science, contentDescription = null) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.pw_test_add)) }, onClick = { showMenu = false; view = PwView.TIMELINE; viewModel.addTestRow() }, leadingIcon = { Icon(Icons.Default.Science, contentDescription = null) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.pw_test_delete)) }, enabled = hasTestRow, onClick = { showMenu = false; view = PwView.TIMELINE; viewModel.deleteTestRow() }, leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) })
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_help)) }, onClick = { showMenu = false; showHelp = true }, leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) })
                         }
                     }

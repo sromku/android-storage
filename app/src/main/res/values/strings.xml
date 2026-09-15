@@ -1303,9 +1303,12 @@
     <string name="pw_detail_exact">Exact time</string>
     <string name="pw_query_in_data">Query this URI in Data</string>
     <string name="pw_watch_failed">Couldn\'t watch %1$s — it needs a permission or can\'t be observed</string>
-    <string name="pw_test">Run a test change</string>
-    <string name="pw_test_done">Test change created — see the Images row</string>
-    <string name="pw_test_failed">Couldn\'t create a test change</string>
+    <string name="pw_test_add">Add test row</string>
+    <string name="pw_test_delete">Delete test row</string>
+    <string name="pw_test_added">Test row added — %1$s</string>
+    <string name="pw_test_deleted">Test row deleted</string>
+    <string name="pw_test_none">No test row to delete</string>
+    <string name="pw_test_failed">Couldn\'t add a test row</string>
     <string name="pw_filter_title">Filter</string>
     <string name="pw_search_hint">Search URI or provider</string>
     <string name="pw_filter_op">Operation</string>

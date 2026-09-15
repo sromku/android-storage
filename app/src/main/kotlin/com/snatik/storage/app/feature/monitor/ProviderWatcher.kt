@@ -125,24 +125,30 @@ class ProviderWatcher(
 
     val hasShell: Boolean get() = privilege.executor.value != null
 
-    /**
-     * Trigger a harmless, self-contained change so the watcher demonstrably logs something: insert a
-     * pending (invisible) throwaway row into MediaStore Images, then delete it — an INSERT followed by
-     * a DELETE on the images provider, leaving no file behind. Returns false if the insert was refused.
-     */
-    suspend fun testChange(): Boolean = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    // The throwaway test row currently held (added, not yet deleted). Pending = invisible to gallery
+    // but queryable by us, so it can be viewed via "Query in Data" before deletion.
+    @Volatile private var pendingTestUri: Uri? = null
+    val hasTestRow: Boolean get() = pendingTestUri != null
+
+    /** Insert a pending (invisible) throwaway row into MediaStore Images — a real INSERT the watcher
+     *  logs. The row lingers until [deleteTestRow]. Returns its URI, or null if the insert was refused. */
+    suspend fun addTestRow(): String? = kotlinx.coroutines.withContext(Dispatchers.IO) {
         runCatching {
-            val resolver = context.contentResolver
             val values = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "provider-watch-test-${System.currentTimeMillis()}.png")
                 put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
             }
-            val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@runCatching false
-            kotlinx.coroutines.delay(900)
-            resolver.delete(uri, null, null)
-            true
-        }.getOrDefault(false)
+            val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@runCatching null
+            pendingTestUri = uri
+            uri.toString()
+        }.getOrNull()
+    }
+
+    /** Delete the row added by [addTestRow] — a DELETE the watcher logs. Returns false if there's none. */
+    suspend fun deleteTestRow(): Boolean = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        val uri = pendingTestUri ?: return@withContext false
+        runCatching { context.contentResolver.delete(uri, null, null); pendingTestUri = null; true }.getOrDefault(false)
     }
 
     /** The URI the test change touches (so the caller can make sure it's being watched). */
