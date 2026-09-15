@@ -238,6 +238,8 @@ class ApiOperations(
                 put("duplicateSets", buildJsonArray { report.duplicateSets.take(50).forEach { d -> add(buildJsonObject { put("size", d.size); put("wasted", d.wasted); put("paths", buildJsonArray { d.paths.forEach { add(it) } }) }) } })
                 put("zeroByteFiles", buildJsonArray { report.zeroByteFiles.take(100).forEach { add(it) } })
                 put("emptyDirs", buildJsonArray { report.emptyDirs.take(100).forEach { add(it) } })
+                put("categories", buildJsonArray { report.categories.forEach { c -> add(buildJsonObject { put("category", c.category.name); put("bytes", c.bytes); put("count", c.count) }) } })
+                put("largest", buildJsonArray { report.largest.take(50).forEach { l -> add(buildJsonObject { put("path", l.path); put("size", l.size) }) } })
             }
         },
         Op("app_storage", "Decompose an app's footprint into apk/splits/oat/lib/data/cache", false, false, schemaOf("package" to "string")) { p ->
