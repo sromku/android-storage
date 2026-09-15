@@ -652,6 +652,8 @@
     <string name="intents_send_title">Send an intent</string>
     <string name="intents_send_body">Build any activity, broadcast or service intent with typed extras, see who would receive it, then send.</string>
     <string name="intents_presets">Saved intents</string>
+    <string name="intent_delete_preset_title">Delete saved intent?</string>
+    <string name="intent_delete_preset_msg">Delete \"%1$s\"? This can\'t be undone.</string>
     <string name="intents_new">New intent</string>
     <string name="intent_monitor_title">Intent monitor</string>
     <string name="intent_monitor_body">Watch activity intents launched across every app on the device, live — action, data, target and which app sent it. Needs Shizuku.</string>
