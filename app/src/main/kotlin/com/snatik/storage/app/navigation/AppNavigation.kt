@@ -296,7 +296,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
-            entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop) }
+            entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.ProviderWatch> { ProviderWatchScreen(onBack = ::pop) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }

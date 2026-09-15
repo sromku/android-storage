@@ -89,6 +89,7 @@ fun ToolsScreen(
     val appOpsRec by koinInject<com.snatik.storage.core.apps.AppOpsRecorderStore>().running.collectAsStateWithLifecycle()
     val intentRec by koinInject<com.snatik.storage.core.intents.IntentMonitorStore>().running.collectAsStateWithLifecycle()
     val broadcastRec by koinInject<com.snatik.storage.core.intents.BroadcastStore>().running.collectAsStateWithLifecycle()
+    val notifRec by koinInject<com.snatik.storage.core.apps.NotificationRecorderStore>().running.collectAsStateWithLifecycle()
 
     val tools = listOf(
         Tool(stringResource(R.string.intents_title), stringResource(R.string.tools_intents_sub), Icons.AutoMirrored.Filled.Send, recording = intentRec || broadcastRec, onClick = onOpenIntents),
@@ -99,7 +100,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.dashboard_title), stringResource(R.string.tools_dash_sub), Icons.Default.Dashboard, onOpenDashboard),
         Tool(stringResource(R.string.matrix_title), stringResource(R.string.tools_matrix_sub), Icons.Default.GridOn, onOpenMatrix),
         Tool(stringResource(R.string.timeline_title), stringResource(R.string.tools_timeline_sub), Icons.Default.History, onOpenTimeline, recording = appOpsRec),
-        Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications),
+        Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications, recording = notifRec),
         Tool(stringResource(R.string.watch_title), stringResource(R.string.tools_watch_sub), Icons.Default.Sensors, onOpenProviderWatch),
         Tool(stringResource(R.string.clip_title), stringResource(R.string.tools_clip_sub), Icons.Default.ContentPaste, onOpenClipboard),
         Tool(stringResource(R.string.insights_title), stringResource(R.string.tools_insights_sub), Icons.Default.Insights, onOpenInsights),

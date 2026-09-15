@@ -1172,8 +1172,71 @@
     <string name="notif_grant">Open settings</string>
     <string name="notif_empty">Listening for notifications</string>
     <string name="notif_empty_body">Notifications posted from now on will appear here, newest first.</string>
-    <string name="notif_stream">Stream to external collector</string>
-    <string name="notif_stream_sub">Off by default. Notifications only stream while this is on — they have no recording session like the other monitors.</string>
+    <string name="notif_empty_recorded">No notifications recorded yet. Start recording to build history that outlasts the live feed.</string>
+    <string name="notif_empty_filtered">No notifications match the current filter.</string>
+    <!-- source + views -->
+    <string name="notif_source_live">Live</string>
+    <string name="notif_source_recorded">Recorded</string>
+    <string name="notif_view_overview">Overview</string>
+    <string name="notif_view_timeline">Timeline</string>
+    <string name="notif_view_apps">By app</string>
+    <string name="notif_view_categories">By category</string>
+    <!-- top bar -->
+    <string name="notif_export">Export</string>
+    <string name="notif_filter">Filter</string>
+    <string name="notif_help">About</string>
+    <!-- recorded stats -->
+    <string name="notif_recorded_stats">%1$d recorded · since %2$s</string>
+    <string name="notif_recorded_count">%1$d recorded</string>
+    <string name="notif_clear">Clear</string>
+    <!-- overview stats -->
+    <string name="notif_stat_total">Notifications</string>
+    <string name="notif_stat_apps">Apps</string>
+    <string name="notif_stat_ongoing">Ongoing</string>
+    <string name="notif_stat_categories">Categories</string>
+    <string name="notif_over_time">Over the last 24h</string>
+    <string name="notif_top_apps">Top apps</string>
+    <string name="notif_top_categories">Top categories</string>
+    <string name="notif_chart_24h">24h ago</string>
+    <string name="notif_chart_now">now</string>
+    <string name="notif_tag_ongoing">ongoing</string>
+    <string name="notif_uncategorized">uncategorized</string>
+    <string name="notif_agg_ongoing">%1$d ongoing</string>
+    <string name="notif_agg_categories">%1$d categories</string>
+    <string name="notif_agg_apps">%1$d apps</string>
+    <!-- detail sheet -->
+    <string name="notif_detail_category">Category</string>
+    <string name="notif_detail_channel">Channel</string>
+    <string name="notif_detail_title_label">Title</string>
+    <string name="notif_detail_text">Text</string>
+    <string name="notif_detail_when">When</string>
+    <string name="notif_detail_exact">Exact time</string>
+    <string name="notif_open_app">Open %1$s</string>
+    <!-- filter sheet -->
+    <string name="notif_filter_title">Filter</string>
+    <string name="notif_search_hint">Search title, text or package</string>
+    <string name="notif_ongoing_only">Ongoing only</string>
+    <string name="notif_ongoing_hint">Persistent notifications — media playback, downloads, ongoing calls.</string>
+    <string name="notif_filter_category">Category</string>
+    <string name="notif_filter_any">Any</string>
+    <!-- record sheet -->
+    <string name="notif_record_title">Record notifications</string>
+    <string name="notif_record_body">Logs every notification posted on the device — even while the app is closed — building history that outlasts the live feed. Keeps the newest rows up to the limit.</string>
+    <!-- export sheet -->
+    <string name="notif_export_title">Export</string>
+    <string name="notif_export_body">%1$d notifications in the current view.</string>
+    <string name="notif_export_csv">Spreadsheet-friendly rows.</string>
+    <string name="notif_export_json">One JSON object per line.</string>
+    <string name="notif_export_report_label">Report</string>
+    <string name="notif_export_report">Human-readable summary.</string>
+    <!-- help sheet -->
+    <string name="notif_help_title">About the notification monitor</string>
+    <string name="notif_help_intro">Every notification posted on the device passes through here — a live feed you can watch, or a persisted recording that keeps growing even while the app is closed.</string>
+    <string name="notif_help_live_title">Live vs Recorded</string>
+    <string name="notif_help_live">Live shows what has arrived since you opened the app and is lost on restart. Recorded is stored on device (and optionally streamed to an external collector), surviving restarts up to the row limit.</string>
+    <string name="notif_help_categories_title">Categories</string>
+    <string name="notif_help_categories">Apps tag each notification with a category — message, call, media transport, progress, alarm and so on. Uncategorized means the app set none.</string>
+    <string name="notif_help_note">Requires notification access, which you grant once in system settings. The app never persists your own notifications.</string>
     <string name="tools_notif_sub">Log every notification posted on the device.</string>
     <string name="watch_title">Provider watch</string>
     <string name="watch_empty">Pick providers to watch</string>

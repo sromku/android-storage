@@ -134,6 +134,7 @@ val appModule = module {
     single { AppOpsTimeline(androidContext(), get()) }
     single { com.snatik.storage.core.apps.AppOpsRecorderStore(androidContext()) }
     single { com.snatik.storage.core.apps.ExternalSink(androidContext()) }
+    single { com.snatik.storage.core.apps.NotificationRecorderStore(androidContext()) }
     single { PermissionMatrixRepository(androidContext()) }
     single { FileSearch(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
     single { ProviderWatcher(androidContext()) }
@@ -212,7 +213,7 @@ val appModule = module {
     viewModelOf(::DashboardViewModel)
     viewModelOf(::PermissionMatrixViewModel)
     viewModel { AppOpsTimelineViewModel(androidContext(), get(), get(), get(), get()) }
-    viewModelOf(::NotificationMonitorViewModel)
+    viewModel { NotificationMonitorViewModel(androidContext(), get(), get()) }
     viewModelOf(::ProviderWatchViewModel)
     viewModelOf(::ClipboardViewModel)
     viewModelOf(::InsightsViewModel)
