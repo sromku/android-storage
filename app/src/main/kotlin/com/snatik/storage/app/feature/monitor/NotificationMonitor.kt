@@ -36,8 +36,12 @@ object NotificationLog {
         _entries.value = (listOf(record) + _entries.value).take(CAP)
     }
 
-    fun markRemoved(key: String) {
-        _entries.value = _entries.value.map { if (it.packageName + "|" + it.title == key && !it.removed) it.copy(removed = true) else it }
+    /** Mark the most recent still-live entry with this system key as dismissed. */
+    fun markRemoved(sbnKey: String, reason: String, atMs: Long) {
+        var done = false
+        _entries.value = _entries.value.map {
+            if (!done && it.sbnKey == sbnKey && !it.removed) { done = true; it.copy(removedReason = reason, removedAt = atMs) } else it
+        }
     }
 
     fun clear() {
@@ -94,6 +98,7 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
             if (store.running.value) scope.launch {
                 val fresh = records.filter { it.capturable() }
                 store.record(fresh)
+                fresh.forEach { saveThumbnails(it) }
                 if (sink.enabled) runCatching { sink.send("notifications", fresh.map { it.toJson() }) }
             }
         }
@@ -105,8 +110,12 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = record(sbn)
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        NotificationLog.markRemoved(sbn.packageName + "|" + (sbn.notification?.extras?.getCharSequence("android.title")?.toString().orEmpty()))
+    override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?, reason: Int) {
+        val sbnKey = sbn.key ?: return
+        val reasonStr = removalReason(reason)
+        val now = System.currentTimeMillis()
+        NotificationLog.markRemoved(sbnKey, reasonStr, now)
+        if (store.running.value) scope.launch { runCatching { store.markRemoved(sbnKey, now, reasonStr) } }
     }
 
     private fun record(sbn: StatusBarNotification) {
@@ -114,8 +123,30 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
         NotificationLog.add(record)
         if (store.running.value && record.capturable()) scope.launch {
             store.record(record)
+            saveThumbnails(record)
             if (sink.enabled) runCatching { sink.send("notifications", listOf(record.toJson())) }
         }
+    }
+
+    private fun saveThumbnails(record: NotificationRecord) {
+        if (record.hasLargeIcon || record.hasBigPicture) {
+            NotificationImageCache.get(record.key)?.let { NotificationThumbnails.save(this, record.key, it) }
+        }
+    }
+
+    /** Human label for a NotificationListenerService.REASON_* dismissal code. */
+    private fun removalReason(reason: Int): String = when (reason) {
+        REASON_CLICK -> "tapped"
+        REASON_CANCEL -> "dismissed"
+        REASON_CANCEL_ALL -> "cleared all"
+        REASON_APP_CANCEL -> "app removed"
+        REASON_APP_CANCEL_ALL -> "app cleared"
+        REASON_LISTENER_CANCEL, REASON_LISTENER_CANCEL_ALL -> "removed by app"
+        REASON_SNOOZED -> "snoozed"
+        REASON_TIMEOUT -> "timed out"
+        REASON_GROUP_SUMMARY_CANCELED, REASON_GROUP_OPTIMIZATION -> "grouped"
+        REASON_ERROR -> "error"
+        else -> "removed"
     }
 
     // Persist/stream every notification except our own — so the recorder isn't polluted by this app's
@@ -146,11 +177,12 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
         // BigPictureStyle stores a Bitmap under "android.picture" on older releases and an Icon under
         // "android.pictureIcon" from Android 12+ — try both.
         val bigPicture = bitmapExtra(extras, "android.picture") ?: iconToBitmap(iconExtra(extras, "android.pictureIcon"))
-        val key = (key ?: (packageName + postTime)) + "|" + postTime
-        NotificationImageCache.put(key, NotificationImages(largeIcon, bigPicture))
+        val sbnKey = key ?: (packageName + postTime)
+        val recordKey = sbnKey + "|" + postTime
+        NotificationImageCache.put(recordKey, NotificationImages(largeIcon, bigPicture))
 
         return NotificationRecord(
-            key = key,
+            key = recordKey,
             packageName = packageName,
             title = title,
             text = text.ifEmpty { bigText },
@@ -166,8 +198,51 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
             progress = progress,
             hasLargeIcon = largeIcon != null,
             hasBigPicture = bigPicture != null,
+            sbnKey = sbnKey,
+            flags = n?.flags ?: 0,
+            importance = importanceOf(key),
+            lines = extractLines(extras),
         )
     }
+
+    /** Channel importance for this notification, from the current ranking, or unspecified. */
+    private fun importanceOf(sbnKey: String?): Int {
+        sbnKey ?: return NotificationRecord.IMPORTANCE_UNSPECIFIED
+        val ranking = Ranking()
+        return if (currentRanking.getRanking(sbnKey, ranking)) ranking.importance else NotificationRecord.IMPORTANCE_UNSPECIFIED
+    }
+
+    /** MessagingStyle messages ("Sender: text") and InboxStyle lines, newline-joined and capped. */
+    private fun extractLines(extras: android.os.Bundle?): String {
+        extras ?: return ""
+        val out = ArrayList<String>()
+        parcelableArray(extras, "android.messages")?.forEach { p ->
+            (p as? android.os.Bundle)?.let { b ->
+                val t = b.getCharSequence("text")?.toString().orEmpty()
+                if (t.isNotBlank()) {
+                    val sender = b.getCharSequence("sender")?.toString() ?: personName(b)
+                    out.add(if (!sender.isNullOrBlank()) "$sender: $t" else t)
+                }
+            }
+        }
+        if (out.isEmpty()) {
+            extras.getCharSequenceArray("android.textLines")?.forEach { cs ->
+                cs?.toString()?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+            }
+        }
+        return out.joinToString("\n").take(2000)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun personName(b: android.os.Bundle): String? {
+        val person = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) b.getParcelable("sender_person", android.app.Person::class.java) else b.getParcelable("sender_person") as? android.app.Person
+        return person?.name?.toString()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun parcelableArray(extras: android.os.Bundle, key: String): Array<out android.os.Parcelable>? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) extras.getParcelableArray(key, android.os.Parcelable::class.java)
+        else extras.getParcelableArray(key)
 
     private fun iconToBitmap(icon: Icon?): Bitmap? {
         icon ?: return null
@@ -212,7 +287,10 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
         .put("summary", summaryText)
         .put("actions", actions)
         .put("progress", progress)
+        .put("lines", lines)
         .put("has_image", hasLargeIcon || hasBigPicture)
+        .put("importance", importance)
+        .put("flags", flags)
         .put("category", category ?: org.json.JSONObject.NULL)
         .put("channel", channelId)
         .put("ongoing", ongoing)

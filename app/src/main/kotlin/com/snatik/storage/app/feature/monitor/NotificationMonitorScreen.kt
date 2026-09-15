@@ -79,6 +79,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -150,7 +151,7 @@ class NotificationMonitorViewModel(
         sink.streaming("notifications", false)
     }
 
-    fun clearRecording() { viewModelScope.launch { store.clear() } }
+    fun clearRecording() { viewModelScope.launch { store.clear(); NotificationThumbnails.clear(context) } }
 
     fun hasAccess(context: Context) = NotificationLog.hasAccess(context)
 }
@@ -380,9 +381,11 @@ private fun NotificationRow(r: NotificationRecord, onClick: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (r.removed) TextDecoration.LineThrough else null,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (r.ongoing) MiniBadge(stringResource(R.string.notif_tag_ongoing), MaterialTheme.colorScheme.tertiary)
+                if (r.removed) MiniBadge(r.removedReason.ifEmpty { stringResource(R.string.notif_tag_removed) }, MaterialTheme.colorScheme.error)
                 r.category?.let { CategoryTag(it) }
             }
             if (r.text.isNotEmpty()) Text(r.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -407,7 +410,9 @@ private fun CategoryTag(category: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -> Unit, onDismiss: () -> Unit) {
-    val images = remember(r.key) { NotificationImageCache.get(r.key) }
+    val context = LocalContext.current
+    // Live rows keep bitmaps in memory; recorded rows load persisted thumbnails from disk.
+    val images = remember(r.key) { NotificationImageCache.get(r.key) ?: NotificationThumbnails.get(context, r.key) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         // A LazyColumn (not Column+verticalScroll) owns the scrolling so its nested-scroll
         // cooperates with the sheet's drag — otherwise the sheet jitters at full expansion.
@@ -426,6 +431,7 @@ private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -
                     Text(r.packageName, style = MonoStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
                 }
                 if (r.ongoing) MiniBadge(stringResource(R.string.notif_tag_ongoing), MaterialTheme.colorScheme.tertiary)
+                if (r.removed) MiniBadge(r.removedReason.ifEmpty { stringResource(R.string.notif_tag_removed) }, MaterialTheme.colorScheme.error)
             }
             // Big-picture attachment, when present and still cached.
             images?.bigPicture?.let { pic ->
@@ -444,15 +450,25 @@ private fun NotificationDetailSheet(r: NotificationRecord, onOpenApp: (String) -
             if (body.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_text), body) }
             if (r.summaryText.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_summary), r.summaryText) }
             if (r.infoText.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_info), r.infoText) }
+            if (r.lines.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_conversation), r.lines) }
             if (r.actions.isNotEmpty()) DetailRow(stringResource(R.string.notif_detail_actions), r.actions)
             if (r.progress.isNotEmpty()) DetailRow(stringResource(R.string.notif_detail_progress), r.progress)
             DetailRow(stringResource(R.string.notif_detail_category), r.category?.let { prettyCategory(it) } ?: stringResource(R.string.notif_uncategorized))
+            importanceLabel(r.importance)?.let { DetailRow(stringResource(R.string.notif_detail_importance), it) }
+            flagLabels(r.flags).takeIf { it.isNotEmpty() }?.let { DetailRow(stringResource(R.string.notif_detail_flags), it) }
             if (r.channelId.isNotEmpty()) SelectionContainer { DetailRow(stringResource(R.string.notif_detail_channel), r.channelId) }
             if ((r.hasLargeIcon || r.hasBigPicture) && images == null) {
                 DetailRow(stringResource(R.string.notif_detail_media), stringResource(R.string.notif_detail_media_uncached))
             }
             DetailRow(stringResource(R.string.notif_detail_when), humanTime(r.postedAt))
             SelectionContainer { DetailRow(stringResource(R.string.notif_detail_exact), absTime(r.postedAt)) }
+            if (r.removed) {
+                DetailRow(
+                    stringResource(R.string.notif_detail_dismissed),
+                    r.removedReason.ifEmpty { stringResource(R.string.notif_tag_removed) } + (lifetimeLabel(r)?.let { " · $it" } ?: ""),
+                    MaterialTheme.colorScheme.error,
+                )
+            }
             HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { onOpenApp(r.packageName) }.padding(vertical = 10.dp),
@@ -698,16 +714,19 @@ private fun csvCell(s: String?): String {
 }
 
 private fun rowsToCsv(rows: List<NotificationRecord>): String = buildString {
-    appendLine("app,package,title,text,category,channel,ongoing,at_iso")
+    appendLine("app,package,title,text,category,channel,importance,ongoing,at_iso,removed_reason,removed_at_iso")
     for (r in rows) {
         append(csvCell(r.display())); append(',')
         append(csvCell(r.packageName)); append(',')
         append(csvCell(r.title)); append(',')
-        append(csvCell(r.text)); append(',')
+        append(csvCell(if (r.bigText.isNotEmpty()) r.bigText else r.text)); append(',')
         append(csvCell(r.category ?: UNCATEGORIZED)); append(',')
         append(csvCell(r.channelId)); append(',')
+        append(csvCell(importanceLabel(r.importance) ?: "")); append(',')
         append(if (r.ongoing) "yes" else "no"); append(',')
-        appendLine(absTime(r.postedAt))
+        append(absTime(r.postedAt)); append(',')
+        append(csvCell(r.removedReason)); append(',')
+        appendLine(r.removedAt?.let { absTime(it) } ?: "")
     }
 }
 
@@ -717,8 +736,13 @@ private fun rowsToJsonl(rows: List<NotificationRecord>): String = buildString {
             org.json.JSONObject()
                 .put("app", r.display()).put("package", r.packageName)
                 .put("title", r.title).put("text", r.text)
+                .put("sub_text", r.subText).put("big_text", r.bigText).put("summary", r.summaryText)
+                .put("lines", r.lines).put("actions", r.actions).put("progress", r.progress)
                 .put("category", r.category ?: org.json.JSONObject.NULL)
-                .put("channel", r.channelId).put("ongoing", r.ongoing)
+                .put("channel", r.channelId).put("importance", r.importance).put("flags", r.flags)
+                .put("ongoing", r.ongoing).put("has_image", r.hasLargeIcon || r.hasBigPicture)
+                .put("removed_reason", r.removedReason)
+                .put("removed_at_ms", r.removedAt ?: org.json.JSONObject.NULL)
                 .put("at_ms", r.postedAt).toString(),
         )
         append('\n')
@@ -881,6 +905,38 @@ private fun prettyCategory(raw: String): String = when (raw) {
     "account" -> "Account"
     UNCATEGORIZED -> "Uncategorized"
     else -> raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+/** Channel importance label, or null when unspecified. Mirrors NotificationManager.IMPORTANCE_*. */
+private fun importanceLabel(importance: Int): String? = when (importance) {
+    0 -> "None (blocked)"
+    1 -> "Min (silent)"
+    2 -> "Low (silent)"
+    3 -> "Default"
+    4 -> "High (peeks)"
+    5 -> "Urgent (peeks)"
+    else -> null
+}
+
+/** Human labels for the notable Notification.flags bits, joined by " · ". */
+private fun flagLabels(flags: Int): String {
+    val out = ArrayList<String>()
+    if (flags and android.app.Notification.FLAG_FOREGROUND_SERVICE != 0) out.add("foreground service")
+    if (flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) out.add("group summary")
+    if (flags and android.app.Notification.FLAG_NO_CLEAR != 0) out.add("no-clear")
+    if (flags and android.app.Notification.FLAG_AUTO_CANCEL != 0) out.add("auto-cancel")
+    if (flags and android.app.Notification.FLAG_INSISTENT != 0) out.add("insistent")
+    if (flags and android.app.Notification.FLAG_ONLY_ALERT_ONCE != 0) out.add("alert once")
+    return out.joinToString(" · ")
+}
+
+/** How long a dismissed notification stayed up, e.g. "after 12s". */
+private fun lifetimeLabel(r: NotificationRecord): String? {
+    val at = r.removedAt ?: return null
+    val ms = (at - r.postedAt).coerceAtLeast(0)
+    val s = ms / 1000
+    val d = when { s < 1 -> "instant"; s < 60 -> "${s}s"; s < 3600 -> "${s / 60}m"; s < 86400 -> "${s / 3600}h"; else -> "${s / 86400}d" }
+    return "after $d"
 }
 
 private val absFmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)

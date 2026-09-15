@@ -1217,6 +1217,11 @@
     <string name="notif_detail_picture">Notification image</string>
     <string name="notif_detail_media">Media</string>
     <string name="notif_detail_media_uncached">Image no longer cached</string>
+    <string name="notif_detail_conversation">Conversation</string>
+    <string name="notif_detail_importance">Importance</string>
+    <string name="notif_detail_flags">Flags</string>
+    <string name="notif_detail_dismissed">Dismissed</string>
+    <string name="notif_tag_removed">removed</string>
     <!-- overflow menu -->
     <string name="notif_menu">More</string>
     <string name="notif_test">Send test notification</string>

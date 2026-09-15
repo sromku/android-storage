@@ -55,6 +55,9 @@ class NotificationRecorderStore(context: Context) {
     suspend fun clear() = dao.clear()
     suspend fun applyCapacity() = dao.trim(_capacity.value)
 
+    /** Record that a notification was dismissed, matched by its system key. */
+    suspend fun markRemoved(sbnKey: String, atMs: Long, reason: String) = dao.markRemoved(sbnKey, atMs, reason)
+
     fun setRunning(running: Boolean) { _running.value = running; prefs.edit().putBoolean(KEY_RUNNING, running).apply() }
     fun setCapacity(value: Int) { _capacity.value = value; prefs.edit().putInt(KEY_CAPACITY, value).apply() }
 
@@ -79,6 +82,12 @@ class NotificationRecorderStore(context: Context) {
         progress = progress,
         hasLargeIcon = hasLargeIcon,
         hasBigPicture = hasBigPicture,
+        sbnKey = sbnKey,
+        removedReason = removedReason,
+        removedAt = removedAt,
+        flags = flags,
+        importance = importance,
+        lines = lines,
     )
 
     private fun NotificationEntity.toModel() = NotificationRecord(
@@ -99,6 +108,12 @@ class NotificationRecorderStore(context: Context) {
         progress = progress,
         hasLargeIcon = hasLargeIcon,
         hasBigPicture = hasBigPicture,
+        sbnKey = sbnKey,
+        removedReason = removedReason,
+        removedAt = removedAt,
+        flags = flags,
+        importance = importance,
+        lines = lines,
     )
 
     companion object {
