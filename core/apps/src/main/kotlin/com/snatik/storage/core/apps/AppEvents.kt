@@ -35,6 +35,9 @@ data class AppEvent(
     val system: Boolean,
     /** true when reconstructed from PackageManager's install times at first run, not observed. */
     val seeded: Boolean,
+    /** For updates: the version the app moved from (0/null when unknown, e.g. seeded). */
+    val fromVersionName: String? = null,
+    val fromVersionCode: Long = 0,
 )
 
 /** The last-seen state of an installed package, used to detect changes between app opens. */
@@ -45,6 +48,7 @@ data class KnownApp(
     val firstInstallTime: Long,
     val versionCode: Long,
     val system: Boolean,
+    val versionName: String? = null,
 )
 
 @Dao
@@ -63,6 +67,9 @@ interface AppEventDao {
 
     @Query("SELECT system FROM app_events WHERE packageName = :pkg ORDER BY ts DESC LIMIT 1")
     suspend fun lastSystem(pkg: String): Boolean?
+
+    @Query("SELECT * FROM known_apps WHERE packageName = :pkg LIMIT 1")
+    suspend fun knownOne(pkg: String): KnownApp?
 
     @Query("DELETE FROM app_events")
     suspend fun clear()
@@ -83,7 +90,7 @@ interface AppEventDao {
     suspend fun clearKnown()
 }
 
-@Database(entities = [AppEvent::class, KnownApp::class], version = 2, exportSchema = false)
+@Database(entities = [AppEvent::class, KnownApp::class], version = 3, exportSchema = false)
 abstract class AppEventDatabase : RoomDatabase() {
     abstract fun dao(): AppEventDao
 
@@ -120,6 +127,8 @@ class AppEventLog(
         val app = info?.applicationInfo
         val label = app?.let { runCatching { pm.getApplicationLabel(it).toString() }.getOrNull() } ?: dao.lastLabel(packageName) ?: packageName
         val system = app?.let { it.flags and ApplicationInfo.FLAG_SYSTEM != 0 } ?: (dao.lastSystem(packageName) ?: false)
+        // For an update, the snapshot still holds the version we're moving away from.
+        val prev = if (type == AppEventType.UPDATED) dao.knownOne(packageName) else null
         dao.insert(
             AppEvent(
                 ts = System.currentTimeMillis(),
@@ -130,12 +139,14 @@ class AppEventLog(
                 versionCode = info?.longVersionCode ?: 0,
                 system = system,
                 seeded = false,
+                fromVersionName = prev?.versionName,
+                fromVersionCode = prev?.versionCode ?: 0,
             ),
         )
         if (type == AppEventType.UNINSTALLED) {
             dao.deleteKnown(packageName)
         } else if (info != null) {
-            dao.upsertKnown(KnownApp(packageName, label, info.firstInstallTime, info.longVersionCode, system))
+            dao.upsertKnown(KnownApp(packageName, label, info.firstInstallTime, info.longVersionCode, system, info.versionName))
         }
     }
 
@@ -149,7 +160,7 @@ class AppEventLog(
             for (a in current.values) {
                 events += event(a, AppEventType.INSTALLED, a.firstInstallTime, seeded = true)
                 if (a.lastUpdateTime > a.firstInstallTime + 1000) events += event(a, AppEventType.UPDATED, a.lastUpdateTime, seeded = true)
-                knowns += KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem)
+                knowns += KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem, a.versionName)
             }
             dao.insertAll(events)
             dao.insertKnownAll(knowns)
@@ -161,11 +172,11 @@ class AppEventLog(
             when {
                 k == null -> {
                     dao.insert(event(a, AppEventType.INSTALLED, a.firstInstallTime, seeded = false))
-                    dao.upsertKnown(KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem))
+                    dao.upsertKnown(KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem, a.versionName))
                 }
                 a.versionCode > k.versionCode || a.firstInstallTime != k.firstInstallTime -> {
-                    dao.insert(event(a, AppEventType.UPDATED, a.lastUpdateTime, seeded = false))
-                    dao.upsertKnown(KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem))
+                    dao.insert(event(a, AppEventType.UPDATED, a.lastUpdateTime, seeded = false).copy(fromVersionName = k.versionName, fromVersionCode = k.versionCode))
+                    dao.upsertKnown(KnownApp(a.packageName, a.label, a.firstInstallTime, a.versionCode, a.isSystem, a.versionName))
                 }
             }
         }
