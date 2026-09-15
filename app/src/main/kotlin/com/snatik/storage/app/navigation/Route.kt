@@ -160,6 +160,10 @@ sealed interface Route : NavKey {
     @Serializable
     data object System : Route
 
+    /** Per-process CPU/memory breakdown. [focus] is "cpu" or "mem" (which metric to sort by first). */
+    @Serializable
+    data class ProcessMonitor(val focus: String = "cpu") : Route
+
     @Serializable
     data class ElfViewer(val path: String) : Route
 

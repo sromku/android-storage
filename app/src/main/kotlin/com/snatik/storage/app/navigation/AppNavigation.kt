@@ -305,7 +305,8 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
-            entry<Route.System> { SystemScreen(onBack = ::pop) }
+            entry<Route.System> { SystemScreen(onBack = ::pop, onOpenProcesses = { push(Route.ProcessMonitor(it)) }) }
+            entry<Route.ProcessMonitor> { route -> com.snatik.storage.app.feature.system.ProcessMonitorScreen(focus = route.focus, onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.Benchmark> { BenchmarkScreen(onBack = ::pop) }
             entry<Route.PermissionFootprint> { PermissionFootprintScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }

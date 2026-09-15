@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -126,7 +127,7 @@ private enum class SysTab { OVERVIEW, CPU, MEMORY, STORAGE, PROPS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel()) {
+fun SystemScreen(onBack: () -> Unit, onOpenProcesses: (String) -> Unit = {}, viewModel: SystemViewModel = koinViewModel()) {
     val report by viewModel.report.collectAsStateWithLifecycle()
     val live by viewModel.live.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
@@ -160,7 +161,7 @@ fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel(
             if (r == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else when (tab) {
-                SysTab.OVERVIEW -> OverviewTab(r, viewModel)
+                SysTab.OVERVIEW -> OverviewTab(r, viewModel, onOpenProcesses)
                 SysTab.CPU -> CpuTab(r.cpu)
                 SysTab.MEMORY -> MemoryTab(r)
                 SysTab.STORAGE -> StorageTab(r)
@@ -191,8 +192,9 @@ private fun LivePill(live: Boolean, onToggle: () -> Unit) {
 
 /** A live line+area chart of a 0–100 history that ticks as new samples arrive. */
 @Composable
-private fun LiveGraph(title: String, current: String, history: List<Float>, color: Color) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun LiveGraph(title: String, current: String, history: List<Float>, color: Color, onClick: (() -> Unit)? = null) {
+    val cardModifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
+    Card(modifier = cardModifier) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -216,6 +218,12 @@ private fun LiveGraph(title: String, current: String, history: List<Float>, colo
                 drawPath(fill, color.copy(alpha = 0.15f))
                 drawPath(line, color, style = Stroke(width = 3f))
             }
+            if (onClick != null) {
+                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.sys_breakdown_hint), style = MaterialTheme.typography.labelMedium, color = color)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+                }
+            }
         }
     }
 }
@@ -223,7 +231,7 @@ private fun LiveGraph(title: String, current: String, history: List<Float>, colo
 /* ---------- Overview ---------- */
 
 @Composable
-private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel) {
+private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel, onOpenProcesses: (String) -> Unit) {
     val d = r.device
     val sample by viewModel.sample.collectAsStateWithLifecycle()
     val cpuHistory by viewModel.cpuHistory.collectAsStateWithLifecycle()
@@ -238,8 +246,8 @@ private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel) {
                 StatTile(uptime(d.uptimeSec), stringResource(R.string.sys_uptime), Modifier.weight(1f))
             }
         }
-        item { LiveGraph(stringResource(R.string.sys_cpu_usage), pct(cpuPct), cpuHistory, MaterialTheme.colorScheme.primary) }
-        item { LiveGraph(stringResource(R.string.sys_mem_used), pct(memPct), memHistory, MaterialTheme.colorScheme.tertiary) }
+        item { LiveGraph(stringResource(R.string.sys_cpu_usage), pct(cpuPct), cpuHistory, MaterialTheme.colorScheme.primary) { onOpenProcesses("cpu") } }
+        item { LiveGraph(stringResource(R.string.sys_mem_used), pct(memPct), memHistory, MaterialTheme.colorScheme.tertiary) { onOpenProcesses("mem") } }
         item {
             SectionCard(stringResource(R.string.sys_device)) {
                 KeyVal(stringResource(R.string.sys_model), "${d.manufacturer} ${d.model}")

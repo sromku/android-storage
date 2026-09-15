@@ -143,6 +143,7 @@ val appModule = module {
     single { StorageInsights(get<com.snatik.storage.core.fs.FileSystem>(), get()) }
     single { AppStorageAnalyzer(get(), get()) }
     single { SystemInspector(get()) }
+    single { com.snatik.storage.core.apps.ProcessInspector(get()) }
     single { ElfInspector(get<com.snatik.storage.core.fs.FileSystem>()) }
     single { TelemetryDatabase.create(androidContext()) }
     single { TelemetryRepository(androidContext(), get(), get()) }
@@ -223,6 +224,7 @@ val appModule = module {
     single { com.snatik.storage.app.feature.apps.ArtOpLog() }
     viewModel { (packageName: String) -> com.snatik.storage.app.feature.apps.ArtViewModel(packageName, get(), get(), get()) }
     viewModelOf(::SystemViewModel)
+    viewModel { (focus: String) -> com.snatik.storage.app.feature.system.ProcessMonitorViewModel(focus, get(), get(), androidContext()) }
     viewModel { (path: String) -> ElfViewModel(path, get(), get()) }
     viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.FontViewerViewModel(path, get(), androidContext()) }
     viewModel { (path: String) -> com.snatik.storage.app.feature.viewer.PdfViewerViewModel(path, get(), androidContext()) }
