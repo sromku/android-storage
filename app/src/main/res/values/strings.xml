@@ -1471,6 +1471,8 @@
     <string name="sys_disk_io">Disk I/O (since boot)</string>
     <string name="sys_filesystems">Filesystems</string>
     <string name="sys_props_search">Search properties</string>
+    <string name="sys_live">Live</string>
+    <string name="sys_paused">Paused</string>
     <string name="tools_system_sub">Mounts, partitions, swap, ZRAM and memory.</string>
     <string name="system_zram">ZRAM</string>
     <string name="system_zram_disksize">Disk size</string>

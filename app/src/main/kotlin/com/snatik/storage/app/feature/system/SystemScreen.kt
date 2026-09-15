@@ -1,6 +1,8 @@
 package com.snatik.storage.app.feature.system
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +33,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +61,7 @@ import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.core.apps.AppMem
 import com.snatik.storage.core.apps.CpuInfo
+import com.snatik.storage.core.apps.CpuMemSample
 import com.snatik.storage.core.apps.DeviceInfo
 import com.snatik.storage.core.apps.MemInfo
 import com.snatik.storage.core.apps.Prop
@@ -65,6 +71,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -77,17 +84,42 @@ class SystemViewModel(private val inspector: SystemInspector) : ViewModel() {
     val props: StateFlow<List<Prop>?> = _props.asStateFlow()
     private val _live = MutableStateFlow(true)
     val live: StateFlow<Boolean> = _live.asStateFlow()
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    // Live graphs: rolling history of CPU busy % and RAM used %, fed by a fast lightweight sampler.
+    private val _sample = MutableStateFlow<CpuMemSample?>(null)
+    val sample: StateFlow<CpuMemSample?> = _sample.asStateFlow()
+    private val _cpuHistory = MutableStateFlow<List<Float>>(emptyList())
+    val cpuHistory: StateFlow<List<Float>> = _cpuHistory.asStateFlow()
+    private val _memHistory = MutableStateFlow<List<Float>>(emptyList())
+    val memHistory: StateFlow<List<Float>> = _memHistory.asStateFlow()
 
     init {
-        refresh()
+        // Full report once (with progress), then refreshed on a slower cadence for the detailed tabs.
+        viewModelScope.launch { _loading.value = true; _report.value = inspector.report(); _loading.value = false }
+        viewModelScope.launch { while (isActive) { delay(3000); if (_live.value) _report.value = inspector.report() } }
+        // Fast sampler that ticks the Overview graphs while the screen is open.
         viewModelScope.launch {
-            while (isActive) { delay(2500); if (_live.value) _report.value = inspector.report() }
+            while (isActive) {
+                if (_live.value) {
+                    val s = runCatching { inspector.sample() }.getOrNull()
+                    if (s != null) {
+                        _sample.value = s
+                        _cpuHistory.update { (it + (s.cpuPercent?.toFloat() ?: it.lastOrNull() ?: 0f)).takeLast(HISTORY) }
+                        _memHistory.update { (it + s.memUsedPercent.toFloat()).takeLast(HISTORY) }
+                    }
+                }
+                delay(1500)
+            }
         }
     }
 
-    fun refresh() { viewModelScope.launch { _report.value = inspector.report() } }
+    fun refresh() { viewModelScope.launch { _loading.value = true; _report.value = inspector.report(); _loading.value = false } }
     fun setLive(v: Boolean) { _live.value = v }
     fun loadProps() { if (_props.value == null) viewModelScope.launch { _props.value = inspector.properties() } }
+
+    private companion object { const val HISTORY = 60 }
 }
 
 private enum class SysTab { OVERVIEW, CPU, MEMORY, STORAGE, PROPS }
@@ -97,6 +129,7 @@ private enum class SysTab { OVERVIEW, CPU, MEMORY, STORAGE, PROPS }
 fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel()) {
     val report by viewModel.report.collectAsStateWithLifecycle()
     val live by viewModel.live.collectAsStateWithLifecycle()
+    val loading by viewModel.loading.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(SysTab.OVERVIEW) }
 
     LaunchedEffect(tab) { if (tab == SysTab.PROPS) viewModel.loadProps() }
@@ -107,16 +140,14 @@ fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel(
                 title = { Text(stringResource(R.string.system_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
                 actions = {
-                    IconButton(onClick = { viewModel.setLive(!live) }) {
-                        val dot = if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        Box(modifier = Modifier.size(10.dp).background(dot, RoundedCornerShape(50)))
-                    }
+                    LivePill(live) { viewModel.setLive(!live) }
                     IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh)) }
                 },
             )
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (loading && report != null) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TabChip(stringResource(R.string.sys_tab_overview), tab == SysTab.OVERVIEW) { tab = SysTab.OVERVIEW }
                 TabChip(stringResource(R.string.sys_tab_cpu), tab == SysTab.CPU) { tab = SysTab.CPU }
@@ -129,7 +160,7 @@ fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel(
             if (r == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else when (tab) {
-                SysTab.OVERVIEW -> OverviewTab(r)
+                SysTab.OVERVIEW -> OverviewTab(r, viewModel)
                 SysTab.CPU -> CpuTab(r.cpu)
                 SysTab.MEMORY -> MemoryTab(r)
                 SysTab.STORAGE -> StorageTab(r)
@@ -142,20 +173,73 @@ fun SystemScreen(onBack: () -> Unit, viewModel: SystemViewModel = koinViewModel(
 @Composable
 private fun TabChip(label: String, selected: Boolean, onClick: () -> Unit) = FilterChip(selected, onClick, label = { Text(label) })
 
+@Composable
+private fun LivePill(live: Boolean, onToggle: () -> Unit) {
+    val color = if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.padding(end = 4.dp)
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(50))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(50)))
+        Text(stringResource(if (live) R.string.sys_live else R.string.sys_paused), style = MaterialTheme.typography.labelMedium, color = color)
+    }
+}
+
+/** A live line+area chart of a 0–100 history that ticks as new samples arrive. */
+@Composable
+private fun LiveGraph(title: String, current: String, history: List<Float>, color: Color) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(current, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+            }
+            val track = MaterialTheme.colorScheme.surfaceContainerHighest
+            Canvas(modifier = Modifier.fillMaxWidth().height(72.dp).padding(top = 8.dp)) {
+                // baseline
+                drawLine(track, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 2f)
+                if (history.size < 2) return@Canvas
+                val stepX = size.width / (history.size - 1)
+                fun y(v: Float) = size.height - (v.coerceIn(0f, 100f) / 100f) * size.height
+                val line = Path()
+                val fill = Path().apply { moveTo(0f, size.height) }
+                history.forEachIndexed { i, v ->
+                    val x = i * stepX
+                    if (i == 0) line.moveTo(x, y(v)) else line.lineTo(x, y(v))
+                    fill.lineTo(x, y(v))
+                }
+                fill.lineTo((history.size - 1) * stepX, size.height); fill.close()
+                drawPath(fill, color.copy(alpha = 0.15f))
+                drawPath(line, color, style = Stroke(width = 3f))
+            }
+        }
+    }
+}
+
 /* ---------- Overview ---------- */
 
 @Composable
-private fun OverviewTab(r: SystemReport) {
+private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel) {
     val d = r.device
+    val sample by viewModel.sample.collectAsStateWithLifecycle()
+    val cpuHistory by viewModel.cpuHistory.collectAsStateWithLifecycle()
+    val memHistory by viewModel.memHistory.collectAsStateWithLifecycle()
+    val cpuPct = sample?.cpuPercent ?: r.cpu.usagePercent
+    val memPct = sample?.memUsedPercent ?: (r.mem.totalKb - r.mem.availableKb).let { if (r.mem.totalKb > 0) it.toDouble() / r.mem.totalKb * 100 else 0.0 }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatTile(pct(r.cpu.usagePercent), stringResource(R.string.sys_cpu_usage), Modifier.weight(1f), MaterialTheme.colorScheme.primary)
-                val usedKb = r.mem.totalKb - r.mem.availableKb
-                StatTile(pctOf(usedKb, r.mem.totalKb), stringResource(R.string.sys_mem_used), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
+                StatTile(pct(cpuPct), stringResource(R.string.sys_cpu_usage), Modifier.weight(1f), MaterialTheme.colorScheme.primary)
+                StatTile(pct(memPct), stringResource(R.string.sys_mem_used), Modifier.weight(1f), MaterialTheme.colorScheme.tertiary)
                 StatTile(uptime(d.uptimeSec), stringResource(R.string.sys_uptime), Modifier.weight(1f))
             }
         }
+        item { LiveGraph(stringResource(R.string.sys_cpu_usage), pct(cpuPct), cpuHistory, MaterialTheme.colorScheme.primary) }
+        item { LiveGraph(stringResource(R.string.sys_mem_used), pct(memPct), memHistory, MaterialTheme.colorScheme.tertiary) }
         item {
             SectionCard(stringResource(R.string.sys_device)) {
                 KeyVal(stringResource(R.string.sys_model), "${d.manufacturer} ${d.model}")

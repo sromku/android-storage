@@ -6,6 +6,8 @@ import android.os.StatFs
 import com.snatik.storage.core.shell.PrivilegeManager
 import com.snatik.storage.core.shell.run
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -81,6 +83,9 @@ data class DiskStat(val name: String, val readBytes: Long, val writeBytes: Long)
 /** One system property from getprop. */
 data class Prop(val key: String, val value: String)
 
+/** A cheap live sample: CPU busy % (since the last sample) and RAM used. */
+data class CpuMemSample(val cpuPercent: Double?, val memUsedPercent: Double, val memUsedKb: Long, val memTotalKb: Long)
+
 data class SystemReport(
     val device: DeviceInfo,
     val cpu: CpuInfo,
@@ -105,20 +110,105 @@ class SystemInspector(private val privilege: PrivilegeManager) {
 
     // Previous /proc/stat total/busy jiffies, so each report can compute CPU usage since the last.
     @Volatile private var prevCpu: Pair<Long, Long>? = null
+    // While a report/sample runs, all the files it needs are read in one shell call and cached here,
+    // so read() returns instantly instead of a shell round-trip per file.
+    @Volatile private var cache: Map<String, String>? = null
+    // report() and the fast sample() both prime the shared cache, so they must not overlap.
+    private val cacheLock = Mutex()
 
-    suspend fun report(): SystemReport = withContext(Dispatchers.IO) {
-        SystemReport(
-            device = readDevice(),
-            cpu = readCpu(),
-            mem = MemInfo(parseMeminfo(read("/proc/meminfo"))),
-            appMem = readAppMem(),
-            zram = readZram(),
-            swaps = parseSwaps(read("/proc/swaps")),
-            blocks = readBlocks(),
-            diskstats = readDiskstats(),
-            mounts = parseMounts(read("/proc/mounts")).map { it.withUsage() },
-            partitions = parsePartitions(read("/proc/partitions")),
-        )
+    suspend fun report(): SystemReport = withContext(Dispatchers.IO) { cacheLock.withLock {
+        cache = bulk(reportPaths())
+        try {
+            SystemReport(
+                device = readDevice(),
+                cpu = readCpu(),
+                mem = MemInfo(parseMeminfo(read("/proc/meminfo"))),
+                appMem = readAppMem(),
+                zram = readZram(),
+                swaps = parseSwaps(read("/proc/swaps")),
+                blocks = readBlocks(),
+                diskstats = readDiskstats(),
+                mounts = parseMounts(read("/proc/mounts")).map { it.withUsage() },
+                partitions = parsePartitions(read("/proc/partitions")),
+            )
+        } finally { cache = null }
+    } }
+
+    // The fast sampler keeps its own /proc/stat delta so it never fights the report's CPU reading.
+    @Volatile private var prevCpuSample: Pair<Long, Long>? = null
+
+    /**
+     * A fast live sample (one shell call reading /proc/stat + /proc/meminfo) to drive the ticking
+     * Overview graphs. It is deliberately independent of the shared report cache/lock, so a heavy
+     * full report in flight can never stall the graph from ticking.
+     */
+    suspend fun sample(): CpuMemSample = withContext(Dispatchers.IO) {
+        val exec = privilege.executor.value
+        val text = if (exec != null) {
+            runCatching { exec.run("cat /proc/stat /proc/meminfo 2>/dev/null", timeoutMs = 8_000).out }.getOrDefault("")
+        } else {
+            runCatching { File("/proc/stat").readText() }.getOrDefault("") + "\n" +
+                runCatching { File("/proc/meminfo").readText() }.getOrDefault("")
+        }
+        val cpu = sampleCpuUsage(text)
+        val mem = MemInfo(parseMeminfo(text))  // /proc/stat lines have no ':' so they're ignored here
+        val used = (mem.totalKb - mem.availableKb).coerceAtLeast(0)
+        CpuMemSample(cpu, if (mem.totalKb > 0) used.toDouble() / mem.totalKb * 100 else 0.0, used, mem.totalKb)
+    }
+
+    /** CPU busy % since the previous sample, from the aggregate `cpu` line of /proc/stat. */
+    private fun sampleCpuUsage(statText: String): Double? {
+        val line = statText.lineSequence().firstOrNull { it.startsWith("cpu ") } ?: return null
+        val n = line.split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
+        if (n.size < 4) return null
+        val idle = n[3] + (n.getOrNull(4) ?: 0)  // idle + iowait
+        val total = n.sum()
+        val prev = prevCpuSample
+        prevCpuSample = total to idle
+        if (prev == null) return null
+        val dTotal = total - prev.first
+        val dIdle = idle - prev.second
+        return if (dTotal > 0) ((dTotal - dIdle).toDouble() / dTotal * 100).coerceIn(0.0, 100.0) else null
+    }
+
+    private suspend fun reportPaths(): List<String> {
+        val cpuDirs = listNames("/sys/devices/system/cpu").filter { it.matches(Regex("cpu[0-9]+")) }
+        val thermal = listNames("/sys/class/thermal").filter { it.startsWith("thermal_zone") }
+        val blocks = listNames("/sys/block").filter { it.isNotBlank() && !it.startsWith("loop") && !it.startsWith("ram") && !it.startsWith("dm-") }
+        return buildList {
+            addAll(listOf("/proc/version", "/proc/uptime", "/proc/loadavg", "/proc/cpuinfo", "/proc/meminfo", "/proc/stat", "/proc/swaps", "/proc/diskstats", "/proc/mounts", "/proc/partitions", "/sys/fs/selinux/enforce", "/sys/block/zram0/disksize", "/sys/block/zram0/mm_stat"))
+            cpuDirs.forEach { c ->
+                listOf("scaling_cur_freq", "scaling_min_freq", "scaling_max_freq", "scaling_governor").forEach { add("/sys/devices/system/cpu/$c/cpufreq/$it") }
+                add("/sys/devices/system/cpu/$c/online")
+            }
+            thermal.forEach { z -> add("/sys/class/thermal/$z/temp"); add("/sys/class/thermal/$z/type") }
+            blocks.forEach { b -> listOf("size", "queue/rotational", "queue/scheduler", "ro", "removable", "device/model", "device/name").forEach { add("/sys/block/$b/$it") } }
+        }
+    }
+
+    /** Read many files in a single shell invocation, keyed by path. Empty when there's no shell.
+     *  Plain `echo … ; cat …` statements — no shell variables or printf, which some executors mangle.
+     *  Paths here are fixed /proc and /sys paths with no spaces or metacharacters. */
+    private suspend fun bulk(paths: List<String>): Map<String, String> {
+        val exec = privilege.executor.value ?: return emptyMap()
+        val map = HashMap<String, String>(paths.size)
+        // Chunk so the command line can never exceed the shell/binder limit, however many paths.
+        paths.chunked(120).forEach { chunk ->
+            // Trailing `echo` guarantees a newline after each file, so a file with no final newline
+            // (e.g. /sys/fs/selinux/enforce = "1") can't run its value into the next @@@ marker.
+            val cmd = chunk.joinToString(";") { p -> "echo @@@$p;cat $p 2>/dev/null;echo" }
+            val out = runCatching { exec.run(cmd, timeoutMs = 15_000).out }.getOrDefault("")
+            var key: String? = null
+            val sb = StringBuilder()
+            out.lineSequence().forEach { line ->
+                if (line.startsWith("@@@")) {
+                    key?.let { map[it] = sb.toString() }
+                    key = line.substring(3); sb.setLength(0)
+                } else { sb.append(line).append('\n') }
+            }
+            key?.let { map[it] = sb.toString() }
+        }
+        return map
     }
 
     /** Every system property (getprop). Lazily loaded by the Properties tab. */
@@ -226,7 +316,7 @@ class SystemInspector(private val privilege: PrivilegeManager) {
     }.getOrNull()
 
     private suspend fun readBlocks(): List<BlockDevice> {
-        return listNames("/sys/block").filter { it.isNotBlank() && !it.startsWith("loop") && !it.startsWith("ram") }.mapNotNull { name ->
+        return listNames("/sys/block").filter { it.isNotBlank() && !it.startsWith("loop") && !it.startsWith("ram") && !it.startsWith("dm-") }.mapNotNull { name ->
             val base = "/sys/block/$name"
             val sectors = read("$base/size").trim().toLongOrNull() ?: return@mapNotNull null
             if (sectors <= 0) return@mapNotNull null
@@ -258,6 +348,8 @@ class SystemInspector(private val privilege: PrivilegeManager) {
     /* ---------- shell/file read ---------- */
 
     private suspend fun read(path: String): String {
+        // A blank batched value (e.g. a file the batch couldn't read) falls through to a direct read.
+        cache?.get(path)?.takeIf { it.isNotBlank() }?.let { return it }
         val exec = privilege.executor.value
         if (exec != null) {
             val out = runCatching { exec.run("cat $path 2>/dev/null", timeoutMs = 15_000).out }.getOrDefault("")
