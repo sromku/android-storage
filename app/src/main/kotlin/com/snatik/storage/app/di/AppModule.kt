@@ -172,7 +172,7 @@ val appModule = module {
     single { TransferHub(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get<ApiService>().routes, get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
-    viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get()) }
+    viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }
     viewModel { (path: String) -> JsonTreeViewModel(path, get()) }

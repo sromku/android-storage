@@ -812,6 +812,13 @@
 
     <string name="tab_capture">Capture</string>
     <string name="snapshot_folder">Snapshot this folder</string>
+    <string name="advanced_search">Advanced search</string>
+    <string name="advanced_search_sub">Search under %1$s by file name, by text inside files, or with a grep regex.</string>
+    <string name="advanced_search_name_hint">Files whose name contains this.</string>
+    <string name="advanced_search_content_hint">Files that contain this text (grep, via Shizuku/root).</string>
+    <string name="advanced_search_regex_hint">Files matching this extended regular expression (grep -E).</string>
+    <string name="advanced_search_pattern">Pattern</string>
+    <string name="search_by_regex">Regex</string>
 
     <!-- Capture -->
     <string name="capture_title">Capture</string>

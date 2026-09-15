@@ -24,6 +24,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.ManageSearch
+import androidx.compose.material3.Button
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.snatik.storage.app.ui.theme.MonoStyle
+import com.snatik.storage.core.apps.SearchMode
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -148,6 +161,7 @@ fun BrowserScreen(
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(viewModel, resources) {
         viewModel.messages.collect { message ->
@@ -180,7 +194,7 @@ fun BrowserScreen(
                 if (selecting) {
                     SelectionTopBar(state = state, viewModel = viewModel, onShare = { Intents.share(context, state.selected.toList()) }, onSendTo = { onSendTo(state.selected.toList()) })
                 } else {
-                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot, onNavigate = onOpenDirectory)
+                    BrowserTopBar(route = route, state = state, viewModel = viewModel, onBack = onBack, onDiskUsage = onDiskUsage, onSnapshot = onSnapshot, onNavigate = onOpenDirectory, onAdvancedSearch = { showAdvanced = true })
                 }
             }
         },
@@ -259,11 +273,69 @@ fun BrowserScreen(
         DetailsSheet(details, onComputeHash = viewModel::computeHash, onDismiss = viewModel::dismissDetails)
     }
     state.running?.let { running -> OperationDialog(running, onCancel = viewModel::cancelOperation) }
+    if (showAdvanced) {
+        AdvancedSearchSheet(
+            folderLabel = if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'),
+            onDismiss = { showAdvanced = false },
+            onSearch = { mode, regex, pattern -> viewModel.runAdvancedSearch(mode, regex, pattern); showAdvanced = false },
+        )
+    }
+}
+
+private enum class AdvMode { NAME, CONTENT, REGEX }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AdvancedSearchSheet(folderLabel: String, onDismiss: () -> Unit, onSearch: (SearchMode, Boolean, String) -> Unit) {
+    var mode by rememberSaveable { mutableStateOf(AdvMode.NAME) }
+    var pattern by rememberSaveable { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(stringResource(R.string.advanced_search), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.advanced_search_sub, folderLabel), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(selected = mode == AdvMode.NAME, onClick = { mode = AdvMode.NAME }, shape = SegmentedButtonDefaults.itemShape(0, 3)) { Text(stringResource(R.string.search_by_name)) }
+                SegmentedButton(selected = mode == AdvMode.CONTENT, onClick = { mode = AdvMode.CONTENT }, shape = SegmentedButtonDefaults.itemShape(1, 3)) { Text(stringResource(R.string.search_by_content)) }
+                SegmentedButton(selected = mode == AdvMode.REGEX, onClick = { mode = AdvMode.REGEX }, shape = SegmentedButtonDefaults.itemShape(2, 3)) { Text(stringResource(R.string.search_by_regex)) }
+            }
+            Text(
+                stringResource(
+                    when (mode) {
+                        AdvMode.NAME -> R.string.advanced_search_name_hint
+                        AdvMode.CONTENT -> R.string.advanced_search_content_hint
+                        AdvMode.REGEX -> R.string.advanced_search_regex_hint
+                    },
+                ),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = pattern,
+                onValueChange = { pattern = it },
+                label = { Text(stringResource(if (mode == AdvMode.REGEX) R.string.advanced_search_pattern else R.string.search)) },
+                singleLine = true,
+                textStyle = if (mode == AdvMode.REGEX) MonoStyle else LocalTextStyle.current,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { onSearch(if (mode == AdvMode.NAME) SearchMode.NAME else SearchMode.CONTENT, mode == AdvMode.REGEX, pattern) },
+                enabled = pattern.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.ManageSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.search), modifier = Modifier.padding(start = 6.dp))
+            }
+            Spacer(Modifier.size(4.dp))
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit, onSnapshot: () -> Unit, onNavigate: (String) -> Unit) {
+private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel: BrowserViewModel, onBack: () -> Unit, onDiskUsage: () -> Unit, onSnapshot: () -> Unit, onNavigate: (String) -> Unit, onAdvancedSearch: () -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     var pathMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
@@ -273,7 +345,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                 TextField(
                     value = state.query,
                     onValueChange = viewModel::setQuery,
-                    placeholder = { Text(stringResource(R.string.search_in, route.path.substringAfterLast('/').ifEmpty { route.rootLabel })) },
+                    placeholder = { Text(stringResource(R.string.search_in, if (route.path == route.rootPath) route.rootLabel else route.path.substringAfterLast('/'))) },
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -318,6 +390,7 @@ private fun BrowserTopBar(route: Route.Browser, state: BrowserUiState, viewModel
                     onSort = viewModel::setSort,
                     onShowHidden = viewModel::setShowHidden,
                     onSnapshot = onSnapshot,
+                    onAdvancedSearch = onAdvancedSearch,
                 )
             }
         },
@@ -367,6 +440,7 @@ private fun SortMenu(
     onSort: (SortField, Boolean) -> Unit,
     onShowHidden: (Boolean) -> Unit,
     onSnapshot: () -> Unit,
+    onAdvancedSearch: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         Text(
@@ -400,6 +474,11 @@ private fun SortMenu(
             onClick = { onShowHidden(!preferences.showHidden) },
         )
         HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.advanced_search)) },
+            leadingIcon = { Icon(Icons.Default.ManageSearch, null) },
+            onClick = { onDismiss(); onAdvancedSearch() },
+        )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.snapshot_folder)) },
             leadingIcon = { Icon(Icons.Default.CameraAlt, null) },

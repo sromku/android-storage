@@ -27,10 +27,11 @@ class FileSearch(
     private val fs: FileSystem,
     private val privilege: PrivilegeManager,
 ) {
-    fun search(root: String, query: String, mode: SearchMode, limit: Int = 500): Flow<SearchHit> = flow {
+    fun search(root: String, query: String, mode: SearchMode, regex: Boolean = false, limit: Int = 500): Flow<SearchHit> = flow {
         val q = query.trim()
         if (q.isEmpty()) return@flow
         val executor = privilege.executor.value
+        val rx = if (regex) runCatching { Regex(q) }.getOrNull() else null
         var count = 0
         if (executor != null) {
             when (mode) {
@@ -45,8 +46,9 @@ class FileSearch(
                     }
                 }
                 SearchMode.CONTENT -> {
-                    // -I skips binaries, -n gives line numbers, -r recurses, -e treats query literally.
-                    val cmd = "grep -rInaF -m 5 -e ${q.shellQuote()} ${root.shellQuote()} 2>/dev/null | head -n $limit"
+                    // -I skips binaries, -n line numbers, -r recurses. -F = literal; -E = extended regex.
+                    val flags = if (regex) "-rInaE" else "-rInaF"
+                    val cmd = "grep $flags -m 5 -e ${q.shellQuote()} ${root.shellQuote()} 2>/dev/null | head -n $limit"
                     val result = executor.run(cmd, timeoutMs = 180_000)
                     result.out.lineSequence().filter { it.isNotBlank() }.forEach { raw ->
                         if (count++ >= limit) return@flow
@@ -72,7 +74,7 @@ class FileSearch(
                     }
                     SearchMode.CONTENT -> if (entry.size in 1..2_000_000) {
                         val text = runCatching { String(fs.readBytes(entry.path, 0, 2_000_000)) }.getOrNull()
-                        val hit = text?.lineSequence()?.firstOrNull { it.contains(q, ignoreCase = true) }
+                        val hit = text?.lineSequence()?.firstOrNull { l -> if (rx != null) rx.containsMatchIn(l) else l.contains(q, ignoreCase = true) }
                         if (hit != null) { count++; emit(SearchHit(entry.path, entry.size, hit.trim().take(300))) }
                     }
                 }

@@ -6,6 +6,7 @@ import com.snatik.storage.StorageException
 import com.snatik.storage.app.navigation.Route
 import com.snatik.storage.core.fs.FileSystem
 import com.snatik.storage.core.fs.FsEntry
+import com.snatik.storage.core.apps.SearchMode
 import com.snatik.storage.core.fs.OperationRunner
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -57,6 +58,7 @@ data class BrowserUiState(
     val query: String = "",
     val searchActive: Boolean = false,
     val searching: Boolean = false,
+    val advancedLabel: String? = null,
     val selected: Set<String> = emptySet(),
     val dialog: BrowserDialog? = null,
     val details: EntryDetails? = null,
@@ -75,6 +77,7 @@ class BrowserViewModel(
     private val runner: OperationRunner,
     private val clipboard: FileClipboard,
     private val preferences: BrowserPreferences,
+    private val fileSearch: com.snatik.storage.core.apps.FileSearch,
 ) : ViewModel() {
 
     private data class Local(
@@ -85,6 +88,9 @@ class BrowserViewModel(
         val searchActive: Boolean = false,
         val searching: Boolean = false,
         val deepMatches: List<FsEntry> = emptyList(),
+        // When set, an advanced (content/regex/name) search is showing its own result list.
+        val advancedResults: List<FsEntry>? = null,
+        val advancedLabel: String? = null,
         val selected: Set<String> = emptySet(),
         val dialog: BrowserDialog? = null,
         val details: EntryDetails? = null,
@@ -99,14 +105,21 @@ class BrowserViewModel(
             .filter { l.query.isBlank() || it.name.contains(l.query, ignoreCase = true) }
             .sortedWith(prefs.sort.comparator())
             .toList()
-        // While searching, current-directory matches come first, then matches found deeper down.
-        val visible = if (l.query.isBlank()) direct else {
-            val here = direct.mapTo(HashSet()) { it.path }
-            direct + l.deepMatches.asSequence()
+        // An advanced search replaces the listing with its own hits; otherwise the inline name
+        // search shows current-directory matches first, then matches found deeper down.
+        val visible = when {
+            l.advancedResults != null -> l.advancedResults
                 .filter { prefs.showHidden || !it.isHidden }
-                .filter { it.path !in here }
                 .sortedWith(prefs.sort.comparator())
-                .toList()
+            l.query.isBlank() -> direct
+            else -> {
+                val here = direct.mapTo(HashSet()) { it.path }
+                direct + l.deepMatches.asSequence()
+                    .filter { prefs.showHidden || !it.isHidden }
+                    .filter { it.path !in here }
+                    .sortedWith(prefs.sort.comparator())
+                    .toList()
+            }
         }
         BrowserUiState(
             entries = visible,
@@ -117,6 +130,7 @@ class BrowserViewModel(
             query = l.query,
             searchActive = l.searchActive,
             searching = l.searching,
+            advancedLabel = l.advancedLabel,
             selected = l.selected.filterTo(HashSet()) { path -> visible.any { it.path == path } },
             dialog = l.dialog,
             details = l.details,
@@ -185,12 +199,55 @@ class BrowserViewModel(
             searchJob?.cancel()
             searchJob = null
         }
-        local.update { it.copy(searchActive = active, query = if (active) it.query else "", searching = false, deepMatches = if (active) it.deepMatches else emptyList()) }
+        local.update {
+            it.copy(
+                searchActive = active,
+                query = if (active) it.query else "",
+                searching = false,
+                deepMatches = if (active) it.deepMatches else emptyList(),
+                advancedResults = null,
+                advancedLabel = null,
+            )
+        }
     }
 
     fun setQuery(query: String) {
-        local.update { it.copy(query = query, deepMatches = emptyList()) }
+        // Editing the field returns to the quick inline name search.
+        local.update { it.copy(query = query, deepMatches = emptyList(), advancedResults = null, advancedLabel = null) }
         startDeepSearch(query)
+    }
+
+    /** Run an advanced search (name / content / regex) rooted at the current folder, streaming hits. */
+    fun runAdvancedSearch(mode: SearchMode, regex: Boolean, pattern: String) {
+        searchJob?.cancel()
+        val q = pattern.trim()
+        if (q.isBlank()) return
+        val kind = when { regex -> "regex"; mode == SearchMode.CONTENT -> "content"; else -> "name" }
+        local.update { it.copy(searchActive = true, query = q, searching = true, deepMatches = emptyList(), advancedResults = emptyList(), advancedLabel = kind) }
+        searchJob = viewModelScope.launch {
+            val found = ArrayList<FsEntry>()
+            val seen = HashSet<String>()
+            runCatching {
+                fileSearch.search(route.path, q, mode, regex).collect { hit ->
+                    if (seen.add(hit.path)) {
+                        found += hit.toEntry()
+                        val snap = found.toList()
+                        local.update { if (it.advancedResults != null) it.copy(advancedResults = snap) else it }
+                    }
+                }
+            }
+            local.update { it.copy(searching = false) }
+        }
+    }
+
+    private fun com.snatik.storage.core.apps.SearchHit.toEntry(): FsEntry {
+        val name = path.substringAfterLast('/')
+        return FsEntry(
+            path = path, name = name, isDirectory = false,
+            size = if (size >= 0) size else 0L, lastModified = 0L,
+            isHidden = name.startsWith("."), isSymlink = false,
+            canRead = true, canWrite = false, childCount = null,
+        )
     }
 
     /** Walk the subtree under the current directory (debounced) to surface matches in nested folders. */
