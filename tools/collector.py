@@ -40,6 +40,8 @@ from urllib.parse import urlparse, parse_qs
 
 _lock = threading.Lock()
 _table_cols = {}  # tool -> set of known columns (so new fields are added on the fly)
+_seen = {}        # tool -> last-activity epoch ms (data row or heartbeat); powers the live indicator
+_LIVE_MS = 15000  # a tool counts as "live" if seen within this window (heartbeat is every 7s)
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
@@ -196,14 +198,25 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_web()
             return
         if path == "/api/health":
+            now = int(time.time() * 1000)
             with _lock:
                 tools = list_tables(self.server.db)
+                # Union of tables and anything we've heard a heartbeat from.
+                names = set(tools.keys()) | set(_seen.keys())
+                live = {}
+                age = {}
+                for t in names:
+                    last = _seen.get(t, 0)
+                    live[t] = (now - last) < _LIVE_MS if last else False
+                    age[t] = (now - last) // 1000 if last else None
             self._json({
                 "ok": True,
                 "db": self.server.db_path,
                 "lan_ip": self.server.lan_ip,
                 "port": self.server.port,
                 "tools": tools,
+                "live": live,
+                "age": age,
             })
             return
         if path == "/api/rows":
@@ -298,8 +311,13 @@ class Handler(BaseHTTPRequestHandler):
                 if tool == "ping":
                     pings += 1
                     continue
+                if rec.get("type") == "heartbeat":
+                    # Liveness only — mark the stream live, don't store.
+                    _seen[tool] = now
+                    continue
                 _ensure_table(db, tool, rec)
                 _insert(db, tool, rec, now)
+                _seen[tool] = now  # activity implies live
                 stored[tool] = stored.get(tool, 0) + 1
             db.commit()
             totals = {t: db.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in stored}

@@ -52,6 +52,7 @@ class IntentMonitorService : Service() {
         }
         startForegroundCompat(notification(captured))
         store.setRunning(true)
+        sink.streaming("intents", true)
         // Backfill: send the history already in the local store, so a fresh recording streams
         // everything (like the app-ops snapshot does), not just events from now on. De-duped by key.
         scope.launch {
@@ -98,6 +99,7 @@ class IntentMonitorService : Service() {
 
     override fun onDestroy() {
         store.setRunning(false)
+        sink.streaming("intents", false)
         scope.cancel()
         super.onDestroy()
     }

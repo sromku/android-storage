@@ -163,6 +163,11 @@
     border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .livedot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 0 var(--green); animation: livepulse 1.6s ease-out infinite; vertical-align: middle; margin-right: 2px; }
+  .tab[aria-selected="true"] .livedot { background: #fff; box-shadow: none; animation: none; }
+  @keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(52,199,89,0.5); } 70% { box-shadow: 0 0 0 5px rgba(52,199,89,0); } 100% { box-shadow: 0 0 0 0 rgba(52,199,89,0); } }
+  @media (prefers-reduced-motion: reduce) { .livedot { animation: none; } }
   .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td {
@@ -299,6 +304,7 @@
   var API = (location.protocol === "http:" || location.protocol === "https:") ? location.origin : "http://localhost:8899";
   var currentTool = null;
   var lastTools = {};
+  var lastLive = {};
   var loadedKey = "";
   var toolColors = { appops: "--t-appops", intents: "--t-intents", broadcasts: "--t-broadcasts", notifications: "--t-notifications" };
   var toolMeta = {
@@ -375,10 +381,12 @@
       var none = document.createElement("span"); none.className = "pill"; none.textContent = "no data yet";
       strip.appendChild(none);
     }
+    var live = h.live || {};
     names.forEach(function (n) {
       var color = toolColors[n] ? "var(" + toolColors[n] + ")" : "var(--faint)";
       var p = document.createElement("span"); p.className = "pill";
-      p.innerHTML = '<span class="swatch" style="background:' + color + '"></span> ' + n + ' <b>' + tools[n].toLocaleString() + '</b>';
+      var dot = live[n] ? '<span class="livedot" title="streaming now"></span> ' : '';
+      p.innerHTML = dot + '<span class="swatch" style="background:' + color + '"></span> ' + n + ' <b>' + tools[n].toLocaleString() + '</b>';
       strip.appendChild(p);
     });
     var db = document.createElement("span"); db.className = "pill";
@@ -395,7 +403,9 @@
     if (!currentTool || names.indexOf(currentTool) < 0) currentTool = names[0];
     names.forEach(function (n) {
       var t = document.createElement("button");
-      t.className = "tab"; t.textContent = n + " · " + lastTools[n].toLocaleString();
+      t.className = "tab";
+      var dot = lastLive[n] ? '<span class="livedot" title="streaming now"></span> ' : '';
+      t.innerHTML = dot + esc(n) + " · " + lastTools[n].toLocaleString();
       t.setAttribute("aria-selected", n === currentTool ? "true" : "false");
       t.onclick = function () { currentTool = n; loadedKey = ""; renderTabs(lastTools); };
       tabs.appendChild(t);
@@ -515,6 +525,7 @@
   function health() {
     fetch(API + "/api/health").then(function (r) { return r.json(); }).then(function (h) {
       setConn(true);
+      lastLive = h.live || {};
       renderStrip(h);
       renderTabs(h.tools);
       if (h.lan_ip && h.port) {

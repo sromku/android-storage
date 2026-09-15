@@ -25,7 +25,7 @@ import com.snatik.storage.app.R
  */
 object TestNotification {
 
-    private const val CHANNEL = "test_rich"
+    const val CHANNEL = "test_rich"
 
     fun send(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)

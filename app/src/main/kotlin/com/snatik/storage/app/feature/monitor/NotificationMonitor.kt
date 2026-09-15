@@ -86,11 +86,13 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
 
     override fun onListenerConnected() {
         NotificationLog.connected.value = true
+        // Re-register the live-stream heartbeat after a process restart, when a recording is running.
+        if (store.running.value) sink.streaming("notifications", true)
         runCatching { activeNotifications }.getOrNull()?.let { active ->
             val records = active.map { it.toRecord() }
             records.forEach { NotificationLog.add(it) }
             if (store.running.value) scope.launch {
-                val fresh = records.filter { it.packageName != packageName }
+                val fresh = records.filter { it.capturable() }
                 store.record(fresh)
                 if (sink.enabled) runCatching { sink.send("notifications", fresh.map { it.toJson() }) }
             }
@@ -110,12 +112,17 @@ class NotificationMonitorService : NotificationListenerService(), KoinComponent 
     private fun record(sbn: StatusBarNotification) {
         val record = sbn.toRecord()
         NotificationLog.add(record)
-        // Never persist our own notifications — avoids self-logging and any feedback loop.
-        if (store.running.value && sbn.packageName != packageName) scope.launch {
+        if (store.running.value && record.capturable()) scope.launch {
             store.record(record)
             if (sink.enabled) runCatching { sink.send("notifications", listOf(record.toJson())) }
         }
     }
+
+    // Persist/stream every notification except our own — so the recorder isn't polluted by this app's
+    // own service notifications, and there's no self-logging loop. The one exception is the user-fired
+    // test notification (its dedicated channel), which is meant to be captured and streamed.
+    private fun NotificationRecord.capturable(): Boolean =
+        packageName != this@NotificationMonitorService.packageName || channelId == TestNotification.CHANNEL
 
     private fun StatusBarNotification.toRecord(): NotificationRecord {
         val n = notification

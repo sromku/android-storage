@@ -50,6 +50,7 @@ class AppOpsRecorderService : Service() {
         }
         startForegroundCompat(notification())
         store.setRunning(true)
+        sink.streaming("appops", true)
         scope.launch { pollLoop() }
         return START_STICKY
     }
@@ -76,6 +77,7 @@ class AppOpsRecorderService : Service() {
 
     override fun onDestroy() {
         store.setRunning(false)
+        sink.streaming("appops", false)
         scope.cancel()
         super.onDestroy()
     }

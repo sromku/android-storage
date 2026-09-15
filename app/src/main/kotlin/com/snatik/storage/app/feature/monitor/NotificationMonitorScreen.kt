@@ -141,10 +141,14 @@ class NotificationMonitorViewModel(
         store.setCapacity(capacity)
         viewModelScope.launch { store.applyCapacity() }
         store.setRunning(true)
+        sink.streaming("notifications", true)
         _source.value = NotifSource.RECORDED
     }
 
-    fun stopRecording() = store.setRunning(false)
+    fun stopRecording() {
+        store.setRunning(false)
+        sink.streaming("notifications", false)
+    }
 
     fun clearRecording() { viewModelScope.launch { store.clear() } }
 

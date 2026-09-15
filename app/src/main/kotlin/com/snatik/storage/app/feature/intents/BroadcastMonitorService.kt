@@ -52,6 +52,7 @@ class BroadcastMonitorService : Service() {
         }
         startForegroundCompat(notification(captured))
         store.setRunning(true)
+        sink.streaming("broadcasts", true)
         scope.launch { store.active.collect { sync(it) } }
         // Backfill already-received broadcasts so a fresh recording streams the history too. De-duped by key.
         scope.launch {
@@ -114,6 +115,7 @@ class BroadcastMonitorService : Service() {
 
     override fun onDestroy() {
         store.setRunning(false)
+        sink.streaming("broadcasts", false)
         unregisterAll()
         scope.cancel()
         super.onDestroy()

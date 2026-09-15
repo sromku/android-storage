@@ -1,10 +1,16 @@
 package com.snatik.storage.core.apps
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -28,8 +34,45 @@ class ExternalSink(context: Context) {
     /** True only when turned on AND a URL is set — the recorder checks this before each send. */
     val enabled: Boolean get() = _enabled.value && _url.value.isNotBlank()
 
-    fun setEnabled(value: Boolean) { _enabled.value = value; prefs.edit().putBoolean(KEY_ENABLED, value).apply() }
+    fun setEnabled(value: Boolean) {
+        _enabled.value = value
+        prefs.edit().putBoolean(KEY_ENABLED, value).apply()
+        if (!value) heartbeat?.cancel() else ensureHeartbeat()
+    }
     fun setUrl(value: String) { _url.value = value.trim(); prefs.edit().putString(KEY_URL, value.trim()).apply() }
+
+    // --- Liveness heartbeat -------------------------------------------------
+    // Each active recorder registers its tool while it streams; a background loop then pings the
+    // collector for those tools every few seconds so the web tool can show which streams are live
+    // even when no events are flowing. Heartbeat records carry type="heartbeat" and are not stored.
+    private val heartbeatScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val activeTools = java.util.Collections.synchronizedSet(LinkedHashSet<String>())
+    @Volatile private var heartbeat: Job? = null
+
+    fun streaming(tool: String, on: Boolean) {
+        if (on) activeTools.add(tool) else activeTools.remove(tool)
+        ensureHeartbeat()
+    }
+
+    private fun ensureHeartbeat() {
+        if (enabled && activeTools.isNotEmpty() && heartbeat?.isActive != true) {
+            heartbeat = heartbeatScope.launch { heartbeatLoop() }
+        }
+    }
+
+    private suspend fun heartbeatLoop() {
+        while (currentScopeActive()) {
+            val tools = synchronized(activeTools) { activeTools.toList() }
+            if (!enabled || tools.isEmpty()) break
+            val body = buildString {
+                for (t in tools) append(JSONObject().put("tool", t).put("type", "heartbeat").put("at_ms", System.currentTimeMillis()).toString()).append('\n')
+            }
+            runCatching { post(body) }
+            delay(HEARTBEAT_MS)
+        }
+    }
+
+    private fun currentScopeActive(): Boolean = heartbeatScope.isActive
 
     /**
      * POST a batch of records as NDJSON, tagged with [tool] (which the collector uses as the table
@@ -87,5 +130,6 @@ class ExternalSink(context: Context) {
     companion object {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_URL = "url"
+        private const val HEARTBEAT_MS = 7_000L
     }
 }
