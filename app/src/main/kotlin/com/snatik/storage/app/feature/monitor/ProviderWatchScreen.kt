@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Stop
@@ -136,17 +137,19 @@ class ProviderWatchViewModel(
 
     fun setSource(s: PwSource) { _source.value = s }
 
+    private fun watchFailed(label: String) { _message.value = context.getString(R.string.pw_watch_failed, label) }
+
     /** Toggle watching a URI; self-grants its permission via Shizuku when starting. */
     fun toggle(uri: String, label: String) {
         viewModelScope.launch {
             if (uri in watcher.watching.value) watcher.unwatch(uri)
-            else if (!watcher.watch(uri, label)) _message.value = label
+            else if (!watcher.watch(uri, label)) watchFailed(label)
         }
     }
 
     fun addCustom(uri: String) {
         val u = uri.trim()
-        if (u.startsWith("content://")) viewModelScope.launch { if (!watcher.watch(u, u)) _message.value = u }
+        if (u.startsWith("content://")) viewModelScope.launch { if (!watcher.watch(u, u)) watchFailed(u) }
     }
 
     fun unwatch(uri: String) = watcher.unwatch(uri)
@@ -156,7 +159,18 @@ class ProviderWatchViewModel(
     fun ensureWatching(uri: String, label: String) {
         _source.value = PwSource.LIVE
         if (uri in watcher.watching.value) return
-        viewModelScope.launch { if (!watcher.watch(uri, label)) _message.value = label }
+        viewModelScope.launch { if (!watcher.watch(uri, label)) watchFailed(label) }
+    }
+
+    /** Make sure the Images provider is watched, then fire a harmless insert+delete on it. */
+    fun runTestChange() {
+        _source.value = PwSource.LIVE
+        viewModelScope.launch {
+            if (watcher.testUri !in watcher.watching.value && !watcher.watch(watcher.testUri, "Images")) {
+                watchFailed("Images"); return@launch
+            }
+            _message.value = context.getString(if (watcher.testChange()) R.string.pw_test_done else R.string.pw_test_failed)
+        }
     }
 
     fun startRecording(capacity: Int) {
@@ -187,7 +201,7 @@ fun ProviderWatchScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(message) {
         message?.let {
-            android.widget.Toast.makeText(ctx, ctx.getString(R.string.pw_watch_failed, it), android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_LONG).show()
             viewModel.consumeMessage()
         }
     }
@@ -234,6 +248,7 @@ fun ProviderWatchScreen(
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_filter)) }, onClick = { showMenu = false; showFilters = true }, leadingIcon = { Icon(Icons.Default.FilterAlt, contentDescription = null) })
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_add)) }, onClick = { showMenu = false; showAdd = true }, leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.pw_test)) }, onClick = { showMenu = false; view = PwView.TIMELINE; viewModel.runTestChange() }, leadingIcon = { Icon(Icons.Default.Science, contentDescription = null) })
                             DropdownMenuItem(text = { Text(stringResource(R.string.pw_help)) }, onClick = { showMenu = false; showHelp = true }, leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) })
                         }
                     }

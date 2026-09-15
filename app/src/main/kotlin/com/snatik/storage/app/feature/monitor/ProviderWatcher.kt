@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.snatik.storage.core.apps.ExternalSink
@@ -123,6 +124,29 @@ class ProviderWatcher(
     }
 
     val hasShell: Boolean get() = privilege.executor.value != null
+
+    /**
+     * Trigger a harmless, self-contained change so the watcher demonstrably logs something: insert a
+     * pending (invisible) throwaway row into MediaStore Images, then delete it — an INSERT followed by
+     * a DELETE on the images provider, leaving no file behind. Returns false if the insert was refused.
+     */
+    suspend fun testChange(): Boolean = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        runCatching {
+            val resolver = context.contentResolver
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "provider-watch-test-${System.currentTimeMillis()}.png")
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@runCatching false
+            kotlinx.coroutines.delay(900)
+            resolver.delete(uri, null, null)
+            true
+        }.getOrDefault(false)
+    }
+
+    /** The URI the test change touches (so the caller can make sure it's being watched). */
+    val testUri: String get() = "content://media/external/images/media"
 
     /** Grant every read permission this URI's changes require — MediaStore's runtime perms, or the
      *  provider's own declared read permission (resolved from the catalogue). */
