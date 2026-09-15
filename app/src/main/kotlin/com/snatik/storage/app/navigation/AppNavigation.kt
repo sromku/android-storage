@@ -301,7 +301,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.ProviderWatch> { route -> ProviderWatchScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }, initialWatchUri = route.watchUri, initialWatchLabel = route.watchLabel) }
-            entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
+            entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
