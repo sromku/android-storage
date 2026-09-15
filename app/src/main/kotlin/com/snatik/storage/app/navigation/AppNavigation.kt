@@ -104,7 +104,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             NAV_INTENT_MONITOR -> Route.IntentMonitor
             NAV_BROADCAST_MONITOR -> Route.BroadcastMonitor
             NAV_APPOPS_TIMELINE -> Route.AppOpsTimeline
-            NAV_PROVIDER_WATCH -> Route.ProviderWatch
+            NAV_PROVIDER_WATCH -> Route.ProviderWatch()
             NAV_SETTINGS -> Route.Settings
             else -> null
         }
@@ -251,6 +251,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                 DataScreen(
                     onOpenProvider = { title, uri -> push(Route.ProviderQuery(uri, title)) },
                     onDiscoverUris = { pkg, className, authority, label, readPermission -> push(Route.ProviderUris(pkg, className, authority, label, readPermission)) },
+                    onWatchProvider = { uri, label -> push(Route.ProviderWatch(uri, label)) },
                     onSwitchTab = ::switchTab,
                 )
             }
@@ -281,7 +282,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenMatrix = { push(Route.PermissionMatrix) },
                     onOpenTimeline = { push(Route.AppOpsTimeline) },
                     onOpenNotifications = { push(Route.Notifications) },
-                    onOpenProviderWatch = { push(Route.ProviderWatch) },
+                    onOpenProviderWatch = { push(Route.ProviderWatch()) },
                     onOpenClipboard = { push(Route.Clipboard) },
                     onOpenInsights = { push(Route.Insights) },
                     onOpenSystem = { push(Route.System) },
@@ -299,7 +300,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
-            entry<Route.ProviderWatch> { ProviderWatchScreen(onBack = ::pop) }
+            entry<Route.ProviderWatch> { route -> ProviderWatchScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }, initialWatchUri = route.watchUri, initialWatchLabel = route.watchLabel) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
@@ -322,7 +323,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     Command("App-ops timeline", "Recent sensitive access", "location camera mic appops", Icons.Default.History) { open(Route.AppOpsTimeline) },
                     Command("Network", "Per-app connections", "network sockets connections", Icons.Default.Lan) { open(Route.Network()) },
                     Command("Notification monitor", "Log notifications", "notifications", Icons.Default.NotificationsActive) { open(Route.Notifications) },
-                    Command("Provider watch", "Watch content providers", "provider observer changes", Icons.Default.Sensors) { open(Route.ProviderWatch) },
+                    Command("Provider watch", "Watch content providers", "provider observer changes", Icons.Default.Sensors) { open(Route.ProviderWatch()) },
                     Command("Clipboard", "Clipboard history", "clipboard clip", Icons.Default.ContentPaste) { open(Route.Clipboard) },
                     Command("Storage insights", "Duplicates, empties, ghosts", "duplicates reclaim insights", Icons.Default.Insights) { open(Route.Insights) },
                     Command("System", "Mounts, ZRAM, smaps", "mounts partitions zram smaps kernel", Icons.Default.Memory) { open(Route.System) },

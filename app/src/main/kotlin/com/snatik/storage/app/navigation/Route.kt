@@ -143,7 +143,7 @@ sealed interface Route : NavKey {
     data object Notifications : Route
 
     @Serializable
-    data object ProviderWatch : Route
+    data class ProviderWatch(val watchUri: String? = null, val watchLabel: String? = null) : Route
 
     @Serializable
     data object Clipboard : Route

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -67,7 +68,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverUris: (pkg: String, className: String, authority: String, label: String, readPermission: String?) -> Unit = { _, _, _, _, _ -> }, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
+fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverUris: (pkg: String, className: String, authority: String, label: String, readPermission: String?) -> Unit = { _, _, _, _, _ -> }, onWatchProvider: (uri: String, label: String) -> Unit = { _, _ -> }, onSwitchTab: (TopLevel) -> Unit, viewModel: DataViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var selected by remember { mutableStateOf<ProviderEntry?>(null) }
@@ -177,6 +178,7 @@ fun DataScreen(onOpenProvider: (title: String, uri: String) -> Unit, onDiscoverU
                 related = related,
                 onOpenShortcut = { title, uri -> onOpenProvider(title, uri); selected = null },
                 onDiscover = { onDiscoverUris(provider.packageName, provider.className, provider.authority, provider.appLabel, provider.readPermission); selected = null },
+                onWatch = { onWatchProvider(provider.uri, provider.appLabel); selected = null },
             )
         }
     }
@@ -268,6 +270,7 @@ private fun ProviderDetail(
     related: List<com.snatik.storage.core.data.ProviderShortcut>,
     onOpenShortcut: (String, String) -> Unit,
     onDiscover: () -> Unit,
+    onWatch: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -294,6 +297,10 @@ private fun ProviderDetail(
         androidx.compose.material3.Button(onClick = onDiscover, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.uri_discover), modifier = Modifier.padding(start = 8.dp))
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onWatch, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Sensors, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.prov_watch_changes), modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

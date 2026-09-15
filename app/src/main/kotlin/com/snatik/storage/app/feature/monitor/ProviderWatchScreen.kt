@@ -26,11 +26,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Circle
@@ -120,6 +122,11 @@ class ProviderWatchViewModel(
     /** Curated well-known providers, from the shared catalogue (same as the Data tab). */
     val shortcuts: List<com.snatik.storage.core.data.ProviderShortcut> = watcher.shortcuts()
 
+    // One-shot message (e.g. a provider that couldn't be observed), surfaced as a toast.
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+    fun consumeMessage() { _message.value = null }
+
     init {
         watcher.ensureObservers()
         viewModelScope.launch {
@@ -132,17 +139,25 @@ class ProviderWatchViewModel(
     /** Toggle watching a URI; self-grants its permission via Shizuku when starting. */
     fun toggle(uri: String, label: String) {
         viewModelScope.launch {
-            if (uri in watcher.watching.value) watcher.unwatch(uri) else watcher.watch(uri, label)
+            if (uri in watcher.watching.value) watcher.unwatch(uri)
+            else if (!watcher.watch(uri, label)) _message.value = label
         }
     }
 
     fun addCustom(uri: String) {
         val u = uri.trim()
-        if (u.startsWith("content://")) viewModelScope.launch { watcher.watch(u, u) }
+        if (u.startsWith("content://")) viewModelScope.launch { if (!watcher.watch(u, u)) _message.value = u }
     }
 
     fun unwatch(uri: String) = watcher.unwatch(uri)
     suspend fun providers() = watcher.providers()
+
+    /** Start watching a URI arrived at from elsewhere (e.g. the Data tab), if not already. */
+    fun ensureWatching(uri: String, label: String) {
+        _source.value = PwSource.LIVE
+        if (uri in watcher.watching.value) return
+        viewModelScope.launch { if (!watcher.watch(uri, label)) _message.value = label }
+    }
 
     fun startRecording(capacity: Int) {
         store.setCapacity(capacity)
@@ -158,7 +173,24 @@ class ProviderWatchViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProviderWatchScreen(onBack: () -> Unit, viewModel: ProviderWatchViewModel = koinViewModel()) {
+fun ProviderWatchScreen(
+    onBack: () -> Unit,
+    onOpenQuery: (title: String, uri: String) -> Unit = { _, _ -> },
+    initialWatchUri: String? = null,
+    initialWatchLabel: String? = null,
+    viewModel: ProviderWatchViewModel = koinViewModel(),
+) {
+    val ctx = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(initialWatchUri) {
+        if (initialWatchUri != null) viewModel.ensureWatching(initialWatchUri, initialWatchLabel ?: initialWatchUri)
+    }
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(message) {
+        message?.let {
+            android.widget.Toast.makeText(ctx, ctx.getString(R.string.pw_watch_failed, it), android.widget.Toast.LENGTH_LONG).show()
+            viewModel.consumeMessage()
+        }
+    }
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val source by viewModel.source.collectAsStateWithLifecycle()
     val recording by viewModel.recording.collectAsStateWithLifecycle()
@@ -251,7 +283,7 @@ fun ProviderWatchScreen(onBack: () -> Unit, viewModel: ProviderWatchViewModel = 
     }
 
     val sel = selectedKey?.let { key -> entries.firstOrNull { it.key == key } }
-    if (sel != null) ChangeDetailSheet(sel) { selectedKey = null }
+    if (sel != null) ChangeDetailSheet(sel, onQuery = { onOpenQuery(sel.target, sel.uri); selectedKey = null }) { selectedKey = null }
     if (showFilters) FilterSheet(query, opFilter, { query = it }, { opFilter = it }) { showFilters = false }
     if (showRecord) RecordSheet(viewModel.store, viewModel.sink, watching.isEmpty(), { cap -> viewModel.startRecording(cap); showRecord = false }) { showRecord = false }
     if (showExport) ExportSheet(visible) { showExport = false }
@@ -330,7 +362,7 @@ private fun opColor(op: String): Color = when (op) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChangeDetailSheet(e: ProviderChange, onDismiss: () -> Unit) {
+private fun ChangeDetailSheet(e: ProviderChange, onQuery: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(modifier = Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             item {
@@ -344,6 +376,13 @@ private fun ChangeDetailSheet(e: ProviderChange, onDismiss: () -> Unit) {
                     DetailRow(stringResource(R.string.pw_detail_op), opLabel(e.op))
                     DetailRow(stringResource(R.string.pw_detail_when), humanClock(e.atMs))
                     SelectionContainer { DetailRow(stringResource(R.string.pw_detail_exact), absTime(e.atMs)) }
+                    HorizontalDivider()
+                    // Jump into the Data query screen at this exact URI to see what changed.
+                    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onQuery).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text(stringResource(R.string.pw_query_in_data), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 12.dp).weight(1f))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.size(4.dp))
                 }
             }

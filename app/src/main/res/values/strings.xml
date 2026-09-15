@@ -457,6 +457,7 @@
     <string name="prov_detail_yes">Yes</string>
     <string name="prov_detail_no">No</string>
     <string name="prov_detail_tables">Common tables</string>
+    <string name="prov_watch_changes">Watch changes</string>
     <string name="uri_discover">Discover URIs</string>
     <string name="uri_discover_title">Provider URIs</string>
     <string name="uri_discovering">Decompiling base APK and scanning for UriMatcher.addURI…</string>
@@ -1300,6 +1301,8 @@
     <string name="pw_detail_op">Operation</string>
     <string name="pw_detail_when">When</string>
     <string name="pw_detail_exact">Exact time</string>
+    <string name="pw_query_in_data">Query this URI in Data</string>
+    <string name="pw_watch_failed">Couldn\'t watch %1$s — it needs a permission or can\'t be observed</string>
     <string name="pw_filter_title">Filter</string>
     <string name="pw_search_hint">Search URI or provider</string>
     <string name="pw_filter_op">Operation</string>

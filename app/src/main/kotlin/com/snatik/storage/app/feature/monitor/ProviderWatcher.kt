@@ -58,10 +58,12 @@ class ProviderWatcher(
     /** Every content provider on the device (for the discover picker), from the shared catalogue. */
     suspend fun providers(): List<ProviderEntry> = repo.list()
 
-    /** Self-grants the read permission the provider needs (via Shizuku) when possible, then observes. */
-    suspend fun watch(uri: String, label: String) {
+    /** Self-grants the read permission the provider needs (via Shizuku) when possible, then observes.
+     *  Returns false if the observer could not be registered (e.g. the provider requires a permission
+     *  we couldn't grant, or the URI isn't observable). */
+    suspend fun watch(uri: String, label: String): Boolean {
         grantFor(uri)
-        start(uri, label)
+        return start(uri, label)
     }
 
     fun unwatch(uri: String) {
@@ -77,7 +79,7 @@ class ProviderWatcher(
         _watching.value = loadWatched().keys
     }
 
-    private fun start(uri: String, label: String) {
+    private fun start(uri: String, label: String): Boolean {
         val observer = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean, u: Uri?) = record(label, u?.toString() ?: uri, ProviderOp.UNKNOWN)
             override fun onChange(selfChange: Boolean, uris: Collection<Uri>, flags: Int) {
@@ -85,13 +87,13 @@ class ProviderWatcher(
                 if (uris.isEmpty()) record(label, uri, op) else uris.forEach { record(label, it.toString(), op) }
             }
         }
-        runCatching {
+        return runCatching {
             context.contentResolver.registerContentObserver(Uri.parse(uri), true, observer)
             observers[uri] = observer
             val map = loadWatched().toMutableMap().also { it[uri] = label }
             saveWatched(map)
             _watching.value = map.keys
-        }
+        }.isSuccess
     }
 
     private fun record(label: String, uri: String, op: ProviderOp) {
