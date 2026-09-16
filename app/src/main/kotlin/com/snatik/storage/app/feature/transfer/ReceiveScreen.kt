@@ -89,7 +89,7 @@ fun ReceiveScreen(onBack: () -> Unit, onOpenInbox: (String) -> Unit, onOpenFile:
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item(key = "server") { ServerCard(state, onStart = viewModel::start, onStop = viewModel::stop, onNewCode = viewModel::newCode) }
+            item(key = "server") { ServerCard(state, onStart = { ServerService.start(context) }, onStop = { ServerService.stop(context) }, onNewCode = viewModel::newCode) }
             item(key = "inbox-header") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.receive_inbox), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))

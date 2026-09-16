@@ -966,9 +966,13 @@
     <string name="api_enable">Enable API</string>
     <string name="api_on">API is on</string>
     <string name="api_off">API is off</string>
-    <string name="api_start_server">Start the server on the Receive screen to reach it.</string>
+    <string name="api_start_server">Start server</string>
+    <string name="api_stop_server">Stop server</string>
     <string name="api_server_running">Server running on %1$s</string>
     <string name="api_server_stopped">Server is not running</string>
+    <string name="server_channel">Storage server</string>
+    <string name="server_notif_title">Storage server running</string>
+    <string name="server_notif_text">Agent API &amp; file sharing on %1$s</string>
     <string name="api_token">Bearer token</string>
     <string name="api_new_token">New token</string>
     <string name="api_gate_privileged">Allow shell tools</string>

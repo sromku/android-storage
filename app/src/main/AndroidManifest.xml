@@ -122,6 +122,15 @@
             </intent-filter>
         </receiver>
 
+        <service
+            android:name=".feature.transfer.ServerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Developer tooling: keeps the local file-transfer and Agent API server reachable while the app is backgrounded" />
+        </service>
+
         <receiver
             android:name=".feature.history.PackageEventReceiver"
             android:exported="false">

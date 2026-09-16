@@ -45,6 +45,7 @@ import com.snatik.storage.app.R
 import com.snatik.storage.app.feature.transfer.TransferHub
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.app.util.relativeTime
+import com.snatik.storage.app.feature.transfer.ServerService
 import com.snatik.storage.core.net.DEFAULT_PORT
 import com.snatik.storage.core.net.ServerState
 import kotlinx.coroutines.flow.StateFlow
@@ -87,13 +88,19 @@ fun ApiScreen(onBack: () -> Unit, viewModel: ApiViewModel = koinViewModel()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(if (settings.enabled) stringResource(R.string.api_on) else stringResource(R.string.api_off), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            Switch(checked = settings.enabled, onCheckedChange = viewModel::setEnabled)
+                            // Enabling the API also brings the server up so it's reachable right away.
+                            Switch(checked = settings.enabled, onCheckedChange = { on -> viewModel.setEnabled(on); if (on) ServerService.start(context) })
                         }
-                        Text(
-                            if (server.running) stringResource(R.string.api_server_running, server.addresses.firstOrNull() ?: "localhost") else stringResource(R.string.api_server_stopped) + " · " + stringResource(R.string.api_start_server),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (server.running) stringResource(R.string.api_server_running, server.addresses.firstOrNull() ?: "localhost") else stringResource(R.string.api_server_stopped),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (server.running) TextButton(onClick = { ServerService.stop(context) }) { Text(stringResource(R.string.api_stop_server)) }
+                            else TextButton(onClick = { ServerService.start(context) }) { Text(stringResource(R.string.api_start_server)) }
+                        }
                         Text(stringResource(R.string.api_tools_count, viewModel.toolCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

@@ -85,6 +85,7 @@ const val NAV_BROADCAST_MONITOR = "broadcast_monitor"
 const val NAV_APPOPS_TIMELINE = "appops_timeline"
 const val NAV_PROVIDER_WATCH = "provider_watch"
 const val NAV_TIME_MACHINE = "time_machine"
+const val NAV_AGENT_API = "agent_api"
 const val NAV_SETTINGS = "settings"
 
 @Composable
@@ -103,6 +104,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             NAV_APPOPS_TIMELINE -> Route.AppOpsTimeline
             NAV_PROVIDER_WATCH -> Route.ProviderWatch()
             NAV_TIME_MACHINE -> Route.TimeMachine
+            NAV_AGENT_API -> Route.Api
             NAV_SETTINGS -> Route.Settings
             else -> null
         }
@@ -110,7 +112,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             backStack.clear()
             val stack: List<Route> = when (target) {
                 Route.Settings -> listOf(Route.Home, target)
-                Route.AppOpsTimeline, Route.TimeMachine -> listOf(Route.Tools, target)
+                Route.AppOpsTimeline, Route.TimeMachine, Route.Api -> listOf(Route.Tools, target)
                 else -> listOf(Route.Tools, Route.Intents, target)
             }
             backStack.addAll(stack)
