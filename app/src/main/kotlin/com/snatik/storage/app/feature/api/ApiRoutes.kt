@@ -34,7 +34,7 @@ class ApiService(private val operations: ApiOperations, private val config: ApiC
                 if (!ok(call)) return@get unauthorized(call)
                 call.respondText(json.encodeToString(buildJsonObject {
                     put("tools", kotlinx.serialization.json.buildJsonArray {
-                        operations.all.forEach { op -> add(buildJsonObject { put("name", op.name); put("description", op.description); put("privileged", op.privileged); put("destructive", op.destructive) }) }
+                        operations.all.forEach { op -> add(buildJsonObject { put("name", op.name); put("description", op.description); put("privileged", op.privileged); put("destructive", op.destructive); put("inputSchema", op.schema) }) }
                     })
                 }), ContentType.Application.Json)
             }

@@ -164,7 +164,7 @@ val appModule = module {
     single { ScreenRecorder(androidContext()) }
     single { ApiConfig(androidContext()) }
     single { AuditLog() }
-    single { ApiOperations(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { ApiOperations(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { ApiService(get(), get(), get()) }
     single { TransferHub(androidContext(), get<com.snatik.storage.core.fs.FileSystem>(), get<ApiService>().routes, get()) }
 

@@ -56,7 +56,13 @@ class ApiOperations(
     private val system: com.snatik.storage.core.apps.SystemInspector,
     private val telemetry: com.snatik.storage.core.apps.TelemetryRepository,
     private val search: com.snatik.storage.core.apps.FileSearch,
+    private val notifStore: com.snatik.storage.core.apps.NotificationRecorderStore,
+    private val appOpsStore: com.snatik.storage.core.apps.AppOpsRecorderStore,
+    private val providerStore: com.snatik.storage.core.apps.ProviderRecorderStore,
+    private val processes: com.snatik.storage.core.apps.ProcessInspector,
+    private val appEvents: com.snatik.storage.core.apps.AppEventLog,
 ) {
+    private val clipboardStore by lazy { com.snatik.storage.core.apps.ClipboardStore(appContext) }
     class Op(val name: String, val description: String, val privileged: Boolean, val destructive: Boolean, val schema: JsonObject, val run: suspend (JsonObject) -> JsonElement)
 
     private fun JsonObject.str(key: String): String = this[key]?.jsonPrimitive?.content ?: throw ApiException.badRequest("Missing '$key'")
@@ -270,7 +276,11 @@ class ApiOperations(
                 put("swaps", buildJsonArray { r.swaps.forEach { sw -> add(buildJsonObject { put("name", sw.name); put("sizeKb", sw.sizeKb); put("usedKb", sw.usedKb) }) } })
                 r.zram?.let { z -> put("zram", buildJsonObject { put("disksizeBytes", z.disksizeBytes); put("originalBytes", z.originalBytes); put("compressedBytes", z.compressedBytes) }) }
                 r.appMem?.let { a -> put("appMemory", buildJsonObject { put("totalPssKb", a.totalPssKb); put("javaHeapKb", a.javaHeapKb); put("nativeHeapKb", a.nativeHeapKb) }) }
-                r.battery?.let { b -> put("battery", buildJsonObject { put("percent", b.percent); put("status", b.status); put("health", b.health); put("tempC", b.tempC.toDouble()); put("technology", b.technology); put("voltageMv", b.voltageMv); put("cycleCount", b.cycleCount) }) }
+                // Prefer the kernel /sys reading; fall back to the framework battery (always available)
+                // so this is never null even before the shell is connected.
+                val bat = r.battery
+                if (bat != null) put("battery", buildJsonObject { put("percent", bat.percent); put("status", bat.status); put("health", bat.health); put("tempC", bat.tempC.toDouble()); put("technology", bat.technology); put("voltageMv", bat.voltageMv); put("cycleCount", bat.cycleCount) })
+                else runCatching { deviceStats.stats() }.getOrNull()?.let { ds -> put("battery", buildJsonObject { put("percent", ds.batteryPercent); put("status", ds.batteryStatus); put("tempC", ds.batteryTempC.toDouble()) }) }
             }
         },
         Op("telemetry_forecast", "Storage growth trend and a forecast of when free space runs out", false, false, schemaOf()) { _ ->
@@ -290,6 +300,57 @@ class ApiOperations(
             val hits = ArrayList<com.snatik.storage.core.apps.SearchHit>()
             search.search(p.strOrNull("root") ?: "/storage/emulated/0", p.str("query"), mode, limit = 300).collect { hits.add(it) }
             buildJsonArray { hits.forEach { h -> add(buildJsonObject { put("path", h.path); put("size", h.size); h.line?.let { put("line", it) } }) } }
+        },
+        Op("recent_notifications", "Notifications the recorder captured (needs the Notification monitor recording)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { notifStore.snapshot(p.intOr("limit", 100)).forEach { n -> add(buildJsonObject {
+                put("package", n.packageName); put("app", n.label); put("title", n.title); put("text", n.text)
+                put("category", n.category ?: ""); put("channel", n.channelId); put("postedAt", n.postedAt); put("ongoing", n.ongoing)
+                if (n.subText.isNotBlank()) put("subText", n.subText); if (n.bigText.isNotBlank()) put("bigText", n.bigText)
+            }) } }
+        },
+        Op("recent_appops", "Recorded sensitive app-op accesses (camera/mic/location) with foreground/background state", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { appOpsStore.snapshot(p.intOr("limit", 200)).forEach { a -> add(buildJsonObject {
+                put("package", a.packageName); put("app", a.label); put("op", a.op); put("time", a.absTime); put("agoMs", a.agoMs)
+                put("state", a.state.name); put("background", a.background); put("sensitive", a.sensitive); put("denied", a.denied)
+                a.durationMs?.let { put("durationMs", it) }
+            }) } }
+        },
+        Op("provider_changes", "Content-provider changes the watcher recorded (INSERT/UPDATE/DELETE with the URI)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { providerStore.snapshot(p.intOr("limit", 200)).forEach { c -> add(buildJsonObject {
+                put("target", c.target); put("uri", c.uri); put("op", c.op); put("time", c.atMs)
+            }) } }
+        },
+        Op("clipboard_history", "Clips the clipboard monitor captured (text/html/uris, sensitivity)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { clipboardStore.snapshot(p.intOr("limit", 100)).forEach { c -> add(buildJsonObject {
+                put("label", c.label); put("text", c.text); if (c.html.isNotBlank()) put("html", c.html)
+                put("uris", buildJsonArray { c.uris.forEach { add(it) } }); put("mimeTypes", buildJsonArray { c.mimeTypes.forEach { add(it) } })
+                put("itemCount", c.itemCount); put("sensitive", c.sensitive); put("copiedAt", c.copiedAt); put("capturedAt", c.capturedAt)
+            }) } }
+        },
+        Op("processes", "Live processes ranked by CPU or memory (top consumers, per-app)", true, false, schemaOf("sort" to "string", "limit" to "integer")) { p ->
+            val byMem = p.strOrNull("sort")?.lowercase()?.startsWith("mem") == true
+            val list = processes.processes().let { l -> if (byMem) l.sortedByDescending { it.rssKb } else l.sortedByDescending { it.cpuPercent } }.take(p.intOr("limit", 30))
+            buildJsonArray { list.forEach { s -> add(buildJsonObject {
+                put("pid", s.pid); put("name", s.name); put("user", s.user); put("cpuPercent", s.cpuPercent); put("rssKb", s.rssKb)
+            }) } }
+        },
+        Op("wakelocks", "Top kernel/app wake locks holding the CPU awake (from batterystats)", true, false, schemaOf()) { _ ->
+            buildJsonArray { system.wakelocks().forEach { w -> add(buildJsonObject { put("name", w.name); put("heldMs", w.heldMs); put("count", w.count) }) } }
+        },
+        Op("app_history", "Install / update / uninstall events over time", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { appEvents.history().sortedByDescending { it.ts }.take(p.intOr("limit", 200)).forEach { e -> add(buildJsonObject {
+                put("package", e.packageName); put("app", e.label); put("type", e.type); put("time", e.ts)
+                put("version", e.versionName ?: ""); put("versionCode", e.versionCode); put("system", e.system)
+                e.fromVersionName?.let { put("fromVersion", it) }
+            }) } }
+        },
+        Op("telemetry_snapshots", "Recorded storage/RAM snapshots over time (from Time Machine)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { telemetry.snapshots().take(p.intOr("limit", 100)).forEach { s -> add(buildJsonObject {
+                put("time", s.ts); put("freeBytes", s.freeBytes); put("totalBytes", s.totalBytes)
+                put("ramFreeBytes", s.ramFreeBytes); put("ramTotalBytes", s.ramTotalBytes)
+                put("appCount", s.appCount); put("appTotalBytes", s.appTotalBytes)
+                s.freeDeltaBytes?.let { put("freeDeltaBytes", it) }
+            }) } }
         },
     ).associateBy { it.name }
 
