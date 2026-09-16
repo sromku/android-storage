@@ -1431,7 +1431,7 @@
     <string name="insights_delete">Delete</string>
     <string name="insights_freed">Freed %1$s</string>
     <string name="insights_confirm_title">Delete?</string>
-    <string name="insights_review_hint">Found copies — tap one to open it in the file browser and decide there.</string>
+    <string name="insights_review_hint">Matched by identical content (same size and SHA-256) — filenames may differ. Tap a copy to open it in the file browser.</string>
     <string name="insights_confirm_ghost">Delete leftover data for %1$s (%2$s)?</string>
     <string name="insights_cat_count">%1$d files</string>
     <string name="insights_cat_images">Images</string>
