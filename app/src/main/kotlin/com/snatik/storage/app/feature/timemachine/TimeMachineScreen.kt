@@ -182,7 +182,7 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
                     EmptyState(Icons.Default.History, stringResource(R.string.tm_need_more), stringResource(R.string.tm_need_more_body), modifier = Modifier.height(220.dp))
                 }
                 else -> {
-                    r.forecast?.let { item { ForecastHero(r) } }
+                    if (r.forecast != null) item { ForecastHero(r) } else item { ForecastPendingCard() }
                     item { ForecastChartCard(r) }
                     if (r.appCountLast > 0) item { InventoryCard(r) }
                     item { RamCard(r.device) }
@@ -273,6 +273,19 @@ private fun ForecastHero(r: TimeMachineReport) {
             }
             if (!f.confident) Text(stringResource(R.string.tm_low_confidence), style = MaterialTheme.typography.labelSmall, color = onContainer.copy(alpha = 0.8f))
             if (r.cacheBytesPerDay > 0) Text(stringResource(R.string.tm_cache_velocity, human(r.cacheBytesPerDay.roundToInt().toLong())), style = MaterialTheme.typography.bodyMedium, color = onContainer.copy(alpha = 0.9f))
+        }
+    }
+}
+
+@Composable
+private fun ForecastPendingCard() {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.tm_forecast), style = MaterialTheme.typography.titleMedium)
+            }
+            Text(stringResource(R.string.tm_forecast_pending), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -543,19 +556,21 @@ private fun LabeledBar(label: String, fraction: Float, color: Color) {
 }
 
 @Composable
-private fun DeltaChip(deltaBytes: Long?) {
-    if (deltaBytes == null) {
+private fun DeltaChip(freeDeltaBytes: Long?) {
+    if (freeDeltaBytes == null) {
         Text(stringResource(R.string.tm_snap_first), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
-    // free went up = reclaimed space (good); down = filling (warn)
-    val up = deltaBytes > 0
+    // Show the change in storage USED (not free): +/grew is the filling direction (red),
+    // −/freed is reclaimed space (blue) — matching the growers list.
+    val usedDelta = -freeDeltaBytes
+    val grew = usedDelta > 0
     val color = when {
-        deltaBytes == 0L -> MaterialTheme.colorScheme.onSurfaceVariant
-        up -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.error
+        usedDelta == 0L -> MaterialTheme.colorScheme.onSurfaceVariant
+        grew -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.primary
     }
-    val text = (if (up) "+" else if (deltaBytes < 0) "−" else "±") + human(abs(deltaBytes))
+    val text = (if (grew) "+" else if (usedDelta < 0) "−" else "±") + human(abs(usedDelta))
     Box(modifier = Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
         Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
     }

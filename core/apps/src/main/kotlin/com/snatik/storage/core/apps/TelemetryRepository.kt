@@ -176,9 +176,15 @@ class TelemetryRepository(
         const val DEFAULT_INTERVAL_SEC = 3600 // hourly
         val INTERVALS = listOf(1800, 3600, 21600) // 30 min, 1 h, 6 h
 
+        // Below this span, a "per day" rate is just extrapolated short-term churn — don't show it.
+        const val MIN_FORECAST_SPAN_MS = 12L * 3600 * 1000 // 12 hours
+        private const val CONFIDENT_SPAN_MS = 3L * 24 * 3600 * 1000 // 3 days
+
         /** Least-squares fit of freeBytes over time, projecting to zero free space. */
         fun forecast(series: List<DeviceTelemetry>): Forecast? {
             if (series.size < 2) return null
+            val spanMs = series.last().ts - series.first().ts
+            if (spanMs < MIN_FORECAST_SPAN_MS) return null // too short a window to extrapolate a daily trend
             val t0 = series.first().ts
             val xs = series.map { (it.ts - t0).toDouble() / (24 * 3600 * 1000) } // days
             val ys = series.map { it.freeBytes.toDouble() }
@@ -197,7 +203,7 @@ class TelemetryRepository(
                 val xFull = -intercept / slope
                 (xFull - lastX).coerceAtLeast(0.0)
             } else null
-            val confident = n >= 4
+            val confident = n >= 4 && spanMs >= CONFIDENT_SPAN_MS
             return Forecast(bytesPerDay, daysUntilFull, confident)
         }
     }

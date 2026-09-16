@@ -1563,6 +1563,7 @@
     <string name="tm_channel">Storage recorder</string>
     <string name="tm_notif_title">Recording storage history</string>
     <string name="tm_notif_text">%1$d snapshots recorded</string>
+    <string name="tm_forecast_pending">Recording — a fill-up forecast appears once there\'s at least half a day of history to project from.</string>
     <string name="tm_snapshots">Captures</string>
     <string name="tm_view_list">View captures</string>
     <string name="tm_view_chart">View trends</string>
