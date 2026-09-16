@@ -18,6 +18,7 @@ import com.snatik.storage.core.intents.IntentSpec
 import com.snatik.storage.core.intents.SendAs
 import com.snatik.storage.core.shell.PrivilegeManager
 import com.snatik.storage.core.shell.run
+import com.snatik.storage.core.shell.shellQuote
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.last
 import kotlinx.serialization.json.JsonElement
@@ -68,6 +69,48 @@ class ApiOperations(
 ) {
     private val clipboardStore by lazy { com.snatik.storage.core.apps.ClipboardStore(appContext) }
     private fun ok(message: String): JsonElement = buildJsonObject { put("ok", true); put("message", message) }
+
+    private fun apkCategory(name: String): String = when {
+        name.startsWith("classes") && name.endsWith(".dex") -> "dex"
+        name.startsWith("lib/") -> "native libs"
+        name == "resources.arsc" -> "resources.arsc"
+        name.startsWith("res/") -> "resources"
+        name.startsWith("assets/") -> "assets"
+        name.startsWith("META-INF/") -> "signing/meta"
+        name == "AndroidManifest.xml" -> "manifest"
+        name.startsWith("kotlin/") -> "kotlin"
+        else -> "other"
+    }
+
+    /** Parse the "Estimated power use (mAh)" block of dumpsys batterystats into (categories, per-uid). */
+    private fun parseEstimatedPower(text: String): Pair<List<Pair<String, Double>>, List<Pair<String, Double>>> {
+        val cats = ArrayList<Pair<String, Double>>(); val apps = ArrayList<Pair<String, Double>>()
+        val uidRe = Regex("""^Uid (\S+):\s+([0-9.]+)"""); val catRe = Regex("""^([a-z_]+):\s+([0-9.]+)""")
+        var inSection = false
+        for (raw in text.lineSequence()) {
+            val t = raw.trim()
+            if (!inSection) { if (t.startsWith("Estimated power use")) inSection = true; continue }
+            if (t.startsWith("(on battery") || t.isEmpty()) break
+            uidRe.find(t)?.let { apps.add(it.groupValues[1] to it.groupValues[2].toDouble()) }
+                ?: catRe.find(t)?.let { cats.add(it.groupValues[1] to it.groupValues[2].toDouble()) }
+        }
+        return cats.sortedByDescending { it.second } to apps.sortedByDescending { it.second }
+    }
+
+    /** Resolve a batterystats uid token (e.g. "u0a155" or "1000") to a package/name. */
+    private fun uidLabel(uid: String): String {
+        val android = when {
+            uid.matches(Regex("u\\d+a\\d+")) -> {
+                val user = uid.substringAfter('u').substringBefore('a').toIntOrNull() ?: 0
+                val app = uid.substringAfter('a').toIntOrNull() ?: return uid
+                user * 100000 + 10000 + app
+            }
+            uid.toIntOrNull() != null -> uid.toInt()
+            else -> return uid
+        }
+        return runCatching { appContext.packageManager.getPackagesForUid(android)?.firstOrNull() }.getOrNull()
+            ?: runCatching { appContext.packageManager.getNameForUid(android) }.getOrNull() ?: uid
+    }
     class Op(val name: String, val description: String, val privileged: Boolean, val destructive: Boolean, val schema: JsonObject, val run: suspend (JsonObject) -> JsonElement)
 
     private fun JsonObject.str(key: String): String = this[key]?.jsonPrimitive?.content ?: throw ApiException.badRequest("Missing '$key'")
@@ -375,8 +418,17 @@ class ApiOperations(
         },
         /* ---------- app actions (shell + changes) ---------- */
         Op("force_stop", "Force-stop an app", true, true, schemaOf("package" to "string")) { p -> appActions.forceStop(p.str("package")); ok("force-stopped ${p.str("package")}") },
-        Op("clear_cache", "Clear an app's cache", true, true, schemaOf("package" to "string")) { p -> appActions.clearCache(p.str("package")); ok("cleared cache of ${p.str("package")}") },
-        Op("clear_data", "Clear an app's data (irreversible)", true, true, schemaOf("package" to "string")) { p -> appActions.clearData(p.str("package")); ok("cleared data of ${p.str("package")}") },
+        // `pm clear` can hang on some builds (Android 17); run it detached so the API responds fast.
+        Op("clear_cache", "Clear an app's cache (request; pm clear can be slow on some builds)", true, true, schemaOf("package" to "string")) { p ->
+            val pkg = p.str("package")
+            privilege.executor.value?.run("(pm clear --cache-only ${pkg.shellQuote()} >/dev/null 2>&1 &); echo ok", timeoutMs = 8_000)
+            ok("clear-cache requested for $pkg")
+        },
+        Op("clear_data", "Clear an app's data — irreversible (request; pm clear can be slow on some builds)", true, true, schemaOf("package" to "string")) { p ->
+            val pkg = p.str("package")
+            privilege.executor.value?.run("(pm clear ${pkg.shellQuote()} >/dev/null 2>&1 &); echo ok", timeoutMs = 8_000)
+            ok("clear-data requested for $pkg")
+        },
         Op("uninstall", "Uninstall an app", true, true, schemaOf("package" to "string")) { p -> appActions.uninstall(p.str("package")); ok("uninstalled ${p.str("package")}") },
         Op("set_app_enabled", "Enable or disable an app", true, true, schemaOf("package" to "string", "enabled" to "boolean")) { p ->
             val en = p.boolOr("enabled", true); appActions.setEnabled(p.str("package"), en); ok("${p.str("package")} enabled=$en")
@@ -404,15 +456,18 @@ class ApiOperations(
             appContext.getSystemService(android.content.ClipboardManager::class.java).clearPrimaryClip(); ok("clipboard cleared")
         },
         /* ---------- monitor control ---------- */
-        Op("set_monitor", "Start or stop a background recorder (appops, providers, broadcasts, intents, telemetry)", false, true, schemaOf("monitor" to "string", "on" to "boolean")) { p ->
+        Op("set_monitor", "Start or stop a background recorder (notifications, appops, providers, broadcasts, intents, telemetry)", false, true, schemaOf("monitor" to "string", "on" to "boolean")) { p ->
             val on = p.boolOr("on", true); val m = p.str("monitor").lowercase()
             when (m) {
+                // Notifications record via an always-bound listener; this only toggles the record flag,
+                // and captures only if notification access is granted in the app.
+                "notifications" -> notifStore.setRunning(on)
                 "appops" -> if (on) com.snatik.storage.app.feature.dashboard.AppOpsRecorderService.start(appContext) else com.snatik.storage.app.feature.dashboard.AppOpsRecorderService.stop(appContext)
                 "providers" -> if (on) com.snatik.storage.app.feature.monitor.ProviderRecorderService.start(appContext) else com.snatik.storage.app.feature.monitor.ProviderRecorderService.stop(appContext)
                 "broadcasts" -> if (on) com.snatik.storage.app.feature.intents.BroadcastMonitorService.start(appContext) else com.snatik.storage.app.feature.intents.BroadcastMonitorService.stop(appContext)
                 "intents" -> if (on) com.snatik.storage.app.feature.intents.IntentMonitorService.start(appContext) else com.snatik.storage.app.feature.intents.IntentMonitorService.stop(appContext)
                 "telemetry" -> if (on) com.snatik.storage.app.feature.timemachine.TelemetryRecorderService.start(appContext) else com.snatik.storage.app.feature.timemachine.TelemetryRecorderService.stop(appContext)
-                else -> throw ApiException.badRequest("Unknown monitor '$m' (use: appops, providers, broadcasts, intents, telemetry)")
+                else -> throw ApiException.badRequest("Unknown monitor '$m' (use: notifications, appops, providers, broadcasts, intents, telemetry)")
             }
             ok("$m ${if (on) "started" else "stopped"}")
         },
@@ -422,6 +477,64 @@ class ApiOperations(
         },
         Op("intent_log", "Intents the monitor recorded (needs the Intent monitor recording)", false, false, schemaOf("limit" to "integer")) { p ->
             buildJsonArray { intentStore.recent.first().take(p.intOr("limit", 100)).forEach { i -> add(buildJsonObject { put("time", i.time); put("action", i.action ?: ""); put("data", i.data ?: ""); put("package", i.packageName ?: "") }) } }
+        },
+        Op("apk_analyze", "Analyze an APK file: size by category (dex/native/resources/assets), entry count, signing cert, sdk versions", false, false, schemaOf("path" to "string")) { p ->
+            val path = p.str("path")
+            val f = java.io.File(path)
+            if (!f.exists()) throw ApiException.notFound("No such file: $path")
+            val cats = LinkedHashMap<String, LongArray>()
+            var total = 0L; var totalComp = 0L; var count = 0
+            java.util.zip.ZipFile(f).use { zip ->
+                val en = zip.entries()
+                while (en.hasMoreElements()) {
+                    val e = en.nextElement()
+                    if (e.isDirectory) continue
+                    val a = cats.getOrPut(apkCategory(e.name)) { LongArray(3) }
+                    val sz = if (e.size >= 0) e.size else 0; val cz = if (e.compressedSize >= 0) e.compressedSize else 0
+                    a[0] += sz; a[1] += cz; a[2]++; total += sz; totalComp += cz; count++
+                }
+            }
+            val info = runCatching { appContext.packageManager.getPackageArchiveInfo(path, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES) }.getOrNull()
+            val certSha = runCatching {
+                info?.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray()
+                    ?.let { java.security.MessageDigest.getInstance("SHA-256").digest(it).joinToString("") { b -> "%02x".format(b) } }
+            }.getOrNull()
+            buildJsonObject {
+                info?.let {
+                    put("package", it.packageName ?: ""); put("versionName", it.versionName ?: ""); put("versionCode", it.longVersionCode)
+                    it.applicationInfo?.let { ai -> put("minSdk", ai.minSdkVersion); put("targetSdk", ai.targetSdkVersion) }
+                }
+                put("totalUncompressed", total); put("totalCompressed", totalComp); put("entryCount", count)
+                certSha?.let { put("signingCertSha256", it) }
+                put("categories", buildJsonArray {
+                    cats.entries.sortedByDescending { it.value[0] }.forEach { (name, a) -> add(buildJsonObject { put("category", name); put("uncompressed", a[0]); put("compressed", a[1]); put("count", a[2].toInt()) }) }
+                })
+            }
+        },
+        Op("battery_stats", "Deep battery: real-time draw, health/wear (capacity fade, charge cycles), and estimated power use by category and app", true, false, schemaOf()) { _ ->
+            val exec = privilege.executor.value ?: throw ApiException.forbidden("No shell access; connect Shizuku or root")
+            val sys = runCatching { exec.run("for f in current_now voltage_now charge_full charge_full_design cycle_count capacity status temp technology; do echo @@@\$f; cat /sys/class/power_supply/battery/\$f 2>/dev/null; done", timeoutMs = 10_000).out }.getOrDefault("")
+            val m = HashMap<String, String>(); var key: String? = null
+            sys.lineSequence().forEach { l -> if (l.startsWith("@@@")) key = l.substring(3) else key?.let { k -> if (l.isNotBlank()) m[k] = l.trim() } }
+            fun num(k: String) = m[k]?.toLongOrNull()
+            val full = num("charge_full"); val design = num("charge_full_design")
+            val bs = runCatching { exec.run("dumpsys batterystats", timeoutMs = 30_000).out }.getOrDefault("")
+            val (categories, apps) = parseEstimatedPower(bs)
+            buildJsonObject {
+                put("health", buildJsonObject {
+                    m["capacity"]?.toIntOrNull()?.let { put("percent", it) }
+                    m["status"]?.let { put("status", it) }
+                    m["technology"]?.let { put("technology", it) }
+                    m["temp"]?.toIntOrNull()?.let { put("tempC", it / 10.0) }
+                    num("voltage_now")?.let { put("voltageMv", (it / 1000).toInt()) }
+                    num("cycle_count")?.let { put("cycleCount", it.toInt()) }
+                    num("current_now")?.let { put("currentDrawMa", -it / 1000.0) }
+                    full?.let { put("chargeFullUah", it) }; design?.let { put("chargeFullDesignUah", it) }
+                    if (full != null && design != null && design > 0) put("capacityHealthPercent", (full.toDouble() / design * 1000).toInt() / 10.0)
+                })
+                put("estimatedByCategory", buildJsonArray { categories.forEach { (k, v) -> add(buildJsonObject { put("category", k); put("mAh", v) }) } })
+                put("estimatedByApp", buildJsonArray { apps.take(20).forEach { (uid, v) -> add(buildJsonObject { put("uid", uid); put("app", uidLabel(uid)); put("mAh", v) }) } })
+            }
         },
     ).associateBy { it.name }
 

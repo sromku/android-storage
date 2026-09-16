@@ -20,12 +20,13 @@ class AppActions(private val privilege: PrivilegeManager) {
         shell().runOrThrow("am force-stop ${packageName.shellQuote()}")
     }
 
+    // `pm clear` can hang indefinitely on some builds (e.g. Android 17); cap it so callers fail fast.
     suspend fun clearCache(packageName: String) {
-        shell().runOrThrow("pm clear --cache-only ${packageName.shellQuote()}")
+        shell().runOrThrow("pm clear --cache-only ${packageName.shellQuote()}", timeoutMs = 15_000)
     }
 
     suspend fun clearData(packageName: String) {
-        shell().runOrThrow("pm clear ${packageName.shellQuote()}")
+        shell().runOrThrow("pm clear ${packageName.shellQuote()}", timeoutMs = 15_000)
     }
 
     suspend fun uninstall(packageName: String) {
