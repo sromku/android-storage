@@ -49,6 +49,18 @@ data class TimeMachineReport(
 /** One app's footprint series over time, for the grower drill-down. */
 data class AppHistory(val packageName: String, val label: String, val rows: List<AppTelemetry>)
 
+/** One capture, summarised for the snapshot list. [freeDeltaBytes] is vs the previous (older) capture. */
+data class SnapshotSummary(
+    val ts: Long,
+    val freeBytes: Long,
+    val totalBytes: Long,
+    val ramFreeBytes: Long,
+    val ramTotalBytes: Long,
+    val appCount: Int,
+    val appTotalBytes: Long,
+    val freeDeltaBytes: Long?,
+)
+
 /**
  * Records periodic snapshots of device and per-app storage, then reads growth trends from them:
  * which apps are swelling, how fast cache accretes, and a linear forecast of storage exhaustion.
@@ -110,6 +122,22 @@ class TelemetryRepository(
             appCountFirst = firstApps.size, appCountLast = lastApps.size,
             appTotalFirst = total(firstApps), appTotalLast = total(lastApps),
         )
+    }
+
+    /** Every capture, newest first, each with a small insight (free delta, RAM, app inventory). */
+    suspend fun snapshots(): List<SnapshotSummary> = withContext(Dispatchers.IO) {
+        val device = db.dao().deviceSeries() // oldest first
+        val agg = db.dao().appAggByTs().associateBy { it.ts }
+        device.mapIndexed { i, d ->
+            val prev = if (i > 0) device[i - 1] else null
+            val a = agg[d.ts]
+            SnapshotSummary(
+                ts = d.ts, freeBytes = d.freeBytes, totalBytes = d.totalBytes,
+                ramFreeBytes = d.ramFreeBytes, ramTotalBytes = d.ramTotalBytes,
+                appCount = a?.count ?: 0, appTotalBytes = a?.total ?: 0L,
+                freeDeltaBytes = prev?.let { d.freeBytes - it.freeBytes },
+            )
+        }.reversed()
     }
 
     /** One app's stored footprint series (oldest first), with its current label. */

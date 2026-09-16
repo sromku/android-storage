@@ -1563,6 +1563,16 @@
     <string name="tm_channel">Storage recorder</string>
     <string name="tm_notif_title">Recording storage history</string>
     <string name="tm_notif_text">%1$d snapshots recorded</string>
+    <string name="tm_snapshots">Captures</string>
+    <string name="tm_view_list">View captures</string>
+    <string name="tm_view_chart">View trends</string>
+    <string name="tm_snapshots_count">%1$d captures</string>
+    <string name="tm_no_snapshots">No captures yet</string>
+    <string name="tm_no_snapshots_body">Turn on background recording or capture a snapshot to start building history.</string>
+    <string name="tm_snap_free">Free %1$s</string>
+    <string name="tm_snap_ram">RAM %1$s used</string>
+    <string name="tm_snap_apps">%1$d apps · %2$s</string>
+    <string name="tm_snap_first">First capture</string>
     <string name="tm_inventory">App inventory</string>
     <string name="tm_inv_apps">Installed apps</string>
     <string name="tm_inv_app_storage">App storage total</string>

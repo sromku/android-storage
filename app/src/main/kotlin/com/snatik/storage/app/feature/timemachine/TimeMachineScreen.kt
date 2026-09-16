@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -42,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +72,7 @@ import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.core.apps.AppGrowth
 import com.snatik.storage.core.apps.AppHistory
 import com.snatik.storage.core.apps.DeviceTelemetry
+import com.snatik.storage.core.apps.SnapshotSummary
 import com.snatik.storage.core.apps.TelemetryRepository
 import com.snatik.storage.core.apps.TimeMachineReport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,7 +93,11 @@ class TimeMachineViewModel(private val repo: TelemetryRepository) : ViewModel() 
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
     private val _selected = MutableStateFlow<AppHistory?>(null)
     val selected: StateFlow<AppHistory?> = _selected.asStateFlow()
+    private val _snapshots = MutableStateFlow<List<SnapshotSummary>?>(null)
+    val snapshots: StateFlow<List<SnapshotSummary>?> = _snapshots.asStateFlow()
     val running: StateFlow<Boolean> = repo.running
+
+    fun loadSnapshots() { viewModelScope.launch { _snapshots.value = repo.snapshots() } }
 
     init {
         viewModelScope.launch {
@@ -123,6 +131,8 @@ class TimeMachineViewModel(private val repo: TelemetryRepository) : ViewModel() 
     fun usageAccessIntent() = repo.usageAccessIntent()
 }
 
+enum class TmView { TRENDS, SNAPSHOTS }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koinViewModel()) {
@@ -130,17 +140,32 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val running by viewModel.running.collectAsStateWithLifecycle()
+    val snapshots by viewModel.snapshots.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var view by rememberSaveable { mutableStateOf(TmView.TRENDS) }
     // The service captures in the background; pull the fresh series in when it starts/stops.
-    androidx.compose.runtime.LaunchedEffect(running) { viewModel.refresh() }
+    androidx.compose.runtime.LaunchedEffect(running) { viewModel.refresh(); if (view == TmView.SNAPSHOTS) viewModel.loadSnapshots() }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.tm_title)) },
+                title = { Text(stringResource(if (view == TmView.SNAPSHOTS) R.string.tm_snapshots else R.string.tm_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up)) } },
+                actions = {
+                    IconButton(onClick = {
+                        view = if (view == TmView.TRENDS) TmView.SNAPSHOTS else TmView.TRENDS
+                        if (view == TmView.SNAPSHOTS) viewModel.loadSnapshots()
+                    }) {
+                        if (view == TmView.TRENDS) Icon(Icons.Default.FormatListBulleted, contentDescription = stringResource(R.string.tm_view_list))
+                        else Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = stringResource(R.string.tm_view_chart))
+                    }
+                },
             )
         },
     ) { padding ->
+        if (view == TmView.SNAPSHOTS) {
+            SnapshotsList(snapshots, Modifier.padding(padding))
+            return@Scaffold
+        }
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 CaptureCard(report, busy, viewModel::captureNow, running) { on ->
@@ -465,7 +490,83 @@ private fun SplitBar(parts: List<Triple<String, Long, Color>>) {
     }
 }
 
+/* ---------- snapshot list ---------- */
+
+@Composable
+private fun SnapshotsList(snapshots: List<SnapshotSummary>?, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            snapshots == null -> androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            snapshots.isEmpty() -> EmptyState(Icons.Default.History, stringResource(R.string.tm_no_snapshots), stringResource(R.string.tm_no_snapshots_body), modifier = Modifier.align(Alignment.Center))
+            else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    Text(stringResource(R.string.tm_snapshots_count, snapshots.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+                }
+                items(snapshots.size) { i -> SnapshotRow(snapshots[i]) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SnapshotRow(s: SnapshotSummary) {
+    val usedFrac = if (s.totalBytes > 0) ((s.totalBytes - s.freeBytes).toFloat() / s.totalBytes).coerceIn(0f, 1f) else 0f
+    val ramFrac = if (s.ramTotalBytes > 0) (1f - s.ramFreeBytes.toFloat() / s.ramTotalBytes).coerceIn(0f, 1f) else 0f
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(dateTimeFmt(s.ts), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(DateUtils.getRelativeTimeSpanString(s.ts, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DeltaChip(s.freeDeltaBytes)
+            }
+            // free/used bar
+            LabeledBar(stringResource(R.string.tm_snap_free, human(s.freeBytes)), usedFrac, MaterialTheme.colorScheme.primary)
+            // ram bar
+            if (s.ramTotalBytes > 0) LabeledBar(stringResource(R.string.tm_snap_ram, ramPct(ramFrac)), ramFrac, MaterialTheme.colorScheme.tertiary)
+            if (s.appCount > 0) {
+                Text(stringResource(R.string.tm_snap_apps, s.appCount, human(s.appTotalBytes)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LabeledBar(label: String, fraction: Float, color: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall)
+        Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+            Box(modifier = Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(50)).background(color))
+        }
+    }
+}
+
+@Composable
+private fun DeltaChip(deltaBytes: Long?) {
+    if (deltaBytes == null) {
+        Text(stringResource(R.string.tm_snap_first), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    // free went up = reclaimed space (good); down = filling (warn)
+    val up = deltaBytes > 0
+    val color = when {
+        deltaBytes == 0L -> MaterialTheme.colorScheme.onSurfaceVariant
+        up -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.error
+    }
+    val text = (if (up) "+" else if (deltaBytes < 0) "−" else "±") + human(abs(deltaBytes))
+    Box(modifier = Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+        Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color)
+    }
+}
+
+private fun ramPct(frac: Float): String = "${(frac * 100).roundToInt()}%"
+
 /* ---------- helpers ---------- */
+
+private val DATETIME_FMT = SimpleDateFormat("MMM d · HH:mm", Locale.getDefault())
+private fun dateTimeFmt(ts: Long): String = DATETIME_FMT.format(Date(ts))
 
 private val DATE_FMT = SimpleDateFormat("MMM d", Locale.getDefault())
 private fun dateFmt(ts: Long): String = DATE_FMT.format(Date(ts))

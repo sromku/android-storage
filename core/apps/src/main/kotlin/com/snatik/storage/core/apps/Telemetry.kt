@@ -33,6 +33,9 @@ data class AppTelemetry(
     val cacheBytes: Long,
 )
 
+/** Aggregate of the per-app rows captured at one moment. */
+data class AppTsAgg(val ts: Long, val count: Int, val total: Long)
+
 @Dao
 interface TelemetryDao {
     @Insert suspend fun insertDevice(row: DeviceTelemetry)
@@ -43,6 +46,10 @@ interface TelemetryDao {
 
     @Query("SELECT COUNT(*) FROM device_telemetry")
     suspend fun snapshotCount(): Int
+
+    /** Per-snapshot app count and total footprint, keyed by capture time. */
+    @Query("SELECT ts, COUNT(*) as count, SUM(appBytes + dataBytes + cacheBytes) as total FROM app_telemetry GROUP BY ts")
+    suspend fun appAggByTs(): List<AppTsAgg>
 
     @Query("SELECT * FROM app_telemetry WHERE packageName = :pkg ORDER BY ts ASC")
     suspend fun appSeries(pkg: String): List<AppTelemetry>
