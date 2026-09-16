@@ -1573,6 +1573,24 @@
     <string name="tm_low_confidence">Low confidence — more snapshots will sharpen this.</string>
     <string name="tm_cache_velocity">Cache growing %1$s per day</string>
     <string name="tm_growers">Fastest growing apps</string>
+    <string name="tm_growers_hint">Tap an app to see its history.</string>
+    <string name="tm_status">%1$d snapshots over %2$s · last %3$s</string>
+    <string name="tm_status_one">1 snapshot · %1$s</string>
+    <string name="tm_full_on">Around %1$s at this rate</string>
+    <string name="tm_gaining_head">Free space is growing</string>
+    <string name="tm_stable_head">Free space is stable</string>
+    <string name="tm_ram">RAM usage</string>
+    <string name="tm_ram_now">%1$s free of %2$s</string>
+    <string name="tm_usage_title">Per-app history needs Usage Access</string>
+    <string name="tm_usage_body">Grant Usage Access so Time Machine can record each app\'s storage over time. Device free space is tracked either way.</string>
+    <string name="tm_usage_grant">Grant access</string>
+    <string name="tm_app_need_more">Not enough history for this app yet.</string>
+    <string name="tm_app_grew">Grew %1$s over %2$s</string>
+    <string name="tm_app_shrank">Shrank %1$s over %2$s</string>
+    <string name="tm_app_split">Current breakdown</string>
+    <string name="tm_app_apk">App</string>
+    <string name="tm_app_data">Data</string>
+    <string name="tm_app_cache">Cache</string>
     <!-- Round J: power tools -->
     <string name="db_schema_tables">Tables (%1$d)</string>
     <string name="db_schema_meta">%1$d rows · %2$d cols</string>

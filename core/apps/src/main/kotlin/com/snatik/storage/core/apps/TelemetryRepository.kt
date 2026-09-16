@@ -33,7 +33,17 @@ data class TimeMachineReport(
     val topGrowers: List<AppGrowth>,
     val cacheBytesPerDay: Double,
     val spanMs: Long,
-)
+    val hasUsageAccess: Boolean,
+) {
+    val lastTs: Long get() = device.lastOrNull()?.ts ?: 0L
+    val firstTs: Long get() = device.firstOrNull()?.ts ?: 0L
+    /** Absolute time free space is projected to hit zero, or null if not shrinking. */
+    val projectedFullTs: Long?
+        get() = forecast?.daysUntilFull?.let { lastTs + (it * 24 * 3600 * 1000).toLong() }
+}
+
+/** One app's footprint series over time, for the grower drill-down. */
+data class AppHistory(val packageName: String, val label: String, val rows: List<AppTelemetry>)
 
 /**
  * Records periodic snapshots of device and per-app storage, then reads growth trends from them:
@@ -78,8 +88,17 @@ class TelemetryRepository(
         val growers = topGrowers()
         val span = if (device.size >= 2) device.last().ts - device.first().ts else 0L
         val cacheVel = cacheVelocity(span)
-        TimeMachineReport(count, device, forecast, growers, cacheVel, span)
+        TimeMachineReport(count, device, forecast, growers, cacheVel, span, apps.hasUsageAccess())
     }
+
+    /** One app's stored footprint series (oldest first), with its current label. */
+    suspend fun appHistory(pkg: String): AppHistory = withContext(Dispatchers.IO) {
+        val rows = db.dao().appSeries(pkg)
+        val label = runCatching { apps.list().firstOrNull { it.packageName == pkg }?.label }.getOrNull() ?: pkg
+        AppHistory(pkg, label, rows)
+    }
+
+    fun usageAccessIntent() = apps.usageAccessSettingsIntent()
 
     private suspend fun topGrowers(limit: Int = 12): List<AppGrowth> {
         val first = db.dao().earliestApps().associateBy { it.packageName }
