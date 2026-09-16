@@ -53,7 +53,16 @@ class ApiConfig(context: Context) {
     }
 }
 
-data class AuditEntry(val time: Long, val tool: String, val transport: String, val summary: String, val allowed: Boolean, val error: String? = null)
+data class AuditEntry(
+    val time: Long,
+    val tool: String,
+    val transport: String,
+    val summary: String,
+    val allowed: Boolean,
+    val error: String? = null,
+    /** The full arguments the caller sent, as JSON, for the detail view. */
+    val args: String = "",
+)
 
 /** In-memory record of every API call, shown in the API screen. */
 class AuditLog {

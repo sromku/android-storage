@@ -47,15 +47,16 @@ class McpServer(private val operations: ApiOperations, private val onCall: (Audi
                 val params = message["params"]?.jsonObject ?: return error(id, -32602, "Missing params")
                 val name = params["name"]?.jsonPrimitive?.content ?: return error(id, -32602, "Missing tool name")
                 val arguments = params["arguments"]?.jsonObject ?: JsonObject(emptyMap())
+                val argsJson = runCatching { arguments.toString() }.getOrDefault("{}")
                 try {
                     val result = operations.call(name, arguments)
-                    onCall(AuditEntry(System.currentTimeMillis(), name, "mcp", summarize(arguments), allowed = true))
+                    onCall(AuditEntry(System.currentTimeMillis(), name, "mcp", summarize(arguments), allowed = true, args = argsJson))
                     reply(id, buildJsonObject {
                         put("content", buildJsonArray { add(buildJsonObject { put("type", "text"); put("text", result.toString()) }) })
                         put("isError", false)
                     })
                 } catch (e: ApiException) {
-                    onCall(AuditEntry(System.currentTimeMillis(), name, "mcp", summarize(arguments), allowed = false, error = e.message))
+                    onCall(AuditEntry(System.currentTimeMillis(), name, "mcp", summarize(arguments), allowed = false, error = e.message, args = argsJson))
                     // MCP convention: tool errors are results with isError, not protocol errors.
                     reply(id, buildJsonObject {
                         put("content", buildJsonArray { add(buildJsonObject { put("type", "text"); put("text", e.message ?: "error") }) })

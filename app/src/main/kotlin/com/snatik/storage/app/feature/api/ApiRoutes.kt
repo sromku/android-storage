@@ -61,12 +61,13 @@ class ApiService(private val operations: ApiOperations, private val config: ApiC
     }
 
     private suspend fun runOp(call: ApplicationCall, name: String, args: JsonObject, transport: String) {
+        val argsJson = runCatching { json.encodeToString(args) }.getOrDefault("{}")
         try {
             val result = operations.call(name, args)
-            audit.record(AuditEntry(System.currentTimeMillis(), name, transport, args.keys.joinToString(","), allowed = true))
+            audit.record(AuditEntry(System.currentTimeMillis(), name, transport, args.keys.joinToString(","), allowed = true, args = argsJson))
             call.respondText(json.encodeToString(result), ContentType.Application.Json)
         } catch (e: ApiException) {
-            audit.record(AuditEntry(System.currentTimeMillis(), name, transport, args.keys.joinToString(","), allowed = false, error = e.message))
+            audit.record(AuditEntry(System.currentTimeMillis(), name, transport, args.keys.joinToString(","), allowed = false, error = e.message, args = argsJson))
             call.respondText(json.encodeToString(buildJsonObject { put("error", e.message ?: "error") }), ContentType.Application.Json, e.status)
         }
     }

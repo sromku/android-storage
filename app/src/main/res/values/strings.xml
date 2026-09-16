@@ -988,6 +988,21 @@
     <string name="api_audit_none">No calls yet</string>
     <string name="api_audit_clear">Clear</string>
     <string name="api_tools_count">%1$d tools</string>
+    <string name="api_view_tools">View</string>
+    <string name="api_tools_title">%1$d tools</string>
+    <string name="api_tools_search">Search tools</string>
+    <string name="api_badge_shell">shell</string>
+    <string name="api_badge_changes">changes</string>
+    <string name="api_show_all">Show all %1$d</string>
+    <string name="api_show_less">Show less</string>
+    <string name="api_args_keys">args: %1$s</string>
+    <string name="api_detail_status">Status</string>
+    <string name="api_detail_allowed">Allowed</string>
+    <string name="api_detail_denied">Denied</string>
+    <string name="api_detail_time">Time</string>
+    <string name="api_detail_endpoint">Endpoint</string>
+    <string name="api_detail_error">Error</string>
+    <string name="api_detail_args">Arguments</string>
 
     <!-- Transfer -->
     <string name="receive_title">Receive files</string>
