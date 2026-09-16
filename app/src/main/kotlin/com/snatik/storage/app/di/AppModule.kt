@@ -36,7 +36,6 @@ import com.snatik.storage.core.apps.AppEventLog
 import com.snatik.storage.app.feature.history.AppHistoryViewModel
 import com.snatik.storage.core.apps.TelemetryRepository
 import com.snatik.storage.app.feature.timemachine.TimeMachineViewModel
-import com.snatik.storage.app.feature.dashboard.DashboardViewModel
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixViewModel
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineViewModel
 import com.snatik.storage.core.apps.AppRepository
@@ -208,7 +207,6 @@ val appModule = module {
     viewModel { (route: Route.SendTo) -> SendToViewModel(route, get()) }
     viewModelOf(::ApiViewModel)
     viewModelOf(::NetworkViewModel)
-    viewModelOf(::DashboardViewModel)
     viewModelOf(::PermissionMatrixViewModel)
     viewModel { AppOpsTimelineViewModel(androidContext(), get(), get(), get(), get()) }
     viewModel { NotificationMonitorViewModel(androidContext(), get(), get()) }

@@ -270,6 +270,7 @@ class ApiOperations(
                 put("swaps", buildJsonArray { r.swaps.forEach { sw -> add(buildJsonObject { put("name", sw.name); put("sizeKb", sw.sizeKb); put("usedKb", sw.usedKb) }) } })
                 r.zram?.let { z -> put("zram", buildJsonObject { put("disksizeBytes", z.disksizeBytes); put("originalBytes", z.originalBytes); put("compressedBytes", z.compressedBytes) }) }
                 r.appMem?.let { a -> put("appMemory", buildJsonObject { put("totalPssKb", a.totalPssKb); put("javaHeapKb", a.javaHeapKb); put("nativeHeapKb", a.nativeHeapKb) }) }
+                r.battery?.let { b -> put("battery", buildJsonObject { put("percent", b.percent); put("status", b.status); put("health", b.health); put("tempC", b.tempC.toDouble()); put("technology", b.technology); put("voltageMv", b.voltageMv); put("cycleCount", b.cycleCount) }) }
             }
         },
         Op("telemetry_forecast", "Storage growth trend and a forecast of when free space runs out", false, false, schemaOf()) { _ ->

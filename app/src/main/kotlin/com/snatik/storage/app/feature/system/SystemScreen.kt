@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.ui.theme.MonoStyle
 import com.snatik.storage.core.apps.AppMem
+import com.snatik.storage.core.apps.BatteryInfo
 import com.snatik.storage.core.apps.CpuInfo
 import com.snatik.storage.core.apps.CpuMemSample
 import com.snatik.storage.core.apps.DeviceInfo
@@ -68,6 +69,7 @@ import com.snatik.storage.core.apps.MemInfo
 import com.snatik.storage.core.apps.Prop
 import com.snatik.storage.core.apps.SystemInspector
 import com.snatik.storage.core.apps.SystemReport
+import com.snatik.storage.core.apps.Wakelock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -119,6 +121,10 @@ class SystemViewModel(private val inspector: SystemInspector) : ViewModel() {
     fun refresh() { viewModelScope.launch { _loading.value = true; _report.value = inspector.report(); _loading.value = false } }
     fun setLive(v: Boolean) { _live.value = v }
     fun loadProps() { if (_props.value == null) viewModelScope.launch { _props.value = inspector.properties() } }
+
+    private val _wakelocks = MutableStateFlow<List<Wakelock>?>(null)
+    val wakelocks: StateFlow<List<Wakelock>?> = _wakelocks.asStateFlow()
+    fun loadWakelocks() { if (_wakelocks.value == null) viewModelScope.launch { _wakelocks.value = inspector.wakelocks() } }
 
     private companion object { const val HISTORY = 60 }
 }
@@ -236,6 +242,8 @@ private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel, onOpenProce
     val sample by viewModel.sample.collectAsStateWithLifecycle()
     val cpuHistory by viewModel.cpuHistory.collectAsStateWithLifecycle()
     val memHistory by viewModel.memHistory.collectAsStateWithLifecycle()
+    val wakelocks by viewModel.wakelocks.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.loadWakelocks() }
     val cpuPct = sample?.cpuPercent ?: r.cpu.usagePercent
     val memPct = sample?.memUsedPercent ?: (r.mem.totalKb - r.mem.availableKb).let { if (r.mem.totalKb > 0) it.toDouble() / r.mem.totalKb * 100 else 0.0 }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -267,6 +275,60 @@ private fun OverviewTab(r: SystemReport, viewModel: SystemViewModel, onOpenProce
                 KeyVal(stringResource(R.string.sys_uptime), uptimeLong(d.uptimeSec))
             }
         }
+        r.battery?.let { b -> item { PowerCard(b) } }
+        item { WakelocksCard(wakelocks) }
+    }
+}
+
+@Composable
+private fun PowerCard(b: BatteryInfo) {
+    SectionCard(stringResource(R.string.sys_power)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            StatTile("${b.percent}%", stringResource(R.string.sys_battery), Modifier.weight(1f), batteryColor(b.percent))
+            if (b.tempC > 0) StatTile("${(b.tempC * 10).toInt() / 10.0}°C", stringResource(R.string.sys_temp), Modifier.weight(1f))
+        }
+        if (b.status.isNotBlank()) KeyVal(stringResource(R.string.sys_status), b.status.replaceFirstChar { it.uppercase() })
+        if (b.health.isNotBlank()) KeyVal(stringResource(R.string.sys_health), b.health)
+        if (b.technology.isNotBlank()) KeyVal(stringResource(R.string.sys_technology), b.technology)
+        if (b.voltageMv > 0) KeyVal(stringResource(R.string.sys_voltage), "${b.voltageMv} mV")
+        if (b.cycleCount > 0) KeyVal(stringResource(R.string.sys_cycles), b.cycleCount.toString())
+    }
+}
+
+@Composable
+private fun batteryColor(pct: Int): Color = when {
+    pct <= 15 -> MaterialTheme.colorScheme.error
+    pct <= 30 -> MaterialTheme.colorScheme.tertiary
+    else -> MaterialTheme.colorScheme.primary
+}
+
+@Composable
+private fun WakelocksCard(wakelocks: List<Wakelock>?) {
+    SectionCard(stringResource(R.string.sys_wakelocks)) {
+        when {
+            wakelocks == null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text(stringResource(R.string.sys_wakelocks_loading), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            wakelocks.isEmpty() -> Text(stringResource(R.string.sys_wakelocks_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> wakelocks.take(12).forEach { w ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(w.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (w.count > 0) MiniBadge("${w.count}×", MaterialTheme.colorScheme.secondary)
+                    Text(heldFmt(w.heldMs), style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+private fun heldFmt(ms: Long): String {
+    if (ms <= 0) return "—"
+    val s = ms / 1000
+    return when {
+        s >= 3600 -> "${s / 3600}h ${(s % 3600) / 60}m"
+        s >= 60 -> "${s / 60}m ${s % 60}s"
+        else -> "${s}s"
     }
 }
 

@@ -129,10 +129,6 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class NetworkGraph(val packageName: String) : Route
-
-    @Serializable
-    data object Dashboard : Route
-
     @Serializable
     data object PermissionMatrix : Route
 

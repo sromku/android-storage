@@ -86,11 +86,23 @@ data class Prop(val key: String, val value: String)
 /** A cheap live sample: CPU busy % (since the last sample) and RAM used. */
 data class CpuMemSample(val cpuPercent: Double?, val memUsedPercent: Double, val memUsedKb: Long, val memTotalKb: Long)
 
+/** Battery health from /sys/class/power_supply/battery. */
+data class BatteryInfo(
+    val percent: Int,
+    val status: String,
+    val health: String,
+    val tempC: Float,
+    val technology: String,
+    val voltageMv: Int,
+    val cycleCount: Int,
+)
+
 data class SystemReport(
     val device: DeviceInfo,
     val cpu: CpuInfo,
     val mem: MemInfo,
     val appMem: AppMem?,
+    val battery: BatteryInfo?,
     val zram: ZramInfo?,
     val swaps: List<SwapArea>,
     val blocks: List<BlockDevice>,
@@ -124,6 +136,7 @@ class SystemInspector(private val privilege: PrivilegeManager) {
                 cpu = readCpu(),
                 mem = MemInfo(parseMeminfo(read("/proc/meminfo"))),
                 appMem = readAppMem(),
+                battery = readBattery(),
                 zram = readZram(),
                 swaps = parseSwaps(read("/proc/swaps")),
                 blocks = readBlocks(),
@@ -177,6 +190,7 @@ class SystemInspector(private val privilege: PrivilegeManager) {
         val blocks = listNames("/sys/block").filter { it.isNotBlank() && !it.startsWith("loop") && !it.startsWith("ram") && !it.startsWith("dm-") }
         return buildList {
             addAll(listOf("/proc/version", "/proc/uptime", "/proc/loadavg", "/proc/cpuinfo", "/proc/meminfo", "/proc/stat", "/proc/swaps", "/proc/diskstats", "/proc/mounts", "/proc/partitions", "/sys/fs/selinux/enforce", "/sys/block/zram0/disksize", "/sys/block/zram0/mm_stat"))
+            listOf("capacity", "status", "health", "temp", "technology", "voltage_now", "cycle_count").forEach { add("/sys/class/power_supply/battery/$it") }
             cpuDirs.forEach { c ->
                 listOf("scaling_cur_freq", "scaling_min_freq", "scaling_max_freq", "scaling_governor").forEach { add("/sys/devices/system/cpu/$c/cpufreq/$it") }
                 add("/sys/devices/system/cpu/$c/online")
@@ -335,6 +349,27 @@ class SystemInspector(private val privilege: PrivilegeManager) {
     }
 
     private suspend fun readDiskstats(): List<DiskStat> = parseDiskstats(read("/proc/diskstats"))
+
+    private suspend fun readBattery(): BatteryInfo? {
+        val pct = read("/sys/class/power_supply/battery/capacity").trim().toIntOrNull() ?: return null
+        val rawTemp = read("/sys/class/power_supply/battery/temp").trim().toIntOrNull()
+        return BatteryInfo(
+            percent = pct,
+            status = read("/sys/class/power_supply/battery/status").trim().ifBlank { "Unknown" },
+            health = read("/sys/class/power_supply/battery/health").trim().ifBlank { "Unknown" },
+            tempC = rawTemp?.let { it / 10f } ?: 0f,
+            technology = read("/sys/class/power_supply/battery/technology").trim(),
+            voltageMv = read("/sys/class/power_supply/battery/voltage_now").trim().toLongOrNull()?.let { (it / 1000).toInt() } ?: 0,
+            cycleCount = read("/sys/class/power_supply/battery/cycle_count").trim().toIntOrNull() ?: 0,
+        )
+    }
+
+    /** Top wake locks from `dumpsys batterystats` — heavy, so loaded on demand rather than per report. */
+    suspend fun wakelocks(): List<Wakelock> = withContext(Dispatchers.IO) {
+        val exec = privilege.executor.value ?: return@withContext emptyList()
+        val text = runCatching { exec.run("dumpsys batterystats", timeoutMs = 30_000).out }.getOrDefault("")
+        runCatching { DeviceStatsRepository.parseWakelocks(text) }.getOrDefault(emptyList())
+    }
 
     private fun Mount.withUsage(): Mount = runCatching {
         val f = File(mountPoint)

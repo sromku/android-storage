@@ -16,7 +16,6 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -67,7 +66,6 @@ fun ToolsScreen(
     onOpenReceive: () -> Unit,
     onOpenApi: () -> Unit,
     onOpenNetwork: () -> Unit,
-    onOpenDashboard: () -> Unit,
     onOpenMatrix: () -> Unit,
     onOpenTimeline: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -95,7 +93,6 @@ fun ToolsScreen(
         Tool(stringResource(R.string.receive_title), stringResource(R.string.tools_transfer_sub), Icons.Default.Wifi, onOpenReceive),
         Tool(stringResource(R.string.api_title), stringResource(R.string.tools_api_sub), Icons.Default.Api, onOpenApi),
         Tool(stringResource(R.string.net_title), stringResource(R.string.tools_net_sub), Icons.Default.Lan, onOpenNetwork),
-        Tool(stringResource(R.string.dashboard_title), stringResource(R.string.tools_dash_sub), Icons.Default.Dashboard, onOpenDashboard),
         Tool(stringResource(R.string.matrix_title), stringResource(R.string.tools_matrix_sub), Icons.Default.GridOn, onOpenMatrix),
         Tool(stringResource(R.string.timeline_title), stringResource(R.string.tools_timeline_sub), Icons.Default.History, onOpenTimeline, recording = appOpsRec),
         Tool(stringResource(R.string.notif_title), stringResource(R.string.tools_notif_sub), Icons.Default.NotificationsActive, onOpenNotifications, recording = notifRec),

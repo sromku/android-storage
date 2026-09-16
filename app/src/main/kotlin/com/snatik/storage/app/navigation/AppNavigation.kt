@@ -27,7 +27,6 @@ import com.snatik.storage.app.feature.tools.ToolsScreen
 import com.snatik.storage.app.feature.network.NetworkAppScreen
 import com.snatik.storage.app.feature.network.NetworkGraphScreen
 import com.snatik.storage.app.feature.network.NetworkScreen
-import com.snatik.storage.app.feature.dashboard.DashboardScreen
 import com.snatik.storage.app.feature.dashboard.PermissionMatrixScreen
 import com.snatik.storage.app.feature.dashboard.AppOpsTimelineScreen
 import com.snatik.storage.app.feature.monitor.NotificationMonitorScreen
@@ -277,7 +276,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     onOpenReceive = { push(Route.Receive) },
                     onOpenApi = { push(Route.Api) },
                     onOpenNetwork = { push(Route.Network()) },
-                    onOpenDashboard = { push(Route.Dashboard) },
                     onOpenMatrix = { push(Route.PermissionMatrix) },
                     onOpenTimeline = { push(Route.AppOpsTimeline) },
                     onOpenNotifications = { push(Route.Notifications) },
@@ -293,7 +291,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.Network> { route -> NetworkScreen(onBack = ::pop, onOpenApp = { push(Route.NetworkApp(it)) }, onOpenSettings = { push(Route.Settings) }, initialQuery = route.query) }
             entry<Route.NetworkApp> { route -> NetworkAppScreen(packageName = route.packageName, onBack = ::pop, onOpenGraph = { push(Route.NetworkGraph(route.packageName)) }, onOpenSettings = { push(Route.Settings) }) }
             entry<Route.NetworkGraph> { route -> NetworkGraphScreen(packageName = route.packageName, onBack = ::pop) }
-            entry<Route.Dashboard> { DashboardScreen(onBack = ::pop) }
             entry<Route.PermissionMatrix> { PermissionMatrixScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.AppOpsTimeline> { AppOpsTimelineScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.Notifications> { NotificationMonitorScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
@@ -313,7 +310,6 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
                     Command("Storage", "Volumes and file browser", "files volumes browse", Icons.Default.Dashboard) { pop(); switchTab(TopLevel.STORAGE) },
                     Command("Apps", "Installed apps", "apps packages", Icons.Default.GridOn) { pop(); switchTab(TopLevel.APPS) },
                     Command("Data", "Content providers", "providers sqlite data", Icons.Default.Dashboard) { pop(); switchTab(TopLevel.DATA) },
-                    Command("Dashboard", "Device health", "battery memory selinux uptime", Icons.Default.Dashboard) { open(Route.Dashboard) },
                     Command("Permission matrix", "Apps vs dangerous permissions", "permissions grant", Icons.Default.GridOn) { open(Route.PermissionMatrix) },
                     Command("App-ops timeline", "Recent sensitive access", "location camera mic appops", Icons.Default.History) { open(Route.AppOpsTimeline) },
                     Command("Network", "Per-app connections", "network sockets connections", Icons.Default.Lan) { open(Route.Network()) },
