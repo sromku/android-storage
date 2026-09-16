@@ -18,6 +18,7 @@ import com.snatik.storage.core.intents.IntentSpec
 import com.snatik.storage.core.intents.SendAs
 import com.snatik.storage.core.shell.PrivilegeManager
 import com.snatik.storage.core.shell.run
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.last
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -61,8 +62,12 @@ class ApiOperations(
     private val providerStore: com.snatik.storage.core.apps.ProviderRecorderStore,
     private val processes: com.snatik.storage.core.apps.ProcessInspector,
     private val appEvents: com.snatik.storage.core.apps.AppEventLog,
+    private val appActions: com.snatik.storage.core.apps.AppActions,
+    private val broadcastStore: com.snatik.storage.core.intents.BroadcastStore,
+    private val intentStore: com.snatik.storage.core.intents.IntentMonitorStore,
 ) {
     private val clipboardStore by lazy { com.snatik.storage.core.apps.ClipboardStore(appContext) }
+    private fun ok(message: String): JsonElement = buildJsonObject { put("ok", true); put("message", message) }
     class Op(val name: String, val description: String, val privileged: Boolean, val destructive: Boolean, val schema: JsonObject, val run: suspend (JsonObject) -> JsonElement)
 
     private fun JsonObject.str(key: String): String = this[key]?.jsonPrimitive?.content ?: throw ApiException.badRequest("Missing '$key'")
@@ -351,6 +356,72 @@ class ApiOperations(
                 put("appCount", s.appCount); put("appTotalBytes", s.appTotalBytes)
                 s.freeDeltaBytes?.let { put("freeDeltaBytes", it) }
             }) } }
+        },
+        /* ---------- file actions ---------- */
+        Op("delete_file", "Delete a file or folder", false, true, schemaOf("path" to "string")) { p ->
+            fs.delete(listOf(p.str("path"))).last(); ok("deleted ${p.str("path")}")
+        },
+        Op("copy_file", "Copy a file/folder into a destination directory", false, true, schemaOf("source" to "string", "destinationDir" to "string")) { p ->
+            fs.copy(listOf(p.str("source")), p.str("destinationDir")).last(); ok("copied ${p.str("source")} into ${p.str("destinationDir")}")
+        },
+        Op("move_file", "Move a file/folder into a destination directory", false, true, schemaOf("source" to "string", "destinationDir" to "string")) { p ->
+            fs.move(listOf(p.str("source")), p.str("destinationDir")).last(); ok("moved ${p.str("source")} into ${p.str("destinationDir")}")
+        },
+        Op("rename_file", "Rename a file/folder", false, true, schemaOf("path" to "string", "newName" to "string")) { p ->
+            val e = fs.rename(p.str("path"), p.str("newName")); buildJsonObject { put("path", e.path) }
+        },
+        Op("make_dir", "Create a directory", false, true, schemaOf("path" to "string")) { p ->
+            val e = fs.createDirectory(p.str("path")); ok("created ${e.path}")
+        },
+        /* ---------- app actions (shell + changes) ---------- */
+        Op("force_stop", "Force-stop an app", true, true, schemaOf("package" to "string")) { p -> appActions.forceStop(p.str("package")); ok("force-stopped ${p.str("package")}") },
+        Op("clear_cache", "Clear an app's cache", true, true, schemaOf("package" to "string")) { p -> appActions.clearCache(p.str("package")); ok("cleared cache of ${p.str("package")}") },
+        Op("clear_data", "Clear an app's data (irreversible)", true, true, schemaOf("package" to "string")) { p -> appActions.clearData(p.str("package")); ok("cleared data of ${p.str("package")}") },
+        Op("uninstall", "Uninstall an app", true, true, schemaOf("package" to "string")) { p -> appActions.uninstall(p.str("package")); ok("uninstalled ${p.str("package")}") },
+        Op("set_app_enabled", "Enable or disable an app", true, true, schemaOf("package" to "string", "enabled" to "boolean")) { p ->
+            val en = p.boolOr("enabled", true); appActions.setEnabled(p.str("package"), en); ok("${p.str("package")} enabled=$en")
+        },
+        Op("dexopt", "Recompile an app (mode: speed-profile | speed | everything | verify | reset)", true, true, schemaOf("package" to "string", "mode" to "string")) { p ->
+            val mode = when (p.strOrNull("mode")?.lowercase()?.replace('-', '_')) {
+                "speed" -> com.snatik.storage.core.apps.CompileMode.SPEED
+                "everything" -> com.snatik.storage.core.apps.CompileMode.EVERYTHING
+                "verify" -> com.snatik.storage.core.apps.CompileMode.VERIFY
+                "reset" -> com.snatik.storage.core.apps.CompileMode.RESET
+                else -> com.snatik.storage.core.apps.CompileMode.SPEED_PROFILE
+            }
+            buildJsonObject { put("result", appActions.compile(p.str("package"), mode)) }
+        },
+        /* ---------- permissions ---------- */
+        Op("set_permission", "Grant or revoke a runtime permission", true, true, schemaOf("package" to "string", "permission" to "string", "grant" to "boolean")) { p ->
+            val grant = p.boolOr("grant", true); appActions.grantPermission(p.str("package"), p.str("permission"), grant)
+            ok("${if (grant) "granted" else "revoked"} ${p.str("permission")} for ${p.str("package")}")
+        },
+        /* ---------- clipboard ---------- */
+        Op("set_clipboard", "Put text on the clipboard", false, true, schemaOf("text" to "string")) { p ->
+            appContext.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("agent", p.str("text"))); ok("clipboard set")
+        },
+        Op("clear_clipboard", "Clear the clipboard", false, true, schemaOf()) { _ ->
+            appContext.getSystemService(android.content.ClipboardManager::class.java).clearPrimaryClip(); ok("clipboard cleared")
+        },
+        /* ---------- monitor control ---------- */
+        Op("set_monitor", "Start or stop a background recorder (appops, providers, broadcasts, intents, telemetry)", false, true, schemaOf("monitor" to "string", "on" to "boolean")) { p ->
+            val on = p.boolOr("on", true); val m = p.str("monitor").lowercase()
+            when (m) {
+                "appops" -> if (on) com.snatik.storage.app.feature.dashboard.AppOpsRecorderService.start(appContext) else com.snatik.storage.app.feature.dashboard.AppOpsRecorderService.stop(appContext)
+                "providers" -> if (on) com.snatik.storage.app.feature.monitor.ProviderRecorderService.start(appContext) else com.snatik.storage.app.feature.monitor.ProviderRecorderService.stop(appContext)
+                "broadcasts" -> if (on) com.snatik.storage.app.feature.intents.BroadcastMonitorService.start(appContext) else com.snatik.storage.app.feature.intents.BroadcastMonitorService.stop(appContext)
+                "intents" -> if (on) com.snatik.storage.app.feature.intents.IntentMonitorService.start(appContext) else com.snatik.storage.app.feature.intents.IntentMonitorService.stop(appContext)
+                "telemetry" -> if (on) com.snatik.storage.app.feature.timemachine.TelemetryRecorderService.start(appContext) else com.snatik.storage.app.feature.timemachine.TelemetryRecorderService.stop(appContext)
+                else -> throw ApiException.badRequest("Unknown monitor '$m' (use: appops, providers, broadcasts, intents, telemetry)")
+            }
+            ok("$m ${if (on) "started" else "stopped"}")
+        },
+        /* ---------- monitor read feeds ---------- */
+        Op("broadcast_log", "Broadcasts the monitor recorded (needs the Broadcast monitor recording)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { broadcastStore.recent.first().take(p.intOr("limit", 100)).forEach { b -> add(buildJsonObject { put("time", b.time); put("action", b.spec.action ?: ""); put("data", b.spec.data ?: "") }) } }
+        },
+        Op("intent_log", "Intents the monitor recorded (needs the Intent monitor recording)", false, false, schemaOf("limit" to "integer")) { p ->
+            buildJsonArray { intentStore.recent.first().take(p.intOr("limit", 100)).forEach { i -> add(buildJsonObject { put("time", i.time); put("action", i.action ?: ""); put("data", i.data ?: ""); put("package", i.packageName ?: "") }) } }
         },
     ).associateBy { it.name }
 
