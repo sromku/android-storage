@@ -87,6 +87,7 @@ fun ToolsScreen(
     val broadcastRec by koinInject<com.snatik.storage.core.intents.BroadcastStore>().running.collectAsStateWithLifecycle()
     val notifRec by koinInject<com.snatik.storage.core.apps.NotificationRecorderStore>().running.collectAsStateWithLifecycle()
     val providerRec by koinInject<com.snatik.storage.core.apps.ProviderRecorderStore>().running.collectAsStateWithLifecycle()
+    val tmRec by koinInject<com.snatik.storage.core.apps.TelemetryRepository>().running.collectAsStateWithLifecycle()
 
     val tools = listOf(
         Tool(stringResource(R.string.intents_title), stringResource(R.string.tools_intents_sub), Icons.AutoMirrored.Filled.Send, recording = intentRec || broadcastRec, onClick = onOpenIntents),
@@ -102,7 +103,7 @@ fun ToolsScreen(
         Tool(stringResource(R.string.clip_title), stringResource(R.string.tools_clip_sub), Icons.Default.ContentPaste, onOpenClipboard),
         Tool(stringResource(R.string.insights_title), stringResource(R.string.tools_insights_sub), Icons.Default.Insights, onOpenInsights),
         Tool(stringResource(R.string.system_title), stringResource(R.string.tools_system_sub), Icons.Default.Memory, onOpenSystem),
-        Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine),
+        Tool(stringResource(R.string.tm_title), stringResource(R.string.tools_tm_sub), Icons.Default.Timeline, onOpenTimeMachine, recording = tmRec),
         Tool(stringResource(R.string.app_history_title), stringResource(R.string.tools_history_sub), Icons.Default.History, onOpenHistory),
     )
     Scaffold(

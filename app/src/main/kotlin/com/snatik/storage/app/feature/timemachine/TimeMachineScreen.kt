@@ -89,7 +89,7 @@ class TimeMachineViewModel(private val repo: TelemetryRepository) : ViewModel() 
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
     private val _selected = MutableStateFlow<AppHistory?>(null)
     val selected: StateFlow<AppHistory?> = _selected.asStateFlow()
-    var scheduled by mutableStateOf(repo.enabled); private set
+    val running: StateFlow<Boolean> = repo.running
 
     init {
         viewModelScope.launch {
@@ -117,8 +117,6 @@ class TimeMachineViewModel(private val repo: TelemetryRepository) : ViewModel() 
         }
     }
 
-    fun toggleScheduled(on: Boolean) { repo.setEnabled(on); scheduled = on }
-
     fun selectApp(g: AppGrowth) { viewModelScope.launch { _selected.value = repo.appHistory(g.packageName) } }
     fun clearApp() { _selected.value = null }
 
@@ -131,7 +129,10 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
     val report by viewModel.report.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val running by viewModel.running.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // The service captures in the background; pull the fresh series in when it starts/stops.
+    androidx.compose.runtime.LaunchedEffect(running) { viewModel.refresh() }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -141,7 +142,11 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { CaptureCard(report, busy, viewModel::captureNow, viewModel.scheduled, viewModel::toggleScheduled) }
+            item {
+                CaptureCard(report, busy, viewModel::captureNow, running) { on ->
+                    if (on) TelemetryRecorderService.start(context) else TelemetryRecorderService.stop(context)
+                }
+            }
             val r = report
             if (r != null && !r.hasUsageAccess) item {
                 UsageAccessCard { runCatching { context.startActivity(viewModel.usageAccessIntent()) } }
@@ -154,6 +159,7 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
                 else -> {
                     r.forecast?.let { item { ForecastHero(r) } }
                     item { ForecastChartCard(r) }
+                    if (r.appCountLast > 0) item { InventoryCard(r) }
                     item { RamCard(r.device) }
                     if (r.topGrowers.isNotEmpty()) item {
                         Card(modifier = Modifier.fillMaxWidth()) {
@@ -180,15 +186,18 @@ fun TimeMachineScreen(onBack: () -> Unit, viewModel: TimeMachineViewModel = koin
 /* ---------- capture / schedule ---------- */
 
 @Composable
-private fun CaptureCard(r: TimeMachineReport?, busy: Boolean, onCapture: () -> Unit, scheduled: Boolean, onToggle: (Boolean) -> Unit) {
+private fun CaptureCard(r: TimeMachineReport?, busy: Boolean, onCapture: () -> Unit, running: Boolean, onToggle: (Boolean) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.tm_schedule), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.tm_schedule), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        if (running) Tag(stringResource(R.string.tools_recording), MaterialTheme.colorScheme.error)
+                    }
                     Text(stringResource(R.string.tm_schedule_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Switch(checked = scheduled, onCheckedChange = onToggle)
+                Switch(checked = running, onCheckedChange = onToggle)
             }
             if (r != null && r.snapshots > 0) {
                 val last = DateUtils.getRelativeTimeSpanString(r.lastTs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
@@ -320,6 +329,37 @@ private fun ForecastChartCard(r: TimeMachineReport) {
 }
 
 private fun f_bytesPerDay(r: TimeMachineReport): Double = r.forecast?.bytesPerDay ?: 0.0
+
+/* ---------- inventory (app count + total app storage over time) ---------- */
+
+@Composable
+private fun InventoryCard(r: TimeMachineReport) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.tm_inventory), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            InventoryRow(stringResource(R.string.tm_inv_apps), r.appCountLast.toString(), if (r.appCountDelta != 0) signed(r.appCountDelta.toLong(), false) else null)
+            InventoryRow(stringResource(R.string.tm_inv_app_storage), human(r.appTotalLast), if (r.appTotalDelta != 0L) signed(r.appTotalDelta, true) else null)
+        }
+    }
+}
+
+@Composable
+private fun InventoryRow(label: String, value: String, delta: String?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        delta?.let {
+            val up = it.startsWith("+")
+            Text(it, style = MaterialTheme.typography.labelMedium, color = if (up) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(value, style = MonoStyle, fontWeight = FontWeight.Medium)
+    }
+}
+
+private fun signed(v: Long, bytes: Boolean): String {
+    val sign = if (v >= 0) "+" else "-"
+    return sign + if (bytes) human(abs(v)) else abs(v).toString()
+}
 
 /* ---------- RAM ---------- */
 

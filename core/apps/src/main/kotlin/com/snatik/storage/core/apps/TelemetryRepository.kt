@@ -4,13 +4,11 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Environment
 import android.os.StatFs
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import java.util.concurrent.TimeUnit
 
 /** Change in one app's footprint between the first and most recent snapshot. */
 data class AppGrowth(
@@ -34,7 +32,13 @@ data class TimeMachineReport(
     val cacheBytesPerDay: Double,
     val spanMs: Long,
     val hasUsageAccess: Boolean,
+    val appCountFirst: Int,
+    val appCountLast: Int,
+    val appTotalFirst: Long,
+    val appTotalLast: Long,
 ) {
+    val appCountDelta: Int get() = appCountLast - appCountFirst
+    val appTotalDelta: Long get() = appTotalLast - appTotalFirst
     val lastTs: Long get() = device.lastOrNull()?.ts ?: 0L
     val firstTs: Long get() = device.firstOrNull()?.ts ?: 0L
     /** Absolute time free space is projected to hit zero, or null if not shrinking. */
@@ -57,7 +61,17 @@ class TelemetryRepository(
 ) {
     private val prefs = context.getSharedPreferences("telemetry", Context.MODE_PRIVATE)
 
+    /** Persisted intent to monitor: survives process death so the boot receiver can restart. */
     val enabled: Boolean get() = prefs.getBoolean("enabled", false)
+
+    /** Live: whether the recorder foreground service is running right now (drives the Tools badge). */
+    private val _running = MutableStateFlow(false)
+    val running: StateFlow<Boolean> = _running.asStateFlow()
+    fun setRunning(on: Boolean) { _running.value = on }
+
+    /** Seconds between background captures. */
+    val intervalSec: Int get() = prefs.getInt("interval", DEFAULT_INTERVAL_SEC)
+    fun setInterval(sec: Int) { prefs.edit().putInt("interval", sec).apply() }
 
     suspend fun capture() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
@@ -88,7 +102,14 @@ class TelemetryRepository(
         val growers = topGrowers()
         val span = if (device.size >= 2) device.last().ts - device.first().ts else 0L
         val cacheVel = cacheVelocity(span)
-        TimeMachineReport(count, device, forecast, growers, cacheVel, span, apps.hasUsageAccess())
+        val firstApps = db.dao().earliestApps()
+        val lastApps = db.dao().latestApps()
+        fun total(rows: List<AppTelemetry>) = rows.sumOf { it.appBytes + it.dataBytes + it.cacheBytes }
+        TimeMachineReport(
+            count, device, forecast, growers, cacheVel, span, apps.hasUsageAccess(),
+            appCountFirst = firstApps.size, appCountLast = lastApps.size,
+            appTotalFirst = total(firstApps), appTotalLast = total(lastApps),
+        )
     }
 
     /** One app's stored footprint series (oldest first), with its current label. */
@@ -121,21 +142,11 @@ class TelemetryRepository(
         return if (days > 0) (last - first) / days else 0.0
     }
 
-    fun setEnabled(on: Boolean) {
-        prefs.edit().putBoolean("enabled", on).apply()
-        val wm = WorkManager.getInstance(context)
-        if (on) {
-            val request = PeriodicWorkRequestBuilder<TelemetryWorker>(6, TimeUnit.HOURS)
-                .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
-                .build()
-            wm.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
-        } else {
-            wm.cancelUniqueWork(WORK_NAME)
-        }
-    }
+    fun setEnabled(on: Boolean) { prefs.edit().putBoolean("enabled", on).apply() }
 
     companion object {
-        const val WORK_NAME = "telemetry-snapshot"
+        const val DEFAULT_INTERVAL_SEC = 3600 // hourly
+        val INTERVALS = listOf(1800, 3600, 21600) // 30 min, 1 h, 6 h
 
         /** Least-squares fit of freeBytes over time, projecting to zero free space. */
         fun forecast(series: List<DeviceTelemetry>): Forecast? {

@@ -1558,8 +1558,14 @@
     <!-- Round I: Time Machine -->
     <string name="tm_title">Time Machine</string>
     <string name="tools_tm_sub">Track how storage grows and forecast when it fills.</string>
-    <string name="tm_schedule">Scheduled snapshots</string>
-    <string name="tm_schedule_body">Record device and per-app storage every 6 hours in the background.</string>
+    <string name="tm_schedule">Background recording</string>
+    <string name="tm_schedule_body">Keep recording device and per-app storage in the background so history and the forecast stay current — even when the app is closed.</string>
+    <string name="tm_channel">Storage recorder</string>
+    <string name="tm_notif_title">Recording storage history</string>
+    <string name="tm_notif_text">%1$d snapshots recorded</string>
+    <string name="tm_inventory">App inventory</string>
+    <string name="tm_inv_apps">Installed apps</string>
+    <string name="tm_inv_app_storage">App storage total</string>
     <string name="tm_capture_now">Capture snapshot now</string>
     <string name="tm_capturing">Capturing…</string>
     <string name="tm_need_more">Not enough history yet</string>
