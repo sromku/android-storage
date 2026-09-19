@@ -26,6 +26,11 @@ data class MediaItem(
 /** Reads the device's photos and videos from MediaStore, newest first. */
 class MediaRepository(private val context: Context) {
 
+    /** Last-loaded ordered list, so the pager can open by start-id without re-querying. */
+    @Volatile
+    var cached: List<MediaItem> = emptyList()
+        private set
+
     suspend fun all(): List<MediaItem> = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri("external")
         val projection = arrayOf(
@@ -92,6 +97,7 @@ class MediaRepository(private val context: Context) {
                 )
             }
         }
+        cached = out
         out
     }
 }

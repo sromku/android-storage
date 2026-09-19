@@ -13,6 +13,9 @@ sealed interface Route : NavKey {
     data object Photos : Route
 
     @Serializable
+    data class MediaPager(val startId: Long) : Route
+
+    @Serializable
     data object Apps : Route
 
     /** One directory of one volume. Each directory is its own back stack entry. */

@@ -63,7 +63,7 @@ private fun mediaPermissions(): Array<String> =
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaGridScreen(
-    onOpen: (String) -> Unit,
+    onOpenMedia: (Long) -> Unit,
     onSwitchTab: (TopLevel) -> Unit,
     viewModel: MediaGridViewModel = koinViewModel(),
 ) {
@@ -125,7 +125,7 @@ fun MediaGridScreen(
                         )
                     }
                     items(section.items, key = { it.id }) { item ->
-                        MediaCell(item, onClick = { onOpen(item.path) })
+                        MediaCell(item, onClick = { onOpenMedia(item.id) })
                     }
                 }
             }

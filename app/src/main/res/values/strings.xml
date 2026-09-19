@@ -1119,6 +1119,7 @@
     <string name="symlink">link</string>
     <string name="more">More</string>
     <string name="open_with">Open with</string>
+    <string name="play">Play</string>
     <string name="share">Share</string>
     <string name="share_files_only">Only files can be shared</string>
     <string name="no_app_for_file">No app can open this file</string>
