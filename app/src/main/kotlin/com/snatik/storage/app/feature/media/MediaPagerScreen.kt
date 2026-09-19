@@ -20,14 +20,18 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +46,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import android.widget.Toast
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.snatik.storage.app.R
@@ -72,6 +78,8 @@ fun MediaPagerScreen(
     var chromeVisible by remember { mutableStateOf(true) }
     var showInfo by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
+    var shareMenu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val current = items[pagerState.currentPage.coerceIn(0, items.lastIndex)]
 
@@ -118,7 +126,32 @@ fun MediaPagerScreen(
                 },
                 actions = {
                     IconButton(onClick = { showInfo = true }) { Icon(Icons.Default.Info, contentDescription = stringResource(R.string.details), tint = Color.White) }
-                    IconButton(onClick = { Intents.share(context, listOf(current.path)) }) { Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share), tint = Color.White) }
+                    Box {
+                        IconButton(onClick = { if (current.isVideo) Intents.share(context, listOf(current.path)) else shareMenu = true }) {
+                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share), tint = Color.White)
+                        }
+                        DropdownMenu(expanded = shareMenu, onDismissRequest = { shareMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.share_original)) },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                                onClick = { shareMenu = false; Intents.share(context, listOf(current.path)) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.share_stripped)) },
+                                leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
+                                onClick = {
+                                    shareMenu = false
+                                    val target = current
+                                    Toast.makeText(context, R.string.share_stripping, Toast.LENGTH_SHORT).show()
+                                    scope.launch {
+                                        val clean = MediaShare.stripToCache(context, target)
+                                        if (clean != null) Intents.share(context, listOf(clean.absolutePath))
+                                        else Toast.makeText(context, R.string.share_strip_failed, Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            )
+                        }
+                    }
                     IconButton(onClick = { Intents.openWith(context, current.path) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.open_with), tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.5f)),
