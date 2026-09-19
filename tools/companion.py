@@ -505,7 +505,9 @@ class Handler(BaseHTTPRequestHandler):
             proc.wait()
 
     def handle_zip(self, paths, serial=None):
-        """Pull the selected files/folders and stream them back as one zip."""
+        """Stream the selected files/folders back as one zip, reading each file with
+        `exec-out cat` (the same reliable path as single-file download; adb pull is
+        flaky over an unstable connection). Folder selections keep their structure."""
         base = adb_base(serial)
         if not base:
             self._json({"error": "adb / device not available"}, 503)
@@ -514,16 +516,51 @@ class Handler(BaseHTTPRequestHandler):
         if not paths:
             self._json({"error": "no paths given"}, 400)
             return
+
+        # Expand each selection into (device_path, arcname) file entries.
+        entries, errors = [], []
+        for p in paths:
+            try:
+                kind = adb_out("if [ -d " + dq(p) + " ]; then echo d; elif [ -f " + dq(p) +
+                               " ]; then echo f; else echo x; fi", serial=serial, timeout=15).stdout.decode().strip()
+            except Exception as e:
+                errors.append(str(e)); continue
+            if kind == "d":
+                parent = posixpath.dirname(p.rstrip("/")) or "/"
+                try:
+                    out = adb_out("find " + dq(p) + " -type f", serial=serial, timeout=120).stdout.decode("utf-8", "replace")
+                except Exception as e:
+                    errors.append(str(e)); continue
+                for f in out.splitlines():
+                    f = f.strip()
+                    if f:
+                        entries.append((f, posixpath.relpath(f, parent)))
+            elif kind == "f":
+                entries.append((p, posixpath.basename(p)))
+            else:
+                errors.append("not found: " + p)
+
+        if not entries:
+            msg = "nothing to download" + ((" — " + errors[0]) if errors else "")
+            self._json({"error": msg}, 502)
+            return
+
         tmp = tempfile.mkdtemp(prefix="ssfs-")
         zpath = tmp + ".zip"
+        added = 0
         try:
-            for p in paths:
-                subprocess.run(base + ["pull", "-a", p, tmp], capture_output=True, timeout=1800)
-            with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zf:
-                for rootdir, _dirs, files in os.walk(tmp):
-                    for f in files:
-                        fp = os.path.join(rootdir, f)
-                        zf.write(fp, os.path.relpath(fp, tmp))
+            with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+                for i, (devpath, arc) in enumerate(entries):
+                    lp = os.path.join(tmp, "f%d" % i)
+                    with open(lp, "wb") as out:
+                        proc = subprocess.Popen(base + ["exec-out", "cat " + dq(devpath)], stdout=out)
+                        proc.wait()
+                    zf.write(lp, arc)
+                    added += 1
+                    os.remove(lp)
+            if added == 0:
+                self._json({"error": "could not read the selected files"}, 502)
+                return
             size = os.path.getsize(zpath)
             self.send_response(200)
             self._cors()
