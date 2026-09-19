@@ -132,7 +132,7 @@ private fun Row(row: InfoRow, context: Context) {
                 Text(
                     row.value,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = if (row.key.startsWith("0x") || row.key.first().isDigit()) FontFamily.Monospace else FontFamily.Default,
+                    fontFamily = if (row.key.startsWith("0x")) FontFamily.Monospace else FontFamily.Default,
                 )
             }
         }
@@ -174,33 +174,78 @@ private fun buildInfo(context: Context, item: MediaItem): List<InfoGroup> {
         }
         if (imageRows.isNotEmpty()) groups += InfoGroup("Image", imageRows)
 
-        readExifGroups(item)?.let { groups += it }
+        groups += readExifGroups(item)
     }
     return groups
 }
 
-private fun readExifGroups(item: MediaItem): InfoGroup? {
-    val rows = ArrayList<InfoRow>()
+private fun readExifGroups(item: MediaItem): List<InfoGroup> {
+    val out = ArrayList<InfoGroup>()
+    val shot = ArrayList<InfoRow>()
+    val cam = ArrayList<InfoRow>()
+    val sony = ArrayList<InfoRow>()
     runCatching {
         val exif = ExifInterface(item.path)
         fun raw(tag: String) = exif.getAttribute(tag)?.takeIf { it.isNotBlank() }
-        raw(ExifInterface.TAG_DATETIME_ORIGINAL)?.let { rows += InfoRow("Taken", it) }
+
+        // --- Shot: the one-line story of the exposure, plus computed EV ---
+        val expTime = raw(ExifInterface.TAG_EXPOSURE_TIME)
+        val fNum = raw(ExifInterface.TAG_F_NUMBER)
+        val iso = raw(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY) ?: raw(ExifInterface.TAG_ISO_SPEED_RATINGS)
+        val focal = raw(ExifInterface.TAG_FOCAL_LENGTH)
+        val summary = buildList {
+            expTime?.let { add(formatExposure(it)) }
+            fNum?.let { add("f/$it") }
+            iso?.let { add("ISO $it") }
+            focal?.let { add("${formatRational(it)}mm") }
+        }
+        if (summary.isNotEmpty()) shot += InfoRow("Exposure", summary.joinToString("  ·  "))
+        computeEv(fNum, expTime)?.let { shot += InfoRow("EV (setting)", "%.1f".format(it)) }
+        raw(ExifInterface.TAG_EXPOSURE_PROGRAM)?.let { exposureProgram(it)?.let { p -> shot += InfoRow("Mode", p) } }
+        raw(ExifInterface.TAG_EXPOSURE_BIAS_VALUE)?.let { formatEv(it)?.let { e -> shot += InfoRow("Exposure comp.", e) } }
+        raw(ExifInterface.TAG_METERING_MODE)?.let { meteringMode(it)?.let { m -> shot += InfoRow("Metering", m) } }
+
+        // --- Camera / lens details ---
+        raw(ExifInterface.TAG_DATETIME_ORIGINAL)?.let { cam += InfoRow("Taken", it) }
         val make = raw(ExifInterface.TAG_MAKE)
         val model = raw(ExifInterface.TAG_MODEL)
-        if (make != null || model != null) rows += InfoRow("Camera", listOfNotNull(make, model).joinToString(" "))
-        raw(ExifInterface.TAG_LENS_MODEL)?.let { rows += InfoRow("Lens", it) }
-        raw(ExifInterface.TAG_EXPOSURE_TIME)?.let { rows += InfoRow("Exposure", formatExposure(it)) }
-        raw(ExifInterface.TAG_F_NUMBER)?.let { rows += InfoRow("Aperture", "f/$it") }
-        (raw(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY) ?: raw(ExifInterface.TAG_ISO_SPEED_RATINGS))?.let { rows += InfoRow("ISO", it) }
-        raw(ExifInterface.TAG_FOCAL_LENGTH)?.let { rows += InfoRow("Focal length", "${formatRational(it)} mm") }
-        raw(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM)?.let { rows += InfoRow("35mm equiv.", "$it mm") }
-        raw(ExifInterface.TAG_FLASH)?.let { rows += InfoRow("Flash", formatFlash(it)) }
-        raw(ExifInterface.TAG_WHITE_BALANCE)?.let { rows += InfoRow("White balance", if (it == "0") "Auto" else "Manual") }
-        raw(ExifInterface.TAG_SOFTWARE)?.let { rows += InfoRow("Software", it) }
-        exif.latLong?.let { rows += InfoRow("Location", "%.5f, %.5f".format(it[0], it[1]), geo = it[0] to it[1]) }
-        raw(ExifInterface.TAG_GPS_ALTITUDE)?.let { rows += InfoRow("Altitude", "${formatRational(it)} m") }
+        if (make != null || model != null) cam += InfoRow("Camera", listOfNotNull(make, model).joinToString(" "))
+        raw(ExifInterface.TAG_BODY_SERIAL_NUMBER)?.let { cam += InfoRow("Body serial", it) }
+        raw(ExifInterface.TAG_LENS_MODEL)?.let { cam += InfoRow("Lens", it) }
+        (raw(ExifInterface.TAG_LENS_MAKE))?.let { cam += InfoRow("Lens make", it) }
+        raw(ExifInterface.TAG_LENS_SPECIFICATION)?.let { lensSpec(it)?.let { ls -> cam += InfoRow("Lens range", ls) } }
+        raw(ExifInterface.TAG_LENS_SERIAL_NUMBER)?.let { cam += InfoRow("Lens serial", it) }
+        focal?.let { cam += InfoRow("Focal length", "${formatRational(it)} mm") }
+        raw(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM)?.let { cam += InfoRow("35mm equiv.", "$it mm") }
+        raw(ExifInterface.TAG_DIGITAL_ZOOM_RATIO)?.let { z -> formatRational(z).takeIf { it != "0" && it != "1" }?.let { cam += InfoRow("Digital zoom", "${it}x") } }
+        raw(ExifInterface.TAG_EXPOSURE_MODE)?.let { exposureMode(it)?.let { e -> cam += InfoRow("Exposure mode", e) } }
+        raw(ExifInterface.TAG_WHITE_BALANCE)?.let { cam += InfoRow("White balance", if (it == "0") "Auto" else "Manual") }
+        raw(ExifInterface.TAG_LIGHT_SOURCE)?.let { lightSource(it)?.let { l -> cam += InfoRow("Light source", l) } }
+        raw(ExifInterface.TAG_FLASH)?.let { cam += InfoRow("Flash", formatFlash(it)) }
+        raw(ExifInterface.TAG_COLOR_SPACE)?.let { cam += InfoRow("Color space", if (it == "1") "sRGB" else if (it == "65535") "Uncalibrated" else "Adobe RGB") }
+        raw(ExifInterface.TAG_SCENE_CAPTURE_TYPE)?.let { sceneCapture(it)?.let { sc -> cam += InfoRow("Scene", sc) } }
+        raw(ExifInterface.TAG_CONTRAST)?.let { normalSoftHard(it)?.let { c -> cam += InfoRow("Contrast", c) } }
+        raw(ExifInterface.TAG_SATURATION)?.let { normalSoftHard(it)?.let { c -> cam += InfoRow("Saturation", c) } }
+        raw(ExifInterface.TAG_SHARPNESS)?.let { normalSoftHard(it)?.let { c -> cam += InfoRow("Sharpness", c) } }
+        raw(ExifInterface.TAG_ORIENTATION)?.let { orientation(it)?.let { o -> cam += InfoRow("Orientation", o) } }
+        raw(ExifInterface.TAG_SOFTWARE)?.let { cam += InfoRow("Software", it) }
+        exif.latLong?.let { cam += InfoRow("Location", "%.5f, %.5f".format(it[0], it[1]), geo = it[0] to it[1]) }
+        raw(ExifInterface.TAG_GPS_ALTITUDE)?.let { cam += InfoRow("Altitude", "${formatRational(it)} m") }
+        raw(ExifInterface.TAG_GPS_IMG_DIRECTION)?.let { cam += InfoRow("Heading", "${formatRational(it)}°") }
+
+        // --- Sony MakerNote: surface it honestly (size), no fabricated decode ---
+        if (make?.contains("SONY", ignoreCase = true) == true) {
+            val mk = runCatching { exif.getAttributeBytes(ExifInterface.TAG_MAKER_NOTE) }.getOrNull()
+            if (mk != null && mk.isNotEmpty()) {
+                sony += InfoRow("MakerNote", "Sony  ·  ${mk.size.toLong().readableSize()}")
+                sonyHeader(mk)?.let { sony += InfoRow("Format", it) }
+            }
+        }
     }
-    return if (rows.isEmpty()) null else InfoGroup("Camera", rows)
+    if (shot.isNotEmpty()) out += InfoGroup("Shot", shot)
+    if (cam.isNotEmpty()) out += InfoGroup("Camera", cam)
+    if (sony.isNotEmpty()) out += InfoGroup("Sony", sony)
+    return out
 }
 
 /** Every EXIF tag present in the file, for the expandable power-user dump. */
@@ -305,6 +350,80 @@ private fun formatRational(v: String): String {
 private fun formatFlash(v: String): String {
     val n = v.toIntOrNull() ?: return v
     return if (n and 0x1 != 0) "Fired" else "Did not fire"
+}
+
+
+private fun computeEv(fNum: String?, expTime: String?): Double? {
+    val n = fNum?.toDoubleOrNull() ?: return null
+    val t = expTime?.toDoubleOrNull() ?: return null
+    if (n <= 0 || t <= 0) return null
+    return kotlin.math.ln(n * n / t) / kotlin.math.ln(2.0)
+}
+
+/** APEX/decimal exposure-bias string to a signed EV label. */
+private fun formatEv(v: String): String? {
+    val x = when {
+        "/" in v -> v.split("/").let { a -> a[0].toDoubleOrNull()?.let { n -> a.getOrNull(1)?.toDoubleOrNull()?.let { d -> if (d != 0.0) n / d else null } } }
+        else -> v.toDoubleOrNull()
+    } ?: return null
+    if (kotlin.math.abs(x) < 0.001) return "0 EV"
+    return (if (x > 0) "+" else "") + "%.1f".format(x).removeSuffix(".0") + " EV"
+}
+
+private fun exposureProgram(v: String): String? = when (v) {
+    "1" -> "Manual"; "2" -> "Program AE"; "3" -> "Aperture priority"; "4" -> "Shutter priority"
+    "5" -> "Creative (slow)"; "6" -> "Action (fast)"; "7" -> "Portrait"; "8" -> "Landscape"; else -> null
+}
+
+private fun exposureMode(v: String): String? = when (v) {
+    "0" -> "Auto"; "1" -> "Manual"; "2" -> "Auto bracket"; else -> null
+}
+
+private fun meteringMode(v: String): String? = when (v) {
+    "1" -> "Average"; "2" -> "Center-weighted"; "3" -> "Spot"; "4" -> "Multi-spot"
+    "5" -> "Multi-segment"; "6" -> "Partial"; else -> null
+}
+
+private fun sceneCapture(v: String): String? = when (v) {
+    "0" -> "Standard"; "1" -> "Landscape"; "2" -> "Portrait"; "3" -> "Night"; else -> null
+}
+
+private fun lightSource(v: String): String? = when (v) {
+    "0" -> null; "1" -> "Daylight"; "2" -> "Fluorescent"; "3" -> "Tungsten"; "4" -> "Flash"
+    "9" -> "Fine weather"; "10" -> "Cloudy"; "11" -> "Shade"; "17" -> "Standard A"; "18" -> "Standard B"
+    "19" -> "Standard C"; "20" -> "D55"; "21" -> "D65"; "22" -> "D75"; "255" -> "Other"; else -> null
+}
+
+private fun normalSoftHard(v: String): String? = when (v) {
+    "0" -> "Normal"; "1" -> "Soft / low"; "2" -> "Hard / high"; else -> null
+}
+
+private fun orientation(v: String): String? = when (v) {
+    "1" -> "Normal"; "3" -> "Rotated 180°"; "6" -> "Rotated 90° CW"; "8" -> "Rotated 90° CCW"
+    "2" -> "Mirrored"; else -> null
+}
+
+/** EXIF LensSpecification is four rationals: min focal, max focal, min f, max f. */
+private fun lensSpec(v: String): String? {
+    val parts = v.trim().split(" ", ",").filter { it.isNotBlank() }
+    if (parts.size < 4) return null
+    fun r(x: String) = formatRational(x)
+    val f1 = r(parts[0]); val f2 = r(parts[1]); val a1 = r(parts[2]); val a2 = r(parts[3])
+    val focal = if (f1 == f2) "$f1 mm" else "$f1-$f2 mm"
+    val ap = if (a1 == a2) "f/$a1" else "f/$a1-$a2"
+    return "$focal  ·  $ap"
+}
+
+private fun sonyHeader(mk: ByteArray): String? {
+    val n = minOf(mk.size, 12)
+    val head = String(mk, 0, n, Charsets.US_ASCII).trim { it <= ' ' }
+    return when {
+        head.startsWith("SONY DSC") -> "SONY DSC IFD"
+        head.startsWith("SONY CAM") -> "SONY CAM IFD"
+        head.startsWith("SONY MOBILE") -> "SONY MOBILE"
+        head.startsWith("VHAB") -> "Sony (VHAB)"
+        else -> null
+    }
 }
 
 private fun formatDurationMs(ms: Long): String {
