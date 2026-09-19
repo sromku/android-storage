@@ -13,6 +13,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -35,6 +38,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.Circle
@@ -44,10 +48,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -201,39 +207,113 @@ fun MediaGridScreen(
                 onGrant = { permLauncher.launch(mediaPermissions()) },
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 106.dp),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    top = padding.calculateTopPadding() + 2.dp,
-                    bottom = padding.calculateBottomPadding() + 8.dp,
-                    start = 2.dp, end = 2.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            else -> Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(top = padding.calculateTopPadding()),
             ) {
-                state.sections.forEach { section ->
-                    item(span = { GridItemSpan(maxLineSpan) }) {
+                if (!selecting) {
+                    MediaFilterBar(
+                        query = state.query,
+                        filter = state.filter,
+                        onQuery = viewModel::setQuery,
+                        onFilter = viewModel::setFilter,
+                    )
+                }
+                if (state.sections.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Text(
-                            "${section.label}   ·   ${section.items.size}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 6.dp, top = 16.dp, bottom = 6.dp),
+                            stringResource(R.string.photos_no_matches),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    items(section.items, key = { it.id }) { item ->
-                        MediaCell(
-                            item = item,
-                            selected = item.id in selection,
-                            selecting = selecting,
-                            onClick = { if (selecting) toggle(item.id) else onOpenMedia(item.id) },
-                            onLongClick = { toggle(item.id) },
-                        )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 106.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            top = 2.dp,
+                            bottom = padding.calculateBottomPadding() + 8.dp,
+                            start = 2.dp, end = 2.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        state.sections.forEach { section ->
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "${section.label}   ·   ${section.items.size}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 6.dp, top = 16.dp, bottom = 6.dp),
+                                )
+                            }
+                            items(section.items, key = { it.id }) { item ->
+                                MediaCell(
+                                    item = item,
+                                    selected = item.id in selection,
+                                    selecting = selecting,
+                                    onClick = { if (selecting) toggle(item.id) else onOpenMedia(item.id) },
+                                    onLongClick = { toggle(item.id) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MediaFilterBar(
+    query: String,
+    filter: MediaFilter,
+    onQuery: (String) -> Unit,
+    onFilter: (MediaFilter) -> Unit,
+) {
+    Column {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQuery,
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close)) }
+                }
+            },
+            placeholder = { Text(stringResource(R.string.photos_search_hint)) },
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MediaFilter.entries.forEach { f ->
+                FilterChip(
+                    selected = filter == f,
+                    onClick = { onFilter(f) },
+                    label = { Text(stringResource(filterLabel(f))) },
+                )
+            }
+        }
+    }
+}
+
+private fun filterLabel(f: MediaFilter): Int = when (f) {
+    MediaFilter.ALL -> R.string.filter_all
+    MediaFilter.PHOTOS -> R.string.filter_photos
+    MediaFilter.VIDEOS -> R.string.filter_videos
+    MediaFilter.RAW -> R.string.filter_raw
+    MediaFilter.SCREENSHOTS -> R.string.filter_screenshots
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

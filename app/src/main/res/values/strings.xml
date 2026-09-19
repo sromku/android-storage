@@ -1123,6 +1123,13 @@
     <string name="more_actions">More</string>
     <string name="close">Close</string>
     <string name="photos_selected">%1$d selected</string>
+    <string name="photos_search_hint">Search name, camera, ISO</string>
+    <string name="photos_no_matches">No matches</string>
+    <string name="filter_all">All</string>
+    <string name="filter_photos">Photos</string>
+    <string name="filter_videos">Videos</string>
+    <string name="filter_raw">RAW</string>
+    <string name="filter_screenshots">Screenshots</string>
     <string name="photos_delete_title">Delete?</string>
     <plurals name="photos_delete_body">
         <item quantity="one">%1$d item will be deleted from this device.</item>
