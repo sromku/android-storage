@@ -95,7 +95,7 @@ fun MediaPagerScreen(
                 VideoPage(item, onPlay = { onOpenVideo(item.path) }, onTapChrome = { chromeVisible = !chromeVisible })
             } else {
                 ZoomableImage(
-                    model = item.uri,
+                    model = mediaModel(item),
                     onTap = { chromeVisible = !chromeVisible },
                     onZoomChange = { z -> if (page == pagerState.currentPage) zoomed = z },
                     modifier = Modifier.fillMaxSize(),

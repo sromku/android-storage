@@ -40,6 +40,8 @@ class StorageApp : Application(), SingletonImageLoader.Factory {
             .components {
                 add(VideoFrameDecoder.Factory())
                 add(AppIconFetcher.Factory(this@StorageApp))
+                add(com.snatik.storage.app.feature.media.RawImageFetcher.Factory())
+                add(com.snatik.storage.app.feature.media.RawImageKeyer())
                 add(AppIconKeyer())
             }
             .crossfade(true)

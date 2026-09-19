@@ -143,7 +143,7 @@ private fun MediaCell(item: MediaItem, onClick: () -> Unit) {
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
-            model = item.uri,
+            model = mediaModel(item),
             contentDescription = item.name,
             modifier = Modifier.fillMaxSize(),
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
