@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 data class MediaSection(val label: String, val items: List<MediaItem>)
 
 /** Smart views over the library. */
-enum class MediaFilter { ALL, PHOTOS, VIDEOS, RAW, SCREENSHOTS, CAMERA }
+enum class MediaFilter { ALL, PHOTOS, VIDEOS, RAW, SCREENSHOTS, CAMERA, FAVORITES }
 
 data class MediaGridState(
     val loading: Boolean = true,
@@ -29,11 +29,13 @@ data class MediaGridState(
     val filter: MediaFilter = MediaFilter.ALL,
     val query: String = "",
     val hasCamera: Boolean = false,
+    val hasFavorites: Boolean = false,
 )
 
 class MediaGridViewModel(
     application: Application,
     private val repo: MediaRepository,
+    private val favorites: FavoritesStore,
 ) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(MediaGridState())
@@ -57,6 +59,12 @@ class MediaGridViewModel(
         val cr = application.contentResolver
         cr.registerContentObserver(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, observer)
         cr.registerContentObserver(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, observer)
+        viewModelScope.launch {
+            favorites.ids.collect { fav ->
+                _state.value = _state.value.copy(hasFavorites = fav.isNotEmpty())
+                recompute()
+            }
+        }
     }
 
     override fun onCleared() {
@@ -113,6 +121,7 @@ class MediaGridViewModel(
         MediaFilter.RAW -> isRawMedia(item.name, item.mime)
         MediaFilter.SCREENSHOTS -> isScreenshot(item)
         MediaFilter.CAMERA -> isCameraImport(item)
+        MediaFilter.FAVORITES -> favorites.contains(item.id)
     }
 
     private fun isCameraImport(item: MediaItem): Boolean = item.path.contains("/Storage Studio/Camera")

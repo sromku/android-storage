@@ -262,6 +262,7 @@ fun MediaGridScreen(
                         query = state.query,
                         filter = state.filter,
                         hasCamera = state.hasCamera,
+                        hasFavorites = state.hasFavorites,
                         onQuery = viewModel::setQuery,
                         onFilter = viewModel::setFilter,
                     )
@@ -318,6 +319,7 @@ private fun MediaFilterBar(
     query: String,
     filter: MediaFilter,
     hasCamera: Boolean,
+    hasFavorites: Boolean,
     onQuery: (String) -> Unit,
     onFilter: (MediaFilter) -> Unit,
 ) {
@@ -344,7 +346,7 @@ private fun MediaFilterBar(
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            MediaFilter.entries.filter { it != MediaFilter.CAMERA || hasCamera }.forEach { f ->
+            MediaFilter.entries.filter { (it != MediaFilter.CAMERA || hasCamera) && (it != MediaFilter.FAVORITES || hasFavorites) }.forEach { f ->
                 FilterChip(
                     selected = filter == f,
                     onClick = { onFilter(f) },
@@ -362,6 +364,7 @@ private fun filterLabel(f: MediaFilter): Int = when (f) {
     MediaFilter.RAW -> R.string.filter_raw
     MediaFilter.SCREENSHOTS -> R.string.filter_screenshots
     MediaFilter.CAMERA -> R.string.filter_camera
+    MediaFilter.FAVORITES -> R.string.filter_favorites
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -44,6 +46,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +82,9 @@ fun MediaPagerScreen(
     onOpenVideo: (String) -> Unit,
     onTiled: (String) -> Unit,
     repo: MediaRepository = koinInject(),
+    favorites: FavoritesStore = koinInject(),
 ) {
+    val favIds by favorites.ids.collectAsStateWithLifecycle()
     val items = remember { repo.pagerItems.ifEmpty { repo.cached } }
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -186,6 +191,14 @@ fun MediaPagerScreen(
                     }
                 },
                 actions = {
+                    val isFav = current.id in favIds
+                    IconButton(onClick = { favorites.toggle(current.id) }) {
+                        Icon(
+                            if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = stringResource(R.string.favorite),
+                            tint = if (isFav) Color(0xFFFF4081) else Color.White,
+                        )
+                    }
                     Box {
                         IconButton(onClick = { overflow = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions), tint = Color.White)

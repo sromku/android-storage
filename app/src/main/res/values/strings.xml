@@ -1120,6 +1120,7 @@
     <string name="more">More</string>
     <string name="open_with">Open with</string>
     <string name="use_as">Use as…</string>
+    <string name="favorite">Favorite</string>
     <string name="play">Play</string>
     <string name="more_actions">More</string>
     <string name="close">Close</string>
@@ -1132,6 +1133,7 @@
     <string name="filter_raw">RAW</string>
     <string name="filter_screenshots">Screenshots</string>
     <string name="filter_camera">Camera</string>
+    <string name="filter_favorites">Favorites</string>
     <string name="convert_to_jpg">Convert to JPG</string>
     <string name="converting">Converting…</string>
     <string name="dupes_find">Find duplicates</string>
