@@ -58,11 +58,11 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.math.roundToInt
 
-private val Ink = Color(0xFF0B0B0C)      // preview surround
-private val Panel = Color(0xFF161719)    // controls panel
-private val OnDark = Color(0xFFF2F3F5)   // primary text on the panel
-private val OnDarkDim = Color(0xB3F2F3F5) // secondary text
-private val Accent = Color(0xFF7EC8FF)   // cool accent that reads on dark
+internal val Ink = Color(0xFF0B0B0C)      // preview surround
+internal val Panel = Color(0xFF161719)    // controls panel
+internal val OnDark = Color(0xFFF2F3F5)   // primary text on the panel
+internal val OnDarkDim = Color(0xB3F2F3F5) // secondary text
+internal val Accent = Color(0xFF7EC8FF)   // cool accent that reads on dark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,7 +145,10 @@ fun DevelopScreen(path: String, onBack: () -> Unit, viewModel: DevelopViewModel 
     }
 }
 
-private enum class DevTab(val label: String) { LIGHT("Light"), TONE("Tone"), COLOR("Color"), WB("White bal."), DETAIL("Detail") }
+private enum class DevTab(val label: String) {
+    LIGHT("Light"), TONE("Tone"), PRESENCE("Presence"), CURVE("Curve"),
+    COLOR("Color"), HSL("HSL"), EFFECTS("Effects"), WB("White bal."), DETAIL("Detail")
+}
 
 @Composable
 private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
@@ -166,7 +169,7 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 150.dp, max = 260.dp)
+                .heightIn(min = 150.dp, max = 320.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 16.dp),
@@ -210,24 +213,46 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
                         LabelRow(if (params.wb == RawWb.AUTO) "Auto-balanced from the whole frame." else "Using the camera's as-shot balance.")
                     }
                 }
+                DevTab.PRESENCE -> {
+                    SliderRow("Texture", sign(params.texture), params.texture, -100f..100f) { onChange(params.copy(texture = it)) }
+                    SliderRow("Clarity", sign(params.clarity), params.clarity, -100f..100f) { onChange(params.copy(clarity = it)) }
+                    SliderRow("Dehaze", sign(params.dehaze), params.dehaze, -100f..100f) { onChange(params.copy(dehaze = it)) }
+                }
+                DevTab.CURVE -> {
+                    CurveEditor(params.curve) { onChange(params.copy(curve = it)) }
+                }
+                DevTab.HSL -> {
+                    HslEditor(params.hsl) { onChange(params.copy(hsl = it)) }
+                }
+                DevTab.EFFECTS -> {
+                    SliderRow("Vignette", sign(params.vignette), params.vignette, -100f..100f) { onChange(params.copy(vignette = it)) }
+                    SliderRow("Grain", "${params.grain.roundToInt()}", params.grain, 0f..100f) { onChange(params.copy(grain = it)) }
+                }
                 DevTab.DETAIL -> {
+                    LabelRow("Sharpening")
+                    SliderRow("Amount", "${params.sharpen.roundToInt()}", params.sharpen, 0f..100f) { onChange(params.copy(sharpen = it)) }
+                    SliderRow("Radius", "${params.sharpenRadius.roundToInt()} px", params.sharpenRadius, 1f..3f) { onChange(params.copy(sharpenRadius = it)) }
+                    SliderRow("Masking", "${params.sharpenMask.roundToInt()}", params.sharpenMask, 0f..100f) { onChange(params.copy(sharpenMask = it)) }
+                    LabelRow("Noise reduction")
+                    ChipRow(listOf(0 to "Off", 1 to "Light", 2 to "Full"), params.fbdd) { onChange(params.copy(fbdd = it)) }
+                    SliderRow("Wavelet NR", if (params.threshold <= 0) "Off" else "${params.threshold.roundToInt()}", params.threshold, 0f..1000f) { onChange(params.copy(threshold = it)) }
+                    LabelRow("Lens: chromatic aberration")
+                    SliderRow("Red / cyan", sign(params.caRed), params.caRed, -100f..100f) { onChange(params.copy(caRed = it)) }
+                    SliderRow("Blue / yellow", sign(params.caBlue), params.caBlue, -100f..100f) { onChange(params.copy(caBlue = it)) }
                     LabelRow("Demosaic")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Demosaic.entries.forEach { dm -> DarkChip(selected = params.demosaic == dm, label = dm.label) { onChange(params.copy(demosaic = dm)) } }
                     }
-                    LabelRow("Noise reduction")
-                    ChipRow(listOf(0 to "Off", 1 to "Light", 2 to "Full"), params.fbdd) { onChange(params.copy(fbdd = it)) }
-                    SliderRow("Wavelet NR", if (params.threshold <= 0) "Off" else "${params.threshold.roundToInt()}", params.threshold, 0f..1000f) { onChange(params.copy(threshold = it)) }
                 }
             }
         }
     }
 }
 
-private fun sign(v: Float): String = if (v > 0) "+${v.roundToInt()}" else "${v.roundToInt()}"
+internal fun sign(v: Float): String = if (v > 0) "+${v.roundToInt()}" else "${v.roundToInt()}"
 
 @Composable
-private fun ChipRow(options: List<Pair<Int, String>>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun ChipRow(options: List<Pair<Int, String>>, selected: Int, onSelect: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (v, label) -> DarkChip(selected = selected == v, label = label) { onSelect(v) } }
     }
@@ -235,7 +260,7 @@ private fun ChipRow(options: List<Pair<Int, String>>, selected: Int, onSelect: (
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DarkChip(selected: Boolean, label: String, onClick: () -> Unit) {
+internal fun DarkChip(selected: Boolean, label: String, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -256,12 +281,12 @@ private fun DarkChip(selected: Boolean, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LabelRow(label: String) {
+internal fun LabelRow(label: String) {
     Text(label, color = OnDarkDim, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
 }
 
 @Composable
-private fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
+internal fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = OnDark, style = MaterialTheme.typography.titleSmall)
         Text(value, color = Accent, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

@@ -16,6 +16,55 @@ enum class ColorSpace(val code: Int, val label: String) {
     SRGB(1, "sRGB"), ADOBE(2, "Adobe RGB"), WIDE(3, "Wide"), PROPHOTO(4, "ProPhoto"), P3(6, "Display P3")
 }
 
+/** The 8 HSL colour bands, in the native/Lightroom order. */
+enum class HslBand(val label: String) {
+    RED("Red"), ORANGE("Orange"), YELLOW("Yellow"), GREEN("Green"),
+    AQUA("Aqua"), BLUE("Blue"), PURPLE("Purple"), MAGENTA("Magenta")
+}
+
+/** Tone curves: a composite RGB curve plus optional per-channel curves. Points are (x,y) in 0..1. */
+data class ToneCurve(
+    val rgb: List<Pair<Float, Float>> = IDENTITY,
+    val r: List<Pair<Float, Float>> = IDENTITY,
+    val g: List<Pair<Float, Float>> = IDENTITY,
+    val b: List<Pair<Float, Float>> = IDENTITY,
+) {
+    val isIdentity get() = rgb == IDENTITY && r == IDENTITY && g == IDENTITY && b == IDENTITY
+
+    /** 3x256 LUT (R,G,B) = rgbCurve(channelCurve(x)), for the native post-process. */
+    fun toLut(): FloatArray {
+        val out = FloatArray(768)
+        val chans = listOf(r, g, b)
+        for (k in 0..2) {
+            val ch = chans[k]
+            for (i in 0..255) {
+                val x = i / 255f
+                out[k * 256 + i] = eval(rgb, eval(ch, x)).coerceIn(0f, 1f)
+            }
+        }
+        return out
+    }
+
+    companion object {
+        val IDENTITY = listOf(0f to 0f, 1f to 1f)
+
+        /** Linear interpolation across sorted control points, clamped at the ends. */
+        fun eval(points: List<Pair<Float, Float>>, x: Float): Float {
+            if (points.size < 2) return x
+            if (x <= points.first().first) return points.first().second
+            if (x >= points.last().first) return points.last().second
+            for (i in 0 until points.size - 1) {
+                val (x0, y0) = points[i]; val (x1, y1) = points[i + 1]
+                if (x in x0..x1) {
+                    val t = if (x1 > x0) (x - x0) / (x1 - x0) else 0f
+                    return y0 + (y1 - y0) * t
+                }
+            }
+            return x
+        }
+    }
+}
+
 /** Full develop control set. Values are user-facing; toArray() maps to the native P_* layout. */
 data class DevelopParams(
     // Light
@@ -41,7 +90,25 @@ data class DevelopParams(
     val fbdd: Int = 0,              // 0 off, 1 light, 2 full
     val threshold: Float = 0f,      // wavelet NR
     val colorSpace: ColorSpace = ColorSpace.SRGB,
+    // Presence + sharpening (spatial)
+    val texture: Float = 0f,        // -100..100
+    val clarity: Float = 0f,
+    val dehaze: Float = 0f,
+    val sharpen: Float = 0f,        // 0..100
+    val sharpenRadius: Float = 1f,  // 1..3 px
+    val sharpenMask: Float = 0f,    // 0..100 edge masking
+    // Effects + lens
+    val vignette: Float = 0f,       // -100..100
+    val grain: Float = 0f,          // 0..100
+    val caRed: Float = 0f,          // -100..100 red/cyan fringe
+    val caBlue: Float = 0f,         // -100..100 blue/yellow fringe
+    // Color mixer: 8 bands x (hue, sat, lum) in -100..100
+    val hsl: List<Float> = List(24) { 0f },
+    val curve: ToneCurve = ToneCurve(),
 ) {
+    fun hslArray(): FloatArray? = if (hsl.all { it == 0f }) null else hsl.toFloatArray()
+    fun curveArray(): FloatArray? = if (curve.isIdentity) null else curve.toLut()
+
     fun toArray(): FloatArray = floatArrayOf(
         exposure,                    // 0 P_EXPOSURE
         highlight.toFloat(),         // 1 P_HL_MODE
@@ -64,6 +131,16 @@ data class DevelopParams(
         grayMul?.first ?: 1f,        // 18 P_WB_R
         grayMul?.second ?: 1f,       // 19 P_WB_G
         grayMul?.third ?: 1f,        // 20 P_WB_B
+        texture,                     // 21 P_TEXTURE
+        clarity,                     // 22 P_CLARITY
+        dehaze,                      // 23 P_DEHAZE
+        sharpen,                     // 24 P_SHARPEN
+        sharpenRadius,               // 25 P_SHARPEN_RADIUS
+        sharpenMask,                 // 26 P_SHARPEN_MASK
+        vignette,                    // 27 P_VIGNETTE
+        grain,                       // 28 P_GRAIN
+        caRed,                       // 29 P_CA_RED
+        caBlue,                      // 30 P_CA_BLUE
     )
 }
 
@@ -84,7 +161,7 @@ class RawDeveloper private constructor(private var handle: Long) {
 
     fun render(params: DevelopParams, half: Boolean): Bitmap? {
         if (handle == 0L) return null
-        val packed = nativeRender(handle, if (half) 1 else 0, params.toArray())
+        val packed = nativeRender(handle, if (half) 1 else 0, params.toArray(), params.hslArray(), params.curveArray())
         if (packed == 0L) return null
         val w = (packed ushr 32).toInt()
         val h = (packed and 0xffffffffL).toInt()
@@ -95,7 +172,7 @@ class RawDeveloper private constructor(private var handle: Long) {
 
     fun exportTiff(path: String, params: DevelopParams): Boolean {
         if (handle == 0L) return false
-        return nativeExportTiff(handle, path, params.toArray())
+        return nativeExportTiff(handle, path, params.toArray(), params.hslArray(), params.curveArray())
     }
 
     /** Writes a raw (mosaiced) DNG preserving the sensor data + camera color metadata. */
@@ -106,9 +183,9 @@ class RawDeveloper private constructor(private var handle: Long) {
 
     fun close() { if (handle != 0L) { nativeClose(handle); handle = 0L } }
 
-    private external fun nativeRender(handle: Long, half: Int, params: FloatArray): Long
+    private external fun nativeRender(handle: Long, half: Int, params: FloatArray, hsl: FloatArray?, curve: FloatArray?): Long
     private external fun nativeFill(handle: Long, bitmap: Bitmap): Boolean
-    private external fun nativeExportTiff(handle: Long, path: String, params: FloatArray): Boolean
+    private external fun nativeExportTiff(handle: Long, path: String, params: FloatArray, hsl: FloatArray?, curve: FloatArray?): Boolean
     private external fun nativeExportDng(srcPath: String, outPath: String): Boolean
     private external fun nativeCamMul(handle: Long): FloatArray
     private external fun nativeClose(handle: Long)
