@@ -54,6 +54,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- OAuth redirect for the cloud browser (Dropbox PKCE). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="snatikstorage" android:host="dropbox-auth" />
+            </intent-filter>
         </activity>
 
         <service

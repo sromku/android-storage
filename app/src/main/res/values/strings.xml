@@ -1133,6 +1133,16 @@
     <string name="convert_to_jpg">Convert to JPG</string>
     <string name="converting">Converting…</string>
     <string name="dupes_find">Find duplicates</string>
+    <string name="cloud_title">Cloud</string>
+    <string name="cloud_browse">Browse cloud</string>
+    <string name="cloud_disconnect">Disconnect</string>
+    <string name="cloud_empty">This folder is empty</string>
+    <string name="cloud_connect_title">Connect your cloud</string>
+    <string name="cloud_connect_body">Browse and preview your Dropbox files right here, without filling up your phone.</string>
+    <string name="cloud_connect_dropbox">Connect Dropbox</string>
+    <string name="cloud_setup_title">Cloud not set up yet</string>
+    <string name="cloud_setup_body">Add a Dropbox app key to turn on cloud browsing. It takes about five minutes, once.</string>
+    <string name="cloud_setup_steps">1. dropbox.com/developers/apps\n2. Create app - Scoped access\n3. Permissions: files.metadata.read + files.content.read\n4. Redirect URI: snatikstorage://dropbox-auth\n5. Paste the App key into DropboxConfig.APP_KEY</string>
     <string name="dupes_title">Duplicates</string>
     <string name="dupes_scanning">Scanning your photos…</string>
     <string name="dupes_none">No duplicates found</string>

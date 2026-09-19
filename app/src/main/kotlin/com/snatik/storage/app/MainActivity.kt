@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         navTarget = intent?.getStringExtra(NAV_TARGET_EXTRA)
+        handleOAuthRedirect(intent)
         setContent {
             val themePrefs = koinInject<ThemePreferences>()
             val settings by themePrefs.state.collectAsStateWithLifecycle()
@@ -44,5 +45,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.getStringExtra(NAV_TARGET_EXTRA)?.let { navTarget = it }
+        handleOAuthRedirect(intent)
+    }
+
+    /** Catches the Dropbox OAuth redirect (snatikstorage://dropbox-auth?code=...) and hands the code off. */
+    private fun handleOAuthRedirect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme == "snatikstorage" && uri.host == "dropbox-auth") {
+            uri.getQueryParameter("code")?.let { com.snatik.storage.app.feature.cloud.CloudAuthBus.deliver(it) }
+        }
     }
 }

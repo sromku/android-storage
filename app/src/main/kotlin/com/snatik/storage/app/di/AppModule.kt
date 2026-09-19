@@ -114,6 +114,7 @@ val appModule = module {
     single<FileSystem> { RoutedFileSystem(get<LocalFileSystem>(), get(), get()) }
     single { VolumeRepository(androidContext()) }
     single { com.snatik.storage.app.feature.media.MediaRepository(androidContext()) }
+    single { com.snatik.storage.app.feature.cloud.DropboxProvider(androidContext()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { OperationRunner(get()) }
     single { FileClipboard() }
@@ -172,6 +173,7 @@ val appModule = module {
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.media.MediaGridViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.media.DuplicatesViewModel(get(), get()) }
+    viewModel { com.snatik.storage.app.feature.cloud.CloudViewModel(get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }

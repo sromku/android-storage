@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -101,6 +102,7 @@ fun MediaGridScreen(
     onOpenMedia: (Long) -> Unit,
     onSwitchTab: (TopLevel) -> Unit,
     onFindDuplicates: () -> Unit,
+    onBrowseCloud: () -> Unit,
     viewModel: MediaGridViewModel = koinViewModel(),
 ) {
     var appMenu by remember { mutableStateOf(false) }
@@ -221,6 +223,11 @@ fun MediaGridScreen(
                                     text = { Text(stringResource(R.string.dupes_find)) },
                                     leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
                                     onClick = { appMenu = false; onFindDuplicates() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.cloud_browse)) },
+                                    leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null) },
+                                    onClick = { appMenu = false; onBrowseCloud() },
                                 )
                             }
                         }
