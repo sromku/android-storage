@@ -11,12 +11,15 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayCircle
@@ -80,9 +83,16 @@ fun MediaPagerScreen(
     var showInfo by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
+    var showHistogram by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
+    var histogram by remember { mutableStateOf<Histogram?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val current = items[pagerState.currentPage.coerceIn(0, items.lastIndex)]
+
+    LaunchedEffect(current.id, showHistogram) {
+        histogram = if (showHistogram && !current.isVideo) computeHistogram(context, mediaModel(current)) else null
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(
@@ -105,6 +115,16 @@ fun MediaPagerScreen(
         }
 
         if (showInfo) MediaInfoSheet(current) { showInfo = false }
+        if (showPrivacy) PrivacyReportSheet(current) { showPrivacy = false }
+
+        histogram?.let { h ->
+            if (showHistogram) {
+                HistogramOverlay(
+                    histogram = h,
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+                )
+            }
+        }
 
         AnimatedVisibility(
             visible = chromeVisible,
@@ -142,6 +162,17 @@ fun MediaPagerScreen(
                                 onClick = { overflow = false; Intents.share(context, listOf(current.path)) },
                             )
                             if (!current.isVideo) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.histogram)) },
+                                    leadingIcon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                    trailingIcon = { if (showHistogram) Icon(Icons.Default.Check, contentDescription = null) },
+                                    onClick = { overflow = false; showHistogram = !showHistogram },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.privacy_report)) },
+                                    leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
+                                    onClick = { overflow = false; showPrivacy = true },
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.share_stripped)) },
                                     leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },

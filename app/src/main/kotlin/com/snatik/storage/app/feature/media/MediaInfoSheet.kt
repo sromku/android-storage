@@ -3,6 +3,8 @@ package com.snatik.storage.app.feature.media
 import android.content.Context
 import android.content.Intent
 import android.media.MediaMetadataRetriever
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
@@ -243,7 +245,40 @@ private fun readVideo(context: Context, item: MediaItem): List<InfoRow> {
     if (rows.none { it.key == "Resolution" } && item.width > 0) {
         rows.add(0, InfoRow("Resolution", "${item.width} × ${item.height}"))
     }
+    rows += readTracks(context, item)
     return rows
+}
+
+/** Per-track stream inspection (codec, profile, channels) via MediaExtractor. */
+private fun readTracks(context: Context, item: MediaItem): List<InfoRow> {
+    val rows = ArrayList<InfoRow>()
+    val ex = MediaExtractor()
+    runCatching {
+        if (item.path.isNotBlank() && File(item.path).exists()) ex.setDataSource(item.path)
+        else ex.setDataSource(context, item.uri, null)
+        for (i in 0 until ex.trackCount) {
+            val f = ex.getTrackFormat(i)
+            val mime = runCatching { f.getString(MediaFormat.KEY_MIME) }.getOrNull() ?: continue
+            fun i(key: String) = runCatching { f.getInteger(key) }.getOrNull()
+            when {
+                mime.startsWith("video/") -> {
+                    rows += InfoRow("Video codec", mime.removePrefix("video/").uppercase())
+                    val fps = i(MediaFormat.KEY_FRAME_RATE)
+                    if (fps != null && fps > 0) rows += InfoRow("Frame rate", "$fps fps")
+                }
+                mime.startsWith("audio/") -> {
+                    rows += InfoRow("Audio codec", mime.removePrefix("audio/").uppercase())
+                    val ch = i(MediaFormat.KEY_CHANNEL_COUNT)
+                    val hz = i(MediaFormat.KEY_SAMPLE_RATE)
+                    if (ch != null) rows += InfoRow("Channels", if (ch == 1) "Mono" else if (ch == 2) "Stereo" else "$ch ch")
+                    if (hz != null) rows += InfoRow("Sample rate", "%.1f kHz".format(hz / 1000.0))
+                }
+            }
+        }
+    }
+    runCatching { ex.release() }
+    // Drop a duplicate frame-rate row if the retriever already provided one.
+    return rows.distinctBy { it.key + it.value }
 }
 
 private fun aspectRatio(w: Int, h: Int): String {

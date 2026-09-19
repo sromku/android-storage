@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.request.crossfade
+import coil3.gif.AnimatedImageDecoder
 import coil3.video.VideoFrameDecoder
 import com.snatik.storage.app.di.appModule
 import com.snatik.storage.app.ui.components.AppIconFetcher
@@ -39,6 +40,7 @@ class StorageApp : Application(), SingletonImageLoader.Factory {
         ImageLoader.Builder(context)
             .components {
                 add(VideoFrameDecoder.Factory())
+                add(AnimatedImageDecoder.Factory())
                 add(AppIconFetcher.Factory(this@StorageApp))
                 add(com.snatik.storage.app.feature.media.RawImageFetcher.Factory())
                 add(com.snatik.storage.app.feature.media.RawImageKeyer())
