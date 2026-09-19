@@ -64,6 +64,12 @@ Nothing is faked — each capability is honest about what it needs, and the app 
 | Other apps' `Android/data`, debuggable-app private files, logcat, `pm`/`am`/`appops`, dumpsys | **[Shizuku](https://shizuku.rikka.app/)** (shell UID over ADB) |
 | Any app's private `/data/data`, non-exported providers, partitions & swap | **root** |
 
+**Starting Shizuku.** Enable **Wireless debugging** (Settings → Developer options), then in the
+Shizuku app tap **Start via Wireless debugging** — no computer needed. Non-root Shizuku **stops on
+every reboot**, so restart it after each restart; the app already holds the grant, so it reconnects
+on its own. (The permission is tied to the app's signature, so re-grant once after switching between
+the debug and Play builds.)
+
 ## The library
 
 `com.snatik:storage` lives on as a thin, typed Kotlin module. Every operation returns `Result<T>`
