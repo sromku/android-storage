@@ -25,6 +25,9 @@ sealed interface Route : NavKey {
     data object Camera : Route
 
     @Serializable
+    data object PhotoInsights : Route
+
+    @Serializable
     data object CameraBrowse : Route
 
     @Serializable

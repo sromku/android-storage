@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
@@ -110,6 +111,7 @@ fun MediaGridScreen(
     onFindDuplicates: () -> Unit,
     onBrowseCloud: () -> Unit,
     onSyncCamera: () -> Unit,
+    onInsights: () -> Unit,
     viewModel: MediaGridViewModel = koinViewModel(),
 ) {
     var appMenu by remember { mutableStateOf(false) }
@@ -250,6 +252,11 @@ fun MediaGridScreen(
                                     text = { Text(stringResource(R.string.camera_sync_menu)) },
                                     leadingIcon = { Icon(Icons.Default.PhotoCamera, contentDescription = null) },
                                     onClick = { appMenu = false; onSyncCamera() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.photoinsights_menu)) },
+                                    leadingIcon = { Icon(Icons.Default.Insights, contentDescription = null) },
+                                    onClick = { appMenu = false; onInsights() },
                                 )
                             }
                         }
