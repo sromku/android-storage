@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -122,6 +123,7 @@ fun MediaGridScreen(
 
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var showMove by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val allItems = remember(state.sections) { state.sections.flatMap { it.items } }
     val selectedItems = remember(selection, allItems) { allItems.filter { it.id in selection } }
@@ -177,6 +179,18 @@ fun MediaGridScreen(
     }
 
     BackHandler(enabled = selecting) { clearSelection() }
+
+    if (showMove) {
+        MoveToFolderSheet(onDismiss = { showMove = false }) { folder ->
+            showMove = false
+            val targets = selectedItems.map { it.uri }
+            scope.launch {
+                val n = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { MediaEdit.move(context, targets, folder) }
+                Toast.makeText(context, if (n > 0) context.getString(R.string.moved_to, folder) else context.getString(R.string.move_failed), Toast.LENGTH_SHORT).show()
+                clearSelection()
+            }
+        }
+    }
     BackHandler(enabled = !selecting && state.searchActive) { viewModel.setSearchActive(false) }
 
     if (confirmDelete) {
@@ -206,6 +220,7 @@ fun MediaGridScreen(
                     onShare = { shareSelected(strip = false) },
                     onShareStripped = { shareSelected(strip = true) },
                     onConvert = { convertSelected() },
+                    onMove = { showMove = true },
                     onDelete = { confirmDelete = true },
                 )
             } else if (state.searchActive) {
@@ -407,6 +422,7 @@ private fun SelectionBar(
     onShare: () -> Unit,
     onShareStripped: () -> Unit,
     onConvert: () -> Unit,
+    onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -429,6 +445,11 @@ private fun SelectionBar(
                         text = { Text(stringResource(R.string.convert_to_jpg)) },
                         leadingIcon = { Icon(Icons.Default.Transform, contentDescription = null) },
                         onClick = { menu = false; onConvert() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.move_to_folder)) },
+                        leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) },
+                        onClick = { menu = false; onMove() },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.delete)) },

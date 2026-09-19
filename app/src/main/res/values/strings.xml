@@ -1120,6 +1120,13 @@
     <string name="more">More</string>
     <string name="open_with">Open with</string>
     <string name="use_as">Use as…</string>
+    <string name="rename_hint">File name</string>
+    <string name="renamed">Renamed</string>
+    <string name="rename_failed">Could not rename</string>
+    <string name="move_to_folder">Move to folder</string>
+    <string name="move">Move</string>
+    <string name="moved_to">Moved to %1$s</string>
+    <string name="move_failed">Could not move</string>
     <string name="favorite">Favorite</string>
     <string name="play">Play</string>
     <string name="more_actions">More</string>

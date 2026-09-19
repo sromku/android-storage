@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Wallpaper
@@ -62,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import android.widget.Toast
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.snatik.storage.app.R
@@ -99,6 +102,8 @@ fun MediaPagerScreen(
     var showHistogram by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var showMove by remember { mutableStateOf(false) }
     var histogram by remember { mutableStateOf<Histogram?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -115,6 +120,25 @@ fun MediaPagerScreen(
         } else {
             runCatching { uris.forEach { context.contentResolver.delete(it, null, null) } }
             onBack()
+        }
+    }
+
+    if (showRename) {
+        RenameSheet(current.name, onDismiss = { showRename = false }) { newName ->
+            showRename = false
+            scope.launch {
+                val ok = withContext(kotlinx.coroutines.Dispatchers.IO) { MediaEdit.rename(context, current.uri, newName) }
+                Toast.makeText(context, if (ok) R.string.renamed else R.string.rename_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    if (showMove) {
+        MoveToFolderSheet(onDismiss = { showMove = false }) { folder ->
+            showMove = false
+            scope.launch {
+                val n = withContext(kotlinx.coroutines.Dispatchers.IO) { MediaEdit.move(context, listOf(current.uri), folder) }
+                Toast.makeText(context, if (n > 0) context.getString(R.string.moved_to, folder) else context.getString(R.string.move_failed), Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -266,6 +290,16 @@ fun MediaPagerScreen(
                                 text = { Text(stringResource(R.string.open_with)) },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
                                 onClick = { overflow = false; Intents.openWith(context, current.path) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.rename)) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = { overflow = false; showRename = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.move_to_folder)) },
+                                leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) },
+                                onClick = { overflow = false; showMove = true },
                             )
                             if (!current.isVideo) {
                                 DropdownMenuItem(
