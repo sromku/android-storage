@@ -308,8 +308,9 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.PhotoInsights> { com.snatik.storage.app.feature.media.PhotoInsightsScreen(onBack = ::pop) }
             entry<Route.CameraBrowse> { com.snatik.storage.app.feature.camera.CameraBrowseScreen(onBack = ::pop) }
             entry<Route.CameraUsb> { com.snatik.storage.app.feature.camera.CameraUsbScreen(onBack = ::pop) }
-            entry<Route.MediaPager> { route -> com.snatik.storage.app.feature.media.MediaPagerScreen(startId = route.startId, onBack = ::pop, onOpenVideo = ::openPath, onTiled = { path -> push(Route.TiledViewer(path)) }) }
+            entry<Route.MediaPager> { route -> com.snatik.storage.app.feature.media.MediaPagerScreen(startId = route.startId, onBack = ::pop, onOpenVideo = ::openPath, onTiled = { path -> push(Route.TiledViewer(path)) }, onDevelop = { path -> push(Route.Develop(path)) }) }
             entry<Route.TiledViewer> { route -> com.snatik.storage.app.feature.media.TiledViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.Develop> { route -> com.snatik.storage.app.feature.media.DevelopScreen(path = route.path, onBack = ::pop) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.System> { SystemScreen(onBack = ::pop, onOpenProcesses = { push(Route.ProcessMonitor(it)) }) }

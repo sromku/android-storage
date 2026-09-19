@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.foundation.Image
@@ -89,6 +90,7 @@ fun MediaPagerScreen(
     onBack: () -> Unit,
     onOpenVideo: (String) -> Unit,
     onTiled: (String) -> Unit,
+    onDevelop: (String) -> Unit = {},
     repo: MediaRepository = koinInject(),
     favorites: FavoritesStore = koinInject(),
 ) {
@@ -293,6 +295,13 @@ fun MediaPagerScreen(
                                             onTiled(target.path)
                                         }
                                     },
+                                )
+                            }
+                            if (isRawMedia(current.name, current.mime)) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.develop_raw)) },
+                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
+                                    onClick = { overflow = false; onDevelop(current.path) },
                                 )
                             }
                             if (!current.isVideo) {

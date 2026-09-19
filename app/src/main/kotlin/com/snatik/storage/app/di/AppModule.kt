@@ -175,6 +175,7 @@ val appModule = module {
     viewModel { com.snatik.storage.app.feature.media.MediaGridViewModel(get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.media.DuplicatesViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.media.PhotoInsightsViewModel(get(), get()) }
+    viewModel { (p: String) -> com.snatik.storage.app.feature.media.DevelopViewModel(get(), p) }
     viewModel { com.snatik.storage.app.feature.cloud.CloudViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.camera.CameraBrowseViewModel(get()) }
     viewModel { com.snatik.storage.app.feature.camera.CameraUsbViewModel(get()) }
