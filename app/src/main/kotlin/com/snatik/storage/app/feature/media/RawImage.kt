@@ -175,3 +175,19 @@ class RawImageKeyer : Keyer<RawImageModel> {
 /** Coil model for a media item: an embedded-preview path for RAW, otherwise the content uri. */
 fun mediaModel(item: MediaItem): Any =
     if (isRawMedia(item.name, item.mime) && item.path.isNotBlank()) RawImageModel(item.path) else item.uri
+
+/**
+ * Extracts a RAW file's full-resolution embedded JPEG to a cache file, so it can be opened in the
+ * tiled viewer for true pixel-level zoom (Sony ARW etc. embed a full-sensor-resolution JPEG).
+ * Returns the cache path, or null if no embedded JPEG could be found.
+ */
+suspend fun extractEmbeddedJpegToCache(context: android.content.Context, item: MediaItem): String? =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val src = File(item.path)
+        if (!src.isFile) return@withContext null
+        val bytes = largestEmbeddedJpeg(src) ?: return@withContext null
+        val dir = File(context.cacheDir, "raw_full").apply { mkdirs() }
+        val base = item.name.substringBeforeLast('.', item.name).ifBlank { "raw_${item.id}" }
+        val dst = File(dir, "$base.jpg")
+        runCatching { dst.writeBytes(bytes); dst.absolutePath }.getOrNull()
+    }

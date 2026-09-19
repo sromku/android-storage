@@ -215,9 +215,13 @@ private fun openRegionDecoder(path: String): RegionSource? = runCatching {
     RegionSource(decoder, w, h, base)
 }.getOrNull()
 
-/** True for formats BitmapRegionDecoder can subsample and that are big enough to warrant tiling. */
+/**
+ * True when a full-resolution tiled view is worthwhile. RAW files qualify - we extract their
+ * full-size embedded JPEG first - as do large images in a format BitmapRegionDecoder can subsample.
+ */
 fun supportsTiling(item: MediaItem): Boolean {
     if (item.isVideo || item.path.isBlank()) return false
+    if (isRawMedia(item.name, item.mime)) return true
     val mp = item.width.toLong() * item.height
     if (mp < 20_000_000) return false
     val mime = item.mime.lowercase()

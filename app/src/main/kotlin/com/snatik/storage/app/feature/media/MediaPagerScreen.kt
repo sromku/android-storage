@@ -167,7 +167,21 @@ fun MediaPagerScreen(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.full_resolution)) },
                                     leadingIcon = { Icon(Icons.Default.ZoomIn, contentDescription = null) },
-                                    onClick = { overflow = false; onTiled(current.path) },
+                                    onClick = {
+                                        overflow = false
+                                        val target = current
+                                        if (isRawMedia(target.name, target.mime)) {
+                                            // RAW: view its full-resolution embedded JPEG tiled.
+                                            Toast.makeText(context, R.string.full_resolution_preparing, Toast.LENGTH_SHORT).show()
+                                            scope.launch {
+                                                val path = extractEmbeddedJpegToCache(context, target)
+                                                if (path != null) onTiled(path)
+                                                else Toast.makeText(context, R.string.full_resolution_failed, Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            onTiled(target.path)
+                                        }
+                                    },
                                 )
                             }
                             if (!current.isVideo) {
