@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -57,8 +58,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,6 +71,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -170,6 +175,7 @@ fun MediaGridScreen(
     }
 
     BackHandler(enabled = selecting) { clearSelection() }
+    BackHandler(enabled = !selecting && state.searchActive) { viewModel.setSearchActive(false) }
 
     if (confirmDelete) {
         AlertDialog(
@@ -200,6 +206,12 @@ fun MediaGridScreen(
                     onConvert = { convertSelected() },
                     onDelete = { confirmDelete = true },
                 )
+            } else if (state.searchActive) {
+                SearchBar(
+                    query = state.query,
+                    onQuery = viewModel::setQuery,
+                    onClose = { viewModel.setSearchActive(false) },
+                )
             } else {
                 LargeTopAppBar(
                     scrollBehavior = scrollBehavior,
@@ -216,6 +228,9 @@ fun MediaGridScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = { viewModel.setSearchActive(true) }) {
+                            Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                        }
                         Box {
                             IconButton(onClick = { appMenu = true }) {
                                 Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
@@ -259,11 +274,9 @@ fun MediaGridScreen(
             ) {
                 if (!selecting) {
                     MediaFilterBar(
-                        query = state.query,
                         filter = state.filter,
                         hasCamera = state.hasCamera,
                         hasFavorites = state.hasFavorites,
-                        onQuery = viewModel::setQuery,
                         onFilter = viewModel::setFilter,
                     )
                 }
@@ -315,44 +328,56 @@ fun MediaGridScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    TopAppBar(
+        navigationIcon = {
+            IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.close)) }
+        },
+        title = {
+            TextField(
+                value = query,
+                onValueChange = onQuery,
+                placeholder = { Text(stringResource(R.string.photos_search_hint)) },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            )
+            LaunchedEffect(Unit) { focus.requestFocus() }
+        },
+        actions = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear)) }
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun MediaFilterBar(
-    query: String,
     filter: MediaFilter,
     hasCamera: Boolean,
     hasFavorites: Boolean,
-    onQuery: (String) -> Unit,
     onFilter: (MediaFilter) -> Unit,
 ) {
-    Column {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQuery,
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close)) }
-                }
-            },
-            placeholder = { Text(stringResource(R.string.photos_search_hint)) },
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-        )
-        Row(
-            Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            MediaFilter.entries.filter { (it != MediaFilter.CAMERA || hasCamera) && (it != MediaFilter.FAVORITES || hasFavorites) }.forEach { f ->
-                FilterChip(
-                    selected = filter == f,
-                    onClick = { onFilter(f) },
-                    label = { Text(stringResource(filterLabel(f))) },
-                )
-            }
+    Row(
+        Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MediaFilter.entries.filter { (it != MediaFilter.CAMERA || hasCamera) && (it != MediaFilter.FAVORITES || hasFavorites) }.forEach { f ->
+            FilterChip(
+                selected = filter == f,
+                onClick = { onFilter(f) },
+                label = { Text(stringResource(filterLabel(f))) },
+            )
         }
     }
 }

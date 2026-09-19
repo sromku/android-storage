@@ -28,6 +28,7 @@ data class MediaGridState(
     val shown: Int = 0,          // after filter + query
     val filter: MediaFilter = MediaFilter.ALL,
     val query: String = "",
+    val searchActive: Boolean = false,
     val hasCamera: Boolean = false,
     val hasFavorites: Boolean = false,
 )
@@ -98,6 +99,11 @@ class MediaGridViewModel(
     fun setQuery(query: String) {
         if (query == _state.value.query) return
         _state.value = _state.value.copy(query = query)
+        recompute()
+    }
+
+    fun setSearchActive(active: Boolean) {
+        _state.value = _state.value.copy(searchActive = active, query = if (active) _state.value.query else "")
         recompute()
     }
 
