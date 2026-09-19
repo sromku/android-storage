@@ -20,4 +20,4 @@ echo "== USB tunnel (skip with Ctrl-C to use Wi-Fi only) =="
 
 echo
 echo "== Starting collector — open the web tool at http://localhost:$PORT =="
-exec python3 "$DIR/collector.py" --port "$PORT"
+exec python3 "$DIR/companion.py" --port "$PORT"

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-External collector for the Storage app's monitoring tools.
+Storage Studio — desktop companion.
 
-Runs a tiny HTTP endpoint on your computer that the phone streams to while a
-monitor is recording. Every record is appended to a local SQLite database with
-no row limit, so you can leave a device recording for days and keep everything.
+Runs a tiny HTTP server on your computer that powers the companion web tool:
+  * Collector: the phone streams monitor events here while recording; every
+    record is appended to a local SQLite database with no row limit, so you can
+    leave a device recording for days and keep everything.
+  * Files: browses and downloads the connected device's filesystem over adb.
 
 Usage:
-    python3 tools/collector.py                 # 0.0.0.0:8899, db tools/collector-data/monitor.db
-    python3 tools/collector.py --port 9000 --db ~/captures/run1.db
+    python3 tools/companion.py                 # 0.0.0.0:8899, db tools/collector-data/monitor.db
+    python3 tools/companion.py --port 9000 --db ~/captures/run1.db
 
 The default database lives in tools/collector-data/ (gitignored), so captures
 never show up in git status.
@@ -27,14 +29,20 @@ so the web tool can show connection status and live rows.
 """
 import argparse
 import json
+import mimetypes
 import os
+import posixpath
+import re
+import shutil
 import signal
 import socket
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -44,11 +52,120 @@ _seen = {}        # tool -> last-activity epoch ms (data row or heartbeat); powe
 _LIVE_MS = 15000  # a tool counts as "live" if seen within this window (heartbeat is every 7s)
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+_SELF = os.path.basename(__file__)  # so the port-freeing self-check survives a rename
 
 
 class ReuseServer(ThreadingHTTPServer):
     # Reuse the address so a quick restart isn't blocked by TIME_WAIT.
     allow_reuse_address = True
+
+
+# ---------------------------------------------------------------------------
+# Device file access over adb (the Files explorer in the web tool).
+#
+# The laptop already has adb and (for this to work) the phone connected over
+# USB or wireless debugging. We browse and pull files at the adb shell tier
+# (uid 2000 — the same reach as Shizuku), or more when `adb root` is available.
+# ---------------------------------------------------------------------------
+_ADB = None
+
+
+def find_adb():
+    """Locate the adb binary on PATH or in the common SDK install locations."""
+    global _ADB
+    if _ADB is not None:
+        return _ADB
+    c = shutil.which("adb")
+    if not c:
+        home = os.path.expanduser("~")
+        for p in (f"{home}/Library/Android/sdk/platform-tools/adb",
+                  f"{home}/Android/Sdk/platform-tools/adb",
+                  "/usr/local/bin/adb", "/opt/homebrew/bin/adb"):
+            if os.path.isfile(p) and os.access(p, os.X_OK):
+                c = p
+                break
+    _ADB = c or ""
+    return _ADB
+
+
+def adb_devices():
+    """List (serial, state) for attached devices; only those in 'device' state."""
+    adb = find_adb()
+    if not adb:
+        return []
+    try:
+        out = subprocess.run([adb, "devices"], capture_output=True, timeout=8, text=True).stdout
+    except Exception:
+        return []
+    devs = []
+    for line in out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == "device":
+            devs.append((parts[0], parts[1]))
+    return devs
+
+
+def resolve_serial(explicit=None):
+    if explicit:
+        return explicit
+    env = os.environ.get("ADB_SERIAL")
+    if env:
+        return env
+    devs = adb_devices()
+    return devs[0][0] if devs else None
+
+
+def adb_base(serial=None):
+    adb = find_adb()
+    if not adb:
+        return None
+    s = resolve_serial(serial)
+    return [adb] + (["-s", s] if s else [])
+
+
+def dq(path):
+    """Single-quote a path for the device shell (prevents command injection)."""
+    return "'" + str(path).replace("'", "'\\''") + "'"
+
+
+def adb_out(cmd, serial=None, timeout=25):
+    """Run a device shell command via exec-out; return CompletedProcess (bytes)."""
+    base = adb_base(serial)
+    if not base:
+        raise RuntimeError("adb not found")
+    return subprocess.run(base + ["exec-out", cmd], capture_output=True, timeout=timeout)
+
+
+# toybox `ls -lA`: perms links owner group size YYYY-MM-DD HH:MM[:SS] name[ -> target]
+_LS_RE = re.compile(
+    r'^([bcdlpsx\-][-rwxsStT]{9})[.+]?\s+\d+\s+(\S+)\s+(\S+)\s+(\d+)\s+'
+    r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)\s+(.*)$')
+
+
+def fs_list(path, serial=None):
+    # -L dereferences symlinks so that e.g. /sdcard (a link) lists the target dir.
+    r = adb_out("ls -lAL " + dq(path), serial=serial, timeout=25)
+    out = r.stdout.decode("utf-8", "replace")
+    err = r.stderr.decode("utf-8", "replace").strip()
+    entries = []
+    for line in out.splitlines():
+        m = _LS_RE.match(line.strip())
+        if not m:
+            continue
+        perms, owner, group, size, date, tm, name = m.groups()
+        typ = "dir" if perms[0] == "d" else ("link" if perms[0] == "l" else "file")
+        target = None
+        if typ == "link" and " -> " in name:
+            name, target = name.split(" -> ", 1)
+        entries.append({
+            "name": name, "type": typ, "size": int(size),
+            "mtime": date + " " + tm, "target": target,
+            "mode": perms, "owner": owner, "group": group,
+            "path": posixpath.join(path, name),
+        })
+    denied = not entries and bool(err)
+    return {"path": path, "entries": entries,
+            "denied": denied, "error": err if denied else None}
 
 
 def _pids_on_port(port):
@@ -64,22 +181,22 @@ def _pids_on_port(port):
 
 
 def _is_collector(pid):
-    """True only if the process looks like another copy of this collector."""
+    """True only if the process looks like another copy of this script."""
     try:
         cmd = subprocess.check_output(["ps", "-p", str(pid), "-o", "command="], text=True)
-        return "collector.py" in cmd
+        return _SELF in cmd
     except Exception:
         return False
 
 
 def free_port_if_ours(port):
-    """Silently stop a stale collector holding the port, so a fresh run just works.
-    Only ever kills another collector.py — never an unrelated process."""
+    """Silently stop a stale companion holding the port, so a fresh run just works.
+    Only ever kills another copy of this script — never an unrelated process."""
     freed = False
     for pid in _pids_on_port(port):
         if pid == os.getpid() or not _is_collector(pid):
             continue
-        print(f"Port {port} was held by a previous collector (pid {pid}) — restarting it.")
+        print(f"Port {port} was held by a previous companion (pid {pid}) — restarting it.")
         for sig in (signal.SIGTERM, signal.SIGKILL):
             try:
                 os.kill(pid, sig)
@@ -269,6 +386,51 @@ class Handler(BaseHTTPRequestHandler):
             buckets = [counts.get(now_h - (hours - 1 - i), 0) for i in range(hours)]
             self._json({"tool": tool, "hours": hours, "buckets": buckets})
             return
+        if path == "/api/fs/status":
+            adb = find_adb()
+            devs = adb_devices()
+            info = {"adb": bool(adb), "connected": bool(adb) and bool(devs),
+                    "devices": [d[0] for d in devs]}
+            if info["connected"]:
+                try:
+                    info["model"] = adb_out("getprop ro.product.model", timeout=8).stdout.decode().strip()
+                except Exception:
+                    info["model"] = ""
+                try:
+                    info["root"] = adb_out("id -u", timeout=8).stdout.decode().strip() == "0"
+                except Exception:
+                    info["root"] = False
+                info["serial"] = resolve_serial()
+            self._json(info)
+            return
+        if path == "/api/fs/list":
+            q = parse_qs(parsed.query)
+            target = q.get("path", ["/sdcard"])[0] or "/sdcard"
+            serial = q.get("serial", [None])[0]
+            if not find_adb():
+                self._json({"error": "adb not found — install platform-tools", "entries": []}, 503)
+                return
+            if not adb_devices():
+                self._json({"error": "no device connected over adb", "entries": []}, 503)
+                return
+            try:
+                self._json(fs_list(target, serial=serial))
+            except Exception as e:
+                self._json({"error": str(e), "entries": []}, 500)
+            return
+        if path == "/api/fs/download":
+            q = parse_qs(parsed.query)
+            self.handle_download(q.get("path", [""])[0], q.get("serial", [None])[0],
+                                 q.get("inline", ["0"])[0] == "1")
+            return
+        if path == "/api/fs/zip":
+            q = parse_qs(parsed.query)
+            try:
+                paths = json.loads(q.get("paths", ["[]"])[0])
+            except Exception:
+                paths = []
+            self.handle_zip(paths, q.get("serial", [None])[0])
+            return
         self.send_response(404)
         self._cors()
         self.end_headers()
@@ -280,7 +442,7 @@ class Handler(BaseHTTPRequestHandler):
             self._cors()
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
-            self.wfile.write(b"web/index.html not found next to collector.py\n")
+            self.wfile.write(b"web/index.html not found next to companion.py\n")
             return
         with open(index, "rb") as f:
             body = f.read()
@@ -290,6 +452,104 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def handle_download(self, path, serial=None, inline=False):
+        """Stream a single device file to the browser (attachment, or inline for previews)."""
+        base = adb_base(serial)
+        if not base:
+            self._json({"error": "adb / device not available"}, 503)
+            return
+        if not path:
+            self._json({"error": "path required"}, 400)
+            return
+        # Refuse early if the shell user can't read it, so the browser gets an error
+        # instead of a silent empty file.
+        try:
+            ok = adb_out("test -r " + dq(path) + " && echo ok", serial=serial, timeout=10).stdout.decode().strip()
+        except Exception:
+            ok = ""
+        if ok != "ok":
+            self._json({"error": "cannot read (permission denied or not a file): " + path}, 403)
+            return
+        size = None
+        try:
+            rs = adb_out("stat -c %s " + dq(path), serial=serial, timeout=10)
+            if rs.returncode == 0:
+                size = int(rs.stdout.decode().strip() or 0)
+        except Exception:
+            pass
+        name = posixpath.basename(path) or "download"
+        ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        proc = subprocess.Popen(base + ["exec-out", "cat " + dq(path)], stdout=subprocess.PIPE)
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", ctype)
+        disp = "inline" if inline else "attachment"
+        self.send_header("Content-Disposition", '%s; filename="%s"' % (disp, name.replace('"', '')))
+        if size is not None:
+            self.send_header("Content-Length", str(size))
+        self.end_headers()
+        try:
+            while True:
+                chunk = proc.stdout.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            proc.wait()
+
+    def handle_zip(self, paths, serial=None):
+        """Pull the selected files/folders and stream them back as one zip."""
+        base = adb_base(serial)
+        if not base:
+            self._json({"error": "adb / device not available"}, 503)
+            return
+        paths = [p for p in (paths or []) if isinstance(p, str) and p.strip()]
+        if not paths:
+            self._json({"error": "no paths given"}, 400)
+            return
+        tmp = tempfile.mkdtemp(prefix="ssfs-")
+        zpath = tmp + ".zip"
+        try:
+            for p in paths:
+                subprocess.run(base + ["pull", "-a", p, tmp], capture_output=True, timeout=1800)
+            with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zf:
+                for rootdir, _dirs, files in os.walk(tmp):
+                    for f in files:
+                        fp = os.path.join(rootdir, f)
+                        zf.write(fp, os.path.relpath(fp, tmp))
+            size = os.path.getsize(zpath)
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", 'attachment; filename="storage-studio-files.zip"')
+            self.send_header("Content-Length", str(size))
+            self.end_headers()
+            with open(zpath, "rb") as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            try:
+                self._json({"error": str(e)}, 500)
+            except Exception:
+                pass
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            try:
+                os.remove(zpath)
+            except Exception:
+                pass
 
     def do_POST(self):
         import time
