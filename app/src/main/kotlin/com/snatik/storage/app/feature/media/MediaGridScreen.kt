@@ -181,6 +181,15 @@ fun MediaGridScreen(
 
     BackHandler(enabled = selecting) { clearSelection() }
 
+    if (appMenu) {
+        LibraryToolsSheet(
+            onDismiss = { appMenu = false },
+            onFindDuplicates = { appMenu = false; onFindDuplicates() },
+            onBrowseCloud = { appMenu = false; onBrowseCloud() },
+            onSyncCamera = { appMenu = false; onSyncCamera() },
+            onInsights = { appMenu = false; onInsights() },
+        )
+    }
     if (showConvert) {
         ConvertSheet(count = selectedItems.count { !it.isVideo }, onDismiss = { showConvert = false }) { options ->
             showConvert = false
@@ -255,32 +264,8 @@ fun MediaGridScreen(
                         IconButton(onClick = { viewModel.setSearchActive(true) }) {
                             Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                         }
-                        Box {
-                            IconButton(onClick = { appMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
-                            }
-                            DropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.dupes_find)) },
-                                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
-                                    onClick = { appMenu = false; onFindDuplicates() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.cloud_browse)) },
-                                    leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null) },
-                                    onClick = { appMenu = false; onBrowseCloud() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.camera_sync_menu)) },
-                                    leadingIcon = { Icon(Icons.Default.PhotoCamera, contentDescription = null) },
-                                    onClick = { appMenu = false; onSyncCamera() },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.photoinsights_menu)) },
-                                    leadingIcon = { Icon(Icons.Default.Insights, contentDescription = null) },
-                                    onClick = { appMenu = false; onInsights() },
-                                )
-                            }
+                        IconButton(onClick = { appMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
                         }
                     },
                 )

@@ -13,13 +13,17 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ManageSearch
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Tune
@@ -195,6 +199,34 @@ fun ShareActionSheet(
             if (!isVideo) ActionRow(Icons.Default.Shield, stringResource(R.string.share_stripped), subtitle = stringResource(R.string.share_stripped_sub), onClick = onShareStripped)
             ActionRow(Icons.AutoMirrored.Filled.OpenInNew, stringResource(R.string.open_with), onClick = onOpenWith)
             if (!isVideo) ActionRow(Icons.Default.Wallpaper, stringResource(R.string.use_as), onClick = onUseAs)
+        }
+    }
+}
+
+/** Library-level tools, reached from the Photos grid overflow. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LibraryToolsSheet(
+    onDismiss: () -> Unit,
+    onFindDuplicates: () -> Unit,
+    onBrowseCloud: () -> Unit,
+    onSyncCamera: () -> Unit,
+    onInsights: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+            Text(
+                stringResource(R.string.library_tools),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 10.dp),
+            )
+            HorizontalDivider(Modifier.padding(bottom = 4.dp))
+            ActionRow(Icons.Default.ContentCopy, stringResource(R.string.dupes_find), subtitle = stringResource(R.string.dupes_find_sub), onClick = onFindDuplicates)
+            ActionRow(Icons.Default.Insights, stringResource(R.string.photoinsights_menu), subtitle = stringResource(R.string.photoinsights_menu_sub), onClick = onInsights)
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            ActionRow(Icons.Default.PhotoCamera, stringResource(R.string.camera_sync_menu), subtitle = stringResource(R.string.camera_sync_menu_sub), onClick = onSyncCamera)
+            ActionRow(Icons.Default.Cloud, stringResource(R.string.cloud_browse), subtitle = stringResource(R.string.cloud_browse_sub), onClick = onBrowseCloud)
         }
     }
 }
