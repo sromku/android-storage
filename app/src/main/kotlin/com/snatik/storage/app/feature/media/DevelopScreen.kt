@@ -140,6 +140,7 @@ fun DevelopScreen(path: String, onBack: () -> Unit, viewModel: DevelopViewModel 
             onDismiss = { showExport = false },
             onJpeg = { showExport = false; viewModel.exportJpeg() },
             onTiff = { showExport = false; viewModel.exportTiff() },
+            onDng = { showExport = false; viewModel.exportDng() },
         )
     }
 }
@@ -280,7 +281,7 @@ private fun SliderRow(label: String, value: String, current: Float, range: Close
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExportSheet(onDismiss: () -> Unit, onJpeg: () -> Unit, onTiff: () -> Unit) {
+private fun ExportSheet(onDismiss: () -> Unit, onJpeg: () -> Unit, onTiff: () -> Unit, onDng: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text("Export developed image", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
@@ -288,6 +289,9 @@ private fun ExportSheet(onDismiss: () -> Unit, onJpeg: () -> Unit, onTiff: () ->
             Button(onClick = onJpeg, modifier = Modifier.fillMaxWidth()) { Text("JPEG  ·  8-bit, quality 95") }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = onTiff, modifier = Modifier.fillMaxWidth()) { Text("TIFF  ·  16-bit, full range") }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = onDng, modifier = Modifier.fillMaxWidth()) { Text("DNG  ·  raw sensor data, archival") }
+            Text("DNG keeps the original mosaiced sensor data and camera color, editable anywhere. Develop edits above are not baked in.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }

@@ -98,11 +98,18 @@ class RawDeveloper private constructor(private var handle: Long) {
         return nativeExportTiff(handle, path, params.toArray())
     }
 
+    /** Writes a raw (mosaiced) DNG preserving the sensor data + camera color metadata. */
+    fun exportDng(srcPath: String, outPath: String): Boolean {
+        if (handle == 0L) return false
+        return nativeExportDng(srcPath, outPath)
+    }
+
     fun close() { if (handle != 0L) { nativeClose(handle); handle = 0L } }
 
     private external fun nativeRender(handle: Long, half: Int, params: FloatArray): Long
     private external fun nativeFill(handle: Long, bitmap: Bitmap): Boolean
     private external fun nativeExportTiff(handle: Long, path: String, params: FloatArray): Boolean
+    private external fun nativeExportDng(srcPath: String, outPath: String): Boolean
     private external fun nativeCamMul(handle: Long): FloatArray
     private external fun nativeClose(handle: Long)
     private external fun nativeOpen(path: String): Long

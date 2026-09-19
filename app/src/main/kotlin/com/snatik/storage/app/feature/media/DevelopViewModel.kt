@@ -115,12 +115,30 @@ class DevelopViewModel(
                     val base = File(path).name.substringBeforeLast('.')
                     val cache = File(getApplication<Application>().cacheDir, "$base.tiff")
                     if (!d.exportTiff(cache.absolutePath, _state.value.params)) return@withLock false
-                    val moved = publishTiff(cache)
+                    val moved = publishImage(cache, "image/tiff")
                     cache.delete()
                     moved
                 }
             }
             _state.value = _state.value.copy(exporting = false, exportMsg = if (ok) "Saved 16-bit TIFF to Pictures/Storage Studio" else "Export failed")
+        }
+    }
+
+    fun exportDng() {
+        val d = dev ?: return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(exporting = true, exportMsg = null)
+            val ok = withContext(Dispatchers.IO) {
+                renderLock.withLock {
+                    val base = File(path).name.substringBeforeLast('.')
+                    val cache = File(getApplication<Application>().cacheDir, "$base.dng")
+                    if (!d.exportDng(path, cache.absolutePath)) return@withLock false
+                    val moved = publishImage(cache, "image/x-adobe-dng")
+                    cache.delete()
+                    moved
+                }
+            }
+            _state.value = _state.value.copy(exporting = false, exportMsg = if (ok) "Saved DNG to Pictures/Storage Studio" else "DNG export failed (unsupported sensor?)")
         }
     }
 
@@ -145,11 +163,11 @@ class DevelopViewModel(
         true
     }.getOrDefault(false)
 
-    private fun publishTiff(src: File): Boolean = runCatching {
+    private fun publishImage(src: File, mime: String): Boolean = runCatching {
         val resolver = getApplication<Application>().contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, src.name)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/tiff")
+            put(MediaStore.Images.Media.MIME_TYPE, mime)
             if (Build.VERSION.SDK_INT >= 29) {
                 put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Storage Studio")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
