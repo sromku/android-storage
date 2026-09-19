@@ -147,8 +147,8 @@ static inline void applyPixel(const PP& pp, float c[3], int x, int y) {
             if (pp.anyTone) {
                 v = toneLift(v, pp.shadows, 0.25f, 0.22f);
                 v = toneLift(v, pp.highs, 0.78f, 0.22f);
-                v = toneLift(v, pp.blacks, 0.05f, 0.12f);
-                v = toneLift(v, pp.whites, 0.97f, 0.12f);
+                v = toneLift(v, pp.blacks, 0.0f, 0.28f);
+                v = toneLift(v, pp.whites, 1.0f, 0.28f);
             }
             if (pp.contrast != 0) v = (v - 0.5f) * (1.0f + pp.contrast) + 0.5f;
             c[k] = v;
@@ -175,7 +175,7 @@ static inline void applyPixel(const PP& pp, float c[3], int x, int y) {
                 float w = 1.0f - dh / 45.0f;
                 if (w <= 0) continue;
                 wsum += w;
-                hueShift += w * pp.hsl[b*3+0] * 0.35f;         // deg
+                hueShift += w * pp.hsl[b*3+0] * 0.65f;         // deg (max ~65 at full)
                 satMul   += w * pp.hsl[b*3+1] / 100.0f;
                 lumAdd   += w * pp.hsl[b*3+2] / 100.0f * 0.30f;
             }
@@ -321,9 +321,9 @@ static void postProcess(libraw_processed_image_t *img, const float *p, const flo
     pp.sat = p[P_SATURATION] / 100.0f;
     pp.vib = p[P_VIBRANCE] / 100.0f;
     pp.shadows = p[P_SHADOWS] / 100.0f * 0.35f;
-    pp.blacks = p[P_BLACKS] / 100.0f * 0.30f;
+    pp.blacks = p[P_BLACKS] / 100.0f * 0.45f;
     pp.highs = p[P_HIGHLIGHTS] / 100.0f * 0.35f;
-    pp.whites = p[P_WHITES] / 100.0f * 0.30f;
+    pp.whites = p[P_WHITES] / 100.0f * 0.45f;
     pp.vignette = p[P_VIGNETTE] / 100.0f;
     pp.grain = p[P_GRAIN] / 100.0f * 0.12f;
     pp.anyTone = pp.shadows || pp.blacks || pp.highs || pp.whites;
