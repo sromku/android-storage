@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -143,37 +144,91 @@ fun DevelopScreen(path: String, onBack: () -> Unit, viewModel: DevelopViewModel 
     }
 }
 
+private enum class DevTab(val label: String) { LIGHT("Light"), TONE("Tone"), COLOR("Color"), WB("White bal."), DETAIL("Detail") }
+
 @Composable
 private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
+    var tab by remember { mutableStateOf(DevTab.LIGHT) }
     Column(
         Modifier
             .fillMaxWidth()
             .background(Panel)
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-            .verticalScroll(rememberScrollState()),
+            .navigationBarsPadding(),
     ) {
-        SliderRow("Exposure", "%+.2f EV".format(params.exposure), params.exposure, -3f..3f) { onChange(params.copy(exposure = it)) }
-
-        LabelRow("Highlights")
-        val hlOptions = listOf(0 to "Clip", 2 to "Blend", 3 to "Rebuild")
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            hlOptions.forEach { (v, label) ->
-                DarkChip(selected = params.highlight == v, label = label) { onChange(params.copy(highlight = v)) }
+        // Tab strip
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DevTab.entries.forEach { t -> DarkChip(selected = tab == t, label = t.label) { tab = t } }
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 150.dp, max = 260.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 16.dp),
+        ) {
+            when (tab) {
+                DevTab.LIGHT -> {
+                    SliderRow("Exposure", "%+.2f EV".format(params.exposure), params.exposure, -3f..3f) { onChange(params.copy(exposure = it)) }
+                    SliderRow("Brightness", "%.2fx".format(params.bright), params.bright, 0.3f..2.5f) { onChange(params.copy(bright = it)) }
+                    LabelRow("Highlights")
+                    ChipRow(listOf(0 to "Clip", 2 to "Blend", 3 to "Rebuild"), params.highlight) { onChange(params.copy(highlight = it)) }
+                    if (params.highlight >= 3) {
+                        SliderRow("Rebuild strength", "${params.highlightLevel}", params.highlightLevel.toFloat(), 3f..9f) { onChange(params.copy(highlightLevel = it.roundToInt())) }
+                    }
+                }
+                DevTab.TONE -> {
+                    SliderRow("Contrast", sign(params.contrast), params.contrast, -100f..100f) { onChange(params.copy(contrast = it)) }
+                    SliderRow("Highlights", sign(params.highlightsTone), params.highlightsTone, -100f..100f) { onChange(params.copy(highlightsTone = it)) }
+                    SliderRow("Shadows", sign(params.shadows), params.shadows, -100f..100f) { onChange(params.copy(shadows = it)) }
+                    SliderRow("Whites", sign(params.whites), params.whites, -100f..100f) { onChange(params.copy(whites = it)) }
+                    SliderRow("Blacks", sign(params.blacks), params.blacks, -100f..100f) { onChange(params.copy(blacks = it)) }
+                }
+                DevTab.COLOR -> {
+                    SliderRow("Saturation", sign(params.saturation), params.saturation, -100f..100f) { onChange(params.copy(saturation = it)) }
+                    SliderRow("Vibrance", sign(params.vibrance), params.vibrance, -100f..100f) { onChange(params.copy(vibrance = it)) }
+                    LabelRow("Output color space")
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ColorSpace.entries.forEach { cs -> DarkChip(selected = params.colorSpace == cs, label = cs.label) { onChange(params.copy(colorSpace = cs)) } }
+                    }
+                }
+                DevTab.WB -> {
+                    LabelRow("White balance")
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(RawWb.CAMERA to "As shot", RawWb.AUTO to "Auto", RawWb.CUSTOM to "Custom").forEach { (wb, label) ->
+                            DarkChip(selected = params.wb == wb, label = label) { onChange(params.copy(wb = wb)) }
+                        }
+                    }
+                    if (params.wb == RawWb.CUSTOM) {
+                        SliderRow("Temperature", "${params.temp.roundToInt()} K", params.temp, 2500f..10000f) { onChange(params.copy(temp = it)) }
+                        SliderRow("Tint", if (params.tint >= 0) "Magenta" else "Green", params.tint, -100f..100f) { onChange(params.copy(tint = it)) }
+                    } else {
+                        LabelRow(if (params.wb == RawWb.AUTO) "Auto-balanced from the whole frame." else "Using the camera's as-shot balance.")
+                    }
+                }
+                DevTab.DETAIL -> {
+                    LabelRow("Demosaic")
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Demosaic.entries.forEach { dm -> DarkChip(selected = params.demosaic == dm, label = dm.label) { onChange(params.copy(demosaic = dm)) } }
+                    }
+                    LabelRow("Noise reduction")
+                    ChipRow(listOf(0 to "Off", 1 to "Light", 2 to "Full"), params.fbdd) { onChange(params.copy(fbdd = it)) }
+                    SliderRow("Wavelet NR", if (params.threshold <= 0) "Off" else "${params.threshold.roundToInt()}", params.threshold, 0f..1000f) { onChange(params.copy(threshold = it)) }
+                }
             }
         }
+    }
+}
 
-        LabelRow("White balance")
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            RawWb.entries.forEach { wb ->
-                DarkChip(selected = params.wb == wb, label = wb.name.lowercase().replaceFirstChar { it.uppercase() }) { onChange(params.copy(wb = wb)) }
-            }
-        }
-        if (params.wb == RawWb.CUSTOM) {
-            SliderRow("Temperature", if (params.wbTemp >= 0) "Warm" else "Cool", params.wbTemp, -1f..1f) { onChange(params.copy(wbTemp = it)) }
-        }
+private fun sign(v: Float): String = if (v > 0) "+${v.roundToInt()}" else "${v.roundToInt()}"
 
-        SliderRow("Brightness", "%.2fx".format(params.bright), params.bright, 0.3f..2.5f) { onChange(params.copy(bright = it)) }
+@Composable
+private fun ChipRow(options: List<Pair<Int, String>>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { (v, label) -> DarkChip(selected = selected == v, label = label) { onSelect(v) } }
     }
 }
 

@@ -75,7 +75,7 @@ class DevelopViewModel(
         _state.value = _state.value.copy(rendering = true, loading = first && _state.value.preview == null)
         val bmp = withContext(Dispatchers.IO) {
             renderLock.withLock {
-                val full = d.render(params, half = true, quality = 0) ?: return@withLock null
+                val full = d.render(params.copy(demosaic = Demosaic.LINEAR), half = true) ?: return@withLock null
                 val longest = maxOf(full.width, full.height)
                 if (longest > PREVIEW_CAP) {
                     val s = PREVIEW_CAP.toFloat() / longest
@@ -96,7 +96,7 @@ class DevelopViewModel(
             _state.value = _state.value.copy(exporting = true, exportMsg = null)
             val ok = withContext(Dispatchers.IO) {
                 renderLock.withLock {
-                    val full = d.render(_state.value.params, half = false, quality = 3) ?: return@withLock false
+                    val full = d.render(_state.value.params, half = false) ?: return@withLock false
                     val saved = saveBitmapJpeg(full, quality)
                     full.recycle()
                     saved
