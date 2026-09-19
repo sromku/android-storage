@@ -105,7 +105,9 @@ fun MediaPagerScreen(
     var chromeVisible by remember { mutableStateOf(true) }
     var showInfo by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
-    var overflow by remember { mutableStateOf(false) }
+    var showActions by remember { mutableStateOf(false) }
+    var showInspect by remember { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
     var showHistogram by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -130,6 +132,65 @@ fun MediaPagerScreen(
             runCatching { uris.forEach { context.contentResolver.delete(it, null, null) } }
             onBack()
         }
+    }
+
+    fun openFullRes() {
+        val target = current
+        if (isRawMedia(target.name, target.mime)) {
+            Toast.makeText(context, R.string.full_resolution_preparing, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val path = extractEmbeddedJpegToCache(context, target)
+                if (path != null) onTiled(path) else Toast.makeText(context, R.string.full_resolution_failed, Toast.LENGTH_SHORT).show()
+            }
+        } else onTiled(target.path)
+    }
+    fun shareStripped() {
+        val target = current
+        Toast.makeText(context, R.string.share_stripping, Toast.LENGTH_SHORT).show()
+        scope.launch {
+            val clean = MediaShare.stripToCache(context, target)
+            if (clean != null) Intents.share(context, listOf(clean.absolutePath))
+            else Toast.makeText(context, R.string.share_strip_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (showActions) {
+        PagerActionSheet(
+            item = current,
+            isRaw = isRawMedia(current.name, current.mime),
+            canTile = supportsTiling(current),
+            onDismiss = { showActions = false },
+            onInspect = { showActions = false; showInspect = true },
+            onDetails = { showActions = false; showInfo = true },
+            onDevelop = { showActions = false; onDevelop(current.path) },
+            onFullRes = { showActions = false; openFullRes() },
+            onRename = { showActions = false; showRename = true },
+            onMove = { showActions = false; showMove = true },
+            onShareSheet = { showActions = false; showShare = true },
+            onDelete = { showActions = false; confirmDelete = true },
+        )
+    }
+    if (showInspect) {
+        InspectSheet(
+            showHistogram = showHistogram,
+            analysis = analysis,
+            onDismiss = { showInspect = false },
+            onDetails = { showInspect = false; showInfo = true },
+            onToggleHistogram = { showInspect = false; showHistogram = !showHistogram },
+            onToggleClipping = { showInspect = false; analysis = if (analysis == AnalysisMode.CLIPPING) AnalysisMode.NONE else AnalysisMode.CLIPPING },
+            onTogglePeaking = { showInspect = false; analysis = if (analysis == AnalysisMode.PEAKING) AnalysisMode.NONE else AnalysisMode.PEAKING },
+            onPrivacy = { showInspect = false; showPrivacy = true },
+        )
+    }
+    if (showShare) {
+        ShareActionSheet(
+            isVideo = current.isVideo,
+            onDismiss = { showShare = false },
+            onShareOriginal = { showShare = false; Intents.share(context, listOf(current.path)) },
+            onShareStripped = { showShare = false; shareStripped() },
+            onOpenWith = { showShare = false; Intents.openWith(context, current.path) },
+            onUseAs = { showShare = false; Intents.useAs(context, current.path) },
+        )
     }
 
     if (showRename) {
@@ -261,116 +322,8 @@ fun MediaPagerScreen(
                             tint = if (isFav) Color(0xFFFF4081) else Color.White,
                         )
                     }
-                    Box {
-                        IconButton(onClick = { overflow = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions), tint = Color.White)
-                        }
-                        DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.details)) },
-                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
-                                onClick = { overflow = false; showInfo = true },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.share_original)) },
-                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                                onClick = { overflow = false; Intents.share(context, listOf(current.path)) },
-                            )
-                            if (supportsTiling(current)) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.full_resolution)) },
-                                    leadingIcon = { Icon(Icons.Default.ZoomIn, contentDescription = null) },
-                                    onClick = {
-                                        overflow = false
-                                        val target = current
-                                        if (isRawMedia(target.name, target.mime)) {
-                                            // RAW: view its full-resolution embedded JPEG tiled.
-                                            Toast.makeText(context, R.string.full_resolution_preparing, Toast.LENGTH_SHORT).show()
-                                            scope.launch {
-                                                val path = extractEmbeddedJpegToCache(context, target)
-                                                if (path != null) onTiled(path)
-                                                else Toast.makeText(context, R.string.full_resolution_failed, Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else {
-                                            onTiled(target.path)
-                                        }
-                                    },
-                                )
-                            }
-                            if (isRawMedia(current.name, current.mime)) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.develop_raw)) },
-                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
-                                    onClick = { overflow = false; onDevelop(current.path) },
-                                )
-                            }
-                            if (!current.isVideo) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.histogram)) },
-                                    leadingIcon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-                                    trailingIcon = { if (showHistogram) Icon(Icons.Default.Check, contentDescription = null) },
-                                    onClick = { overflow = false; showHistogram = !showHistogram },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.analysis_clipping)) },
-                                    leadingIcon = { Icon(Icons.Default.Contrast, contentDescription = null) },
-                                    trailingIcon = { if (analysis == AnalysisMode.CLIPPING) Icon(Icons.Default.Check, contentDescription = null) },
-                                    onClick = { overflow = false; analysis = if (analysis == AnalysisMode.CLIPPING) AnalysisMode.NONE else AnalysisMode.CLIPPING },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.analysis_peaking)) },
-                                    leadingIcon = { Icon(Icons.Default.FilterCenterFocus, contentDescription = null) },
-                                    trailingIcon = { if (analysis == AnalysisMode.PEAKING) Icon(Icons.Default.Check, contentDescription = null) },
-                                    onClick = { overflow = false; analysis = if (analysis == AnalysisMode.PEAKING) AnalysisMode.NONE else AnalysisMode.PEAKING },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.privacy_report)) },
-                                    leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
-                                    onClick = { overflow = false; showPrivacy = true },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.share_stripped)) },
-                                    leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
-                                    onClick = {
-                                        overflow = false
-                                        val target = current
-                                        Toast.makeText(context, R.string.share_stripping, Toast.LENGTH_SHORT).show()
-                                        scope.launch {
-                                            val clean = MediaShare.stripToCache(context, target)
-                                            if (clean != null) Intents.share(context, listOf(clean.absolutePath))
-                                            else Toast.makeText(context, R.string.share_strip_failed, Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.open_with)) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
-                                onClick = { overflow = false; Intents.openWith(context, current.path) },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.rename)) },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = { overflow = false; showRename = true },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.move_to_folder)) },
-                                leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) },
-                                onClick = { overflow = false; showMove = true },
-                            )
-                            if (!current.isVideo) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.use_as)) },
-                                    leadingIcon = { Icon(Icons.Default.Wallpaper, contentDescription = null) },
-                                    onClick = { overflow = false; Intents.useAs(context, current.path) },
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                onClick = { overflow = false; confirmDelete = true },
-                            )
-                        }
+                    IconButton(onClick = { showActions = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.5f)),

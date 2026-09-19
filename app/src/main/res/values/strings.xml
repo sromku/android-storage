@@ -1225,6 +1225,17 @@
     <string name="dupes_keep">Keep</string>
     <string name="dupes_delete_title">Delete duplicates?</string>
     <string name="histogram">Histogram</string>
+    <string name="action_inspect">Inspect</string>
+    <string name="action_inspect_sub">Details, histogram, clipping, focus peaking</string>
+    <string name="action_share_send">Share &amp; send</string>
+    <string name="action_share_send_sub">Share, remove metadata, open with, use as</string>
+    <string name="develop_raw_sub">Adjust exposure, color and tone, then export</string>
+    <string name="inspect_histogram_sub">RGB and luminance levels</string>
+    <string name="inspect_clipping_sub">Blown highlights and crushed shadows</string>
+    <string name="inspect_peaking_sub">Highlight the in-focus edges</string>
+    <string name="share_stripped_sub">Removes location and camera details</string>
+    <string name="kind_photo">Photo</string>
+    <string name="kind_video_one">Video</string>
     <string name="develop_raw">Develop RAW</string>
     <string name="analysis_clipping">Clipping warning</string>
     <string name="analysis_peaking">Focus peaking</string>
