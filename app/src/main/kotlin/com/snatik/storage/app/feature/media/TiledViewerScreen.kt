@@ -3,6 +3,9 @@ package com.snatik.storage.app.feature.media
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -11,7 +14,10 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +34,9 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -70,8 +78,21 @@ fun TiledViewerScreen(path: String, onBack: () -> Unit) {
     androidx.compose.material3.Scaffold(
         containerColor = Color.Black,
         topBar = {
+            val src = source
             TopAppBar(
-                title = { Text(File(path).name, maxLines = 1, color = Color.White) },
+                title = {
+                    androidx.compose.foundation.layout.Column {
+                        Text(File(path).name, maxLines = 1, color = Color.White)
+                        if (src != null) {
+                            val mp = src.width.toLong() * src.height / 1_000_000.0
+                            Text(
+                                "${src.width} × ${src.height}  ·  %.1f MP".format(mp),
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) }
                 },
@@ -92,9 +113,11 @@ private fun TiledCanvas(src: RegionSource, modifier: Modifier) {
         val vw = constraints.maxWidth.toFloat()
         val vh = constraints.maxHeight.toFloat()
         val fit = min(vw / src.width, vh / src.height)
-        val maxScale = fit * 24f
+        // Allow deep digital zoom (up to 500% of actual pixels) so you can inspect past 1:1.
+        val maxScale = maxOf(5f, fit * 4f)
 
         var scale by remember(src) { mutableFloatStateOf(fit) }
+        var hudVisible by remember(src) { androidx.compose.runtime.mutableStateOf(true) }
         var offset by remember(src) {
             mutableStateOf(Offset((vw - src.width * fit) / 2f, (vh - src.height * fit) / 2f))
         }
@@ -126,14 +149,21 @@ private fun TiledCanvas(src: RegionSource, modifier: Modifier) {
             }
         }
 
+        // Show the zoom/quality readout on every zoom change, then fade it out when idle.
+        androidx.compose.runtime.LaunchedEffect(scale) {
+            hudVisible = true
+            delay(1600)
+            hudVisible = false
+        }
+
         Canvas(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black)
                 .pointerInput(src) {
                     detectTapGestures(onDoubleTap = { p ->
-                        val target = if (scale > fit * 1.5f) fit else min(fit * 8f, maxScale)
-                        // zoom toward the tapped point
+                        // Toggle between fit and 1:1 actual pixels (the point of "best quality").
+                        val target = if (scale > fit * 1.5f) fit else 1f.coerceAtMost(maxScale)
                         val focus = (p - offset) / scale
                         scale = target
                         offset = clampOffset(target, p - focus * target)
@@ -176,6 +206,39 @@ private fun TiledCanvas(src: RegionSource, modifier: Modifier) {
                     tilePaint.alpha = 255
                 }
             }
+        }
+
+        ZoomHud(
+            scalePercent = (scale * 100f).roundToInt(),
+            digital = scale > 1.02f,
+            visible = hudVisible,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 28.dp),
+        )
+    }
+}
+
+@Composable
+private fun ZoomHud(scalePercent: Int, digital: Boolean, visible: Boolean, modifier: Modifier) {
+    val green = Color(0xFF34C759)
+    val amber = Color(0xFFFFB300)
+    val accent = if (digital) amber else green
+    val label = when {
+        digital -> stringResource(R.string.zoom_digital)
+        scalePercent >= 98 -> stringResource(R.string.zoom_actual_pixels)
+        else -> stringResource(R.string.zoom_fit_quality)
+    }
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut(), modifier = modifier) {
+        androidx.compose.foundation.layout.Row(
+            Modifier
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                .background(Color(0xE6000000))
+                .padding(horizontal = 16.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(9.dp),
+        ) {
+            androidx.compose.foundation.Canvas(Modifier.size(9.dp)) { drawCircle(accent) }
+            Text("$scalePercent%", color = Color.White, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+            Text(label, color = accent, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
         }
     }
 }

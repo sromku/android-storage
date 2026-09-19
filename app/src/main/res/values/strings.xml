@@ -1154,6 +1154,9 @@
     <string name="full_resolution">View at full resolution</string>
     <string name="full_resolution_preparing">Preparing full resolution…</string>
     <string name="full_resolution_failed">Could not open at full resolution</string>
+    <string name="zoom_actual_pixels">Actual pixels · full quality</string>
+    <string name="zoom_digital">Digital zoom</string>
+    <string name="zoom_fit_quality">Full quality</string>
     <string name="privacy_report">What this photo reveals</string>
     <string name="privacy_report_lead_reveals">Shared as-is, this photo would tell the recipient:</string>
     <string name="privacy_report_lead_clean">Good news - this photo carries little that identifies you.</string>
