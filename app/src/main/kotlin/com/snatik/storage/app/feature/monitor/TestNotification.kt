@@ -1,5 +1,6 @@
 package com.snatik.storage.app.feature.monitor
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -27,6 +28,9 @@ object TestNotification {
 
     const val CHANNEL = "test_rich"
 
+    // notify() is wrapped in runCatching and the app requests POST_NOTIFICATIONS; a denied
+    // permission simply means the test notification isn't posted, never a crash.
+    @SuppressLint("MissingPermission")
     fun send(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(

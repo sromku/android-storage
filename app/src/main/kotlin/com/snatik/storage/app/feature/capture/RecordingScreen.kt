@@ -140,6 +140,7 @@ class RecordingViewModel(private val id: Long, private val engine: RecordingEngi
 fun RecordingScreen(id: Long, onBack: () -> Unit, onOpenFolder: (String) -> Unit, viewModel: RecordingViewModel = koinViewModel(parameters = { parametersOf(id) })) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val exportShareTitle = stringResource(R.string.recording_export_share)
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel, resources) {
@@ -263,7 +264,7 @@ fun RecordingScreen(id: Long, onBack: () -> Unit, onOpenFolder: (String) -> Unit
                             runCatching {
                                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", File(zip))
                                 val send = Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                context.startActivity(Intent.createChooser(send, context.getString(R.string.recording_export_share)))
+                                context.startActivity(Intent.createChooser(send, exportShareTitle))
                             }
                         },
                         modifier = Modifier.weight(1f),

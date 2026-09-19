@@ -165,6 +165,7 @@ fun NotificationMonitorScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, v
     val recordedCount by viewModel.recordedCount.collectAsStateWithLifecycle()
     val oldest by viewModel.oldest.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val notifTestSent = stringResource(R.string.notif_test_sent)
     val hasAccess = remember { viewModel.hasAccess(context) }
 
     var query by rememberSaveable { mutableStateOf("") }
@@ -217,7 +218,7 @@ fun NotificationMonitorScreen(onBack: () -> Unit, onOpenApp: (String) -> Unit, v
                                     TestNotification.send(context)
                                     viewModel.setSource(NotifSource.LIVE)
                                     view = NotifView.TIMELINE
-                                    android.widget.Toast.makeText(context, context.getString(R.string.notif_test_sent), android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, notifTestSent, android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.NotificationAdd, contentDescription = null) },
                             )
