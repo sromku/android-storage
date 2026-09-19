@@ -98,8 +98,12 @@ That set says, in one sentence, *"it opens the files your gallery can't and show
 them - then lets you share them safely."* Non-technical users get "finally, something that opens my
 RAW / HEIC / huge file"; power users get the metadata depth.
 
-**Fast follow (P1) headline:** **#16-#18 cloud connect + browse + stream-preview** and **#4 tiled
-huge-file viewer** - the two things that make it clearly more than a gallery.
+**P1 progress (built):**
+- [x] Organize - smart-view chips (All/Photos/Videos/RAW/Screenshots) + on-device EXIF search (#21, #22)
+- [x] Pro viewer - histogram overlay, "what this reveals" privacy report, video stream inspector, animated formats (#6, #7, #11, #12)
+- [x] Convert + dedupe - HEIC/RAW/AVIF -> JPG, perceptual-hash duplicate finder (#23, #27)
+- [ ] Cloud connect + browse + stream-preview (#16-#18) - needs a one-time OAuth app registration
+- [ ] Tiled huge-file viewer (#4)
 
 ## Technical notes (the hard parts)
 
