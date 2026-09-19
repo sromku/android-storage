@@ -3,6 +3,8 @@ package com.snatik.storage.app.feature.media
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -43,7 +45,13 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private class RegionSource(val decoder: BitmapRegionDecoder, val width: Int, val height: Int)
+private class RegionSource(
+    val decoder: BitmapRegionDecoder,
+    val width: Int,
+    val height: Int,
+    /** A whole-image low-res layer, always drawn underneath so nothing is ever blank while decoding. */
+    val base: android.graphics.Bitmap?,
+)
 
 private class Tile(val bitmap: android.graphics.Bitmap, val srcRect: Rect)
 
@@ -91,6 +99,16 @@ private fun TiledCanvas(src: RegionSource, modifier: Modifier) {
             mutableStateOf(Offset((vw - src.width * fit) / 2f, (vh - src.height * fit) / 2f))
         }
         var tile by remember(src) { mutableStateOf<Tile?>(null) }
+        val tileAlpha = remember(src) { Animatable(1f) }
+        val tilePaint = remember { android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG) }
+
+        // Fade each freshly-decoded sharp region in over the low-res base.
+        androidx.compose.runtime.LaunchedEffect(tile) {
+            if (tile != null) {
+                tileAlpha.snapTo(0f)
+                tileAlpha.animateTo(1f, tween(220))
+            }
+        }
 
         fun clampOffset(s: Float, o: Offset): Offset {
             val contentW = src.width * s
@@ -131,18 +149,32 @@ private fun TiledCanvas(src: RegionSource, modifier: Modifier) {
                     }
                 },
         ) {
-            val t = tile ?: return@Canvas
-            drawIntoCanvas {
-                val dstLeft = (t.srcRect.left * scale + offset.x)
-                val dstTop = (t.srcRect.top * scale + offset.y)
-                val dstW = (t.srcRect.width() * scale)
-                val dstH = (t.srcRect.height() * scale)
-                it.nativeCanvas.drawBitmap(
-                    t.bitmap,
-                    null,
-                    android.graphics.RectF(dstLeft, dstTop, dstLeft + dstW, dstTop + dstH),
-                    null,
-                )
+            drawIntoCanvas { canvas ->
+                val native = canvas.nativeCanvas
+                // 1) Whole-image low-res base - always present, so zoom/pan never shows black gaps.
+                src.base?.let { base ->
+                    val l = offset.x
+                    val t = offset.y
+                    native.drawBitmap(
+                        base,
+                        null,
+                        android.graphics.RectF(l, t, l + src.width * scale, t + src.height * scale),
+                        tilePaint,
+                    )
+                }
+                // 2) Sharp visible region, faded in on top once decoded.
+                tile?.let { tl ->
+                    val dstLeft = tl.srcRect.left * scale + offset.x
+                    val dstTop = tl.srcRect.top * scale + offset.y
+                    tilePaint.alpha = (tileAlpha.value * 255f).toInt().coerceIn(0, 255)
+                    native.drawBitmap(
+                        tl.bitmap,
+                        null,
+                        android.graphics.RectF(dstLeft, dstTop, dstLeft + tl.srcRect.width() * scale, dstTop + tl.srcRect.height() * scale),
+                        tilePaint,
+                    )
+                    tilePaint.alpha = 255
+                }
             }
         }
     }
@@ -172,7 +204,15 @@ private fun openRegionDecoder(path: String): RegionSource? = runCatching {
     if (!file.isFile) return null
     @Suppress("DEPRECATION")
     val decoder = BitmapRegionDecoder.newInstance(path, false) ?: return null
-    RegionSource(decoder, decoder.width, decoder.height)
+    val w = decoder.width
+    val h = decoder.height
+    // Low-res whole-image base: subsample so the long edge is ~1536px (a few MB, always resident).
+    var baseSample = 1
+    while (max(w, h) / baseSample > 1536) baseSample *= 2
+    val base = runCatching {
+        decoder.decodeRegion(Rect(0, 0, w, h), BitmapFactory.Options().apply { inSampleSize = baseSample })
+    }.getOrNull()
+    RegionSource(decoder, w, h, base)
 }.getOrNull()
 
 /** True for formats BitmapRegionDecoder can subsample and that are big enough to warrant tiling. */
