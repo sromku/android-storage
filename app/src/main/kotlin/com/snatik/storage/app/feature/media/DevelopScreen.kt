@@ -24,6 +24,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,8 +57,11 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.math.roundToInt
 
-private val Ink = Color(0xFF0B0B0C)
-private val Panel = Color(0xFF161618)
+private val Ink = Color(0xFF0B0B0C)      // preview surround
+private val Panel = Color(0xFF161719)    // controls panel
+private val OnDark = Color(0xFFF2F3F5)   // primary text on the panel
+private val OnDarkDim = Color(0xB3F2F3F5) // secondary text
+private val Accent = Color(0xFF7EC8FF)   // cool accent that reads on dark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,14 +159,14 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
         val hlOptions = listOf(0 to "Clip", 2 to "Blend", 3 to "Rebuild")
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             hlOptions.forEach { (v, label) ->
-                FilterChip(selected = params.highlight == v, onClick = { onChange(params.copy(highlight = v)) }, label = { Text(label) })
+                DarkChip(selected = params.highlight == v, label = label) { onChange(params.copy(highlight = v)) }
             }
         }
 
         LabelRow("White balance")
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RawWb.entries.forEach { wb ->
-                FilterChip(selected = params.wb == wb, onClick = { onChange(params.copy(wb = wb)) }, label = { Text(wb.name.lowercase().replaceFirstChar { it.uppercase() }) })
+                DarkChip(selected = params.wb == wb, label = wb.name.lowercase().replaceFirstChar { it.uppercase() }) { onChange(params.copy(wb = wb)) }
             }
         }
         if (params.wb == RawWb.CUSTOM) {
@@ -172,18 +177,50 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DarkChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal) },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent,
+            labelColor = OnDarkDim,
+            selectedContainerColor = Accent.copy(alpha = 0.20f),
+            selectedLabelColor = Accent,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = Color.White.copy(alpha = 0.22f),
+            selectedBorderColor = Accent.copy(alpha = 0.55f),
+        ),
+    )
+}
+
 @Composable
 private fun LabelRow(label: String) {
-    Text(label, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Text(label, color = OnDarkDim, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
 }
 
 @Composable
 private fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.titleSmall)
-        Text(value, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = OnDark, style = MaterialTheme.typography.titleSmall)
+        Text(value, color = Accent, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
     }
-    Slider(value = current, onValueChange = onChange, valueRange = range, modifier = Modifier.fillMaxWidth())
+    Slider(
+        value = current,
+        onValueChange = onChange,
+        valueRange = range,
+        colors = SliderDefaults.colors(
+            thumbColor = Accent,
+            activeTrackColor = Accent,
+            inactiveTrackColor = Color.White.copy(alpha = 0.14f),
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
