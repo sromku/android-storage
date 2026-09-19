@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -19,6 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.FilterCenterFocus
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
@@ -105,6 +110,8 @@ fun MediaPagerScreen(
     var showRename by remember { mutableStateOf(false) }
     var showMove by remember { mutableStateOf(false) }
     var histogram by remember { mutableStateOf<Histogram?>(null) }
+    var analysis by remember { mutableStateOf(AnalysisMode.NONE) }
+    var analysisBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val current = items[pagerState.currentPage.coerceIn(0, items.lastIndex)]
@@ -163,6 +170,9 @@ fun MediaPagerScreen(
     LaunchedEffect(current.id, showHistogram) {
         histogram = if (showHistogram && !current.isVideo) computeHistogram(context, mediaModel(current)) else null
     }
+    LaunchedEffect(current.id, analysis) {
+        analysisBmp = if (analysis != AnalysisMode.NONE && !current.isVideo) analysisOverlay(context, mediaModel(current), analysis) else null
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(
@@ -186,6 +196,31 @@ fun MediaPagerScreen(
 
         if (showInfo) MediaInfoSheet(current) { showInfo = false }
         if (showPrivacy) PrivacyReportSheet(current) { showPrivacy = false }
+
+        analysisBmp?.let { bmp ->
+            if (analysis != AnalysisMode.NONE && !zoomed) {
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (chromeVisible) {
+                    androidx.compose.material3.Surface(
+                        color = Color.Black.copy(alpha = 0.55f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 120.dp),
+                    ) {
+                        Text(
+                            stringResource(if (analysis == AnalysisMode.CLIPPING) R.string.analysis_clipping else R.string.analysis_peaking),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
 
         histogram?.let { h ->
             if (showHistogram) {
@@ -266,6 +301,18 @@ fun MediaPagerScreen(
                                     leadingIcon = { Icon(Icons.Default.BarChart, contentDescription = null) },
                                     trailingIcon = { if (showHistogram) Icon(Icons.Default.Check, contentDescription = null) },
                                     onClick = { overflow = false; showHistogram = !showHistogram },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.analysis_clipping)) },
+                                    leadingIcon = { Icon(Icons.Default.Contrast, contentDescription = null) },
+                                    trailingIcon = { if (analysis == AnalysisMode.CLIPPING) Icon(Icons.Default.Check, contentDescription = null) },
+                                    onClick = { overflow = false; analysis = if (analysis == AnalysisMode.CLIPPING) AnalysisMode.NONE else AnalysisMode.CLIPPING },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.analysis_peaking)) },
+                                    leadingIcon = { Icon(Icons.Default.FilterCenterFocus, contentDescription = null) },
+                                    trailingIcon = { if (analysis == AnalysisMode.PEAKING) Icon(Icons.Default.Check, contentDescription = null) },
+                                    onClick = { overflow = false; analysis = if (analysis == AnalysisMode.PEAKING) AnalysisMode.NONE else AnalysisMode.PEAKING },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.privacy_report)) },

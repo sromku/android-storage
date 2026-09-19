@@ -1225,6 +1225,8 @@
     <string name="dupes_keep">Keep</string>
     <string name="dupes_delete_title">Delete duplicates?</string>
     <string name="histogram">Histogram</string>
+    <string name="analysis_clipping">Clipping warning</string>
+    <string name="analysis_peaking">Focus peaking</string>
     <string name="full_resolution">View at full resolution</string>
     <string name="full_resolution_preparing">Preparing full resolution…</string>
     <string name="full_resolution_failed">Could not open at full resolution</string>
