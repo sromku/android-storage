@@ -11,3 +11,20 @@ build/
 # External collector local databases
 /tools/collector-data/
 monitor.db*
+
+# Release signing — NEVER commit these
+keystore.properties
+/keystore/
+*.jks
+*.keystore
+*.p12
+# Play publishing / service-account credentials
+play-service-account*.json
+*.aab
+release/
+# Store listing assets (screenshots, graphics, copy) — kept out of the code repo
+store-assets/
+
+# Python caches (companion tool)
+__pycache__/
+*.pyc

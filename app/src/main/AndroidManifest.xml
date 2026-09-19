@@ -32,10 +32,6 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.READ_SMS" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
 
     <application
         android:largeHeap="true"
