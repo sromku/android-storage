@@ -42,9 +42,10 @@ strong fast-bulk follow-up.
   that shows the listen address (phone IP:port), a live list of incoming files, and drops them into
   a `Camera Sync` album that flows into the gallery/RAW viewer. You set the A1 II's FTP transfer
   target to the phone (over the phone's hotspot or a shared Wi-Fi). Handles JPEG/HEIF/RAW.
-- **Phase 2 - PTP/IP browse + pull.** SSDP discovery, PTP/IP client (Kotlin, or port libgphoto2 via
-  the NDK - C++ is in-scope for this repo), GUID pairing, enumerate the card, thumbnail grid,
-  selective/bulk download with resume. "Connect to camera" with no camera-side config.
+- [x] **Phase 2 - PTP/IP browse + pull (BUILT).** Kotlin PTP/IP client (unit-tested framing) +
+  a connect form (enter/auto-fill the camera IP), card enumeration, thumbnail grid, multi-select
+  and download into the gallery. Needs the real A1 II in PC Remote (Wi-Fi) mode to validate the
+  handshake; the protocol layer and UI are verified, and connect failures report a clear error.
 - **Phase 3 - USB MTP import.** Android USB-host MTP for wired bulk offload.
 - **Phase 4 - BLE** auto-wake + geotag, and remote shutter if wanted.
 

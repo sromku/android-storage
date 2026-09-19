@@ -4,17 +4,13 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.Build
-import android.os.Environment
 import android.os.IBinder
-import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
 import com.snatik.storage.app.R
-import java.io.File
 import java.io.OutputStream
 import java.net.NetworkInterface
 
@@ -111,41 +107,7 @@ class CameraSyncService : Service() {
     }
 
     private class MediaStoreSink(private val context: Context) : StoreSink {
-        override fun begin(dir: String, name: String): StoredItem? = runCatching {
-            val resolver = context.contentResolver
-            val video = name.substringAfterLast('.', "").lowercase() in VIDEO_EXTS
-            val collection = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                if (Build.VERSION.SDK_INT >= 29) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES}/Storage Studio/Camera")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                } else {
-                    val base = File(Environment.getExternalStoragePublicDirectory(if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES), "Storage Studio/Camera").apply { mkdirs() }
-                    put(MediaStore.MediaColumns.DATA, File(base, name).absolutePath)
-                }
-            }
-            val uri = resolver.insert(collection, values) ?: return null
-            val out = resolver.openOutputStream(uri) ?: return null
-            object : StoredItem {
-                override val output: OutputStream = out
-                override fun commit(bytes: Long) {
-                    runCatching { out.close() }
-                    if (Build.VERSION.SDK_INT >= 29) {
-                        resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-                    }
-                    CameraSync.addFile(name, bytes)
-                }
-                override fun abort() {
-                    runCatching { out.close() }
-                    runCatching { resolver.delete(uri, null, null) }
-                }
-            }
-        }.getOrNull()
-
-        private companion object {
-            val VIDEO_EXTS = setOf("mp4", "mov", "mts", "m2ts", "avi", "mkv")
-        }
+        override fun begin(dir: String, name: String): StoredItem? = CameraMediaStore.begin(context, name)
     }
 
     companion object {

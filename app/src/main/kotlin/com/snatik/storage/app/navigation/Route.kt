@@ -25,6 +25,9 @@ sealed interface Route : NavKey {
     data object Camera : Route
 
     @Serializable
+    data object CameraBrowse : Route
+
+    @Serializable
     data class TiledViewer(val path: String) : Route
 
     @Serializable
