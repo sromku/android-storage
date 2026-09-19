@@ -13,7 +13,6 @@ import coil3.request.Options
 import coil3.size.Dimension
 import coil3.size.pxOrElse
 import androidx.exifinterface.media.ExifInterface
-import android.os.Build
 import java.io.File
 
 /** Coil model for a camera-raw file, previewed via its embedded JPEG (with a full-decode fallback). */
@@ -51,16 +50,10 @@ class RawImageFetcher(private val model: RawImageModel, private val options: Opt
         // Fallback: let the platform decode the file directly (DNG on capable devices).
         val target = maxOf(options.size.width.px(), options.size.height.px(), 512)
         val bmp = runCatching {
-            if (Build.VERSION.SDK_INT >= 28) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
-                    val w = info.size.width
-                    val h = info.size.height
-                    val sample = maxOf(1, maxOf(w, h) / target)
-                    decoder.setTargetSampleSize(sample.coerceAtLeast(1))
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                }
-            } else {
-                BitmapFactory.decodeFile(file.absolutePath)
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
+                val sample = maxOf(1, maxOf(info.size.width, info.size.height) / target)
+                decoder.setTargetSampleSize(sample.coerceAtLeast(1))
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             }
         }.getOrNull() ?: return null
 

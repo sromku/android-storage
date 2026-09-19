@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -138,7 +139,7 @@ private fun Row(row: InfoRow, context: Context) {
 
 private fun openMap(context: Context, geo: Pair<Double, Double>, label: String) {
     val (lat, lng) = geo
-    val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})")
+    val uri = "geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})".toUri()
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
 }
 

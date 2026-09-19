@@ -83,16 +83,16 @@ Grading leans on the chosen positioning and on the stated goal of *unlocking non
 
 ---
 
-## Recommended first cut (P0)
+## Recommended first cut (P0) - shipped
 
-A shippable "power viewer" that already feels magical and differentiated:
+A shippable "power viewer" that already feels magical and differentiated. All P0 items are built:
 
-- **#1 Media grid + viewer shell**
-- **#2 HEIC/AVIF/HDR rendering**
-- **#3 RAW preview** (embedded-JPEG-first is enough to ship)
-- **#5 Pro video player**
-- **#10 Deep metadata panel**
-- **#26 Share with EXIF/GPS strip**
+- [x] **#1 Media grid + viewer shell** - Photos tab, day-grouped adaptive grid, swipeable pager with pinch/double-tap zoom
+- [x] **#2 HEIC/AVIF/HDR rendering** - via Coil + the platform image decoder
+- [x] **#3 RAW preview** - embedded-JPEG-first Coil fetcher with a full-decode fallback (DNG/CR2/CR3/NEF/ARW/RW2/RAF/ORF/...)
+- [x] **#5 Pro video player** - reuses the ExoPlayer PlayerView (controls, seek, shell-staging)
+- [x] **#10 Deep metadata panel** - grouped File/Image/Camera/Location, humanized EXIF, GPS-to-Maps, expandable full-tag dump, video track facts
+- [x] **#26 Share with EXIF/GPS strip** - one-tap "Share without metadata", verified to remove all EXIF
 
 That set says, in one sentence, *"it opens the files your gallery can't and shows you everything about
 them - then lets you share them safely."* Non-technical users get "finally, something that opens my
