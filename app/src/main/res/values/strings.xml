@@ -1156,6 +1156,16 @@
     <string name="photoinsights_lenses">Lenses</string>
     <string name="convert_to_jpg">Convert to JPG</string>
     <string name="converting">Converting…</string>
+    <string name="convert_title">Convert %1$d to JPG</string>
+    <string name="convert_quality">Quality</string>
+    <string name="convert_max_size">Max size</string>
+    <string name="convert_size_original">Original</string>
+    <string name="convert_size_4000">4000 px</string>
+    <string name="convert_size_2048">2048 px</string>
+    <string name="convert_size_1024">1024 px</string>
+    <string name="convert_keep_meta">Keep metadata</string>
+    <string name="convert_keep_meta_body">Copy date, camera and GPS into the JPG</string>
+    <string name="convert_action">Convert %1$d</string>
     <string name="dupes_find">Find duplicates</string>
     <string name="cloud_title">Cloud</string>
     <string name="cloud_browse">Browse cloud</string>

@@ -124,6 +124,7 @@ fun MediaGridScreen(
     var selection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showMove by remember { mutableStateOf(false) }
+    var showConvert by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val allItems = remember(state.sections) { state.sections.flatMap { it.items } }
     val selectedItems = remember(selection, allItems) { allItems.filter { it.id in selection } }
@@ -153,12 +154,12 @@ fun MediaGridScreen(
         clearSelection()
     }
 
-    fun convertSelected() {
+    fun convertSelected(options: ConvertOptions) {
         val targets = selectedItems.filter { !it.isVideo }
         if (targets.isEmpty()) return
         Toast.makeText(context, R.string.converting, Toast.LENGTH_SHORT).show()
         scope.launch {
-            val done = MediaConvert.toJpeg(context, targets)
+            val done = MediaConvert.toJpeg(context, targets, options)
             Toast.makeText(context, context.resources.getQuantityString(R.plurals.converted, done, done), Toast.LENGTH_SHORT).show()
             if (done > 0) viewModel.load()
         }
@@ -180,6 +181,12 @@ fun MediaGridScreen(
 
     BackHandler(enabled = selecting) { clearSelection() }
 
+    if (showConvert) {
+        ConvertSheet(count = selectedItems.count { !it.isVideo }, onDismiss = { showConvert = false }) { options ->
+            showConvert = false
+            convertSelected(options)
+        }
+    }
     if (showMove) {
         MoveToFolderSheet(onDismiss = { showMove = false }) { folder ->
             showMove = false
@@ -219,7 +226,7 @@ fun MediaGridScreen(
                     onClose = { clearSelection() },
                     onShare = { shareSelected(strip = false) },
                     onShareStripped = { shareSelected(strip = true) },
-                    onConvert = { convertSelected() },
+                    onConvert = { showConvert = true },
                     onMove = { showMove = true },
                     onDelete = { confirmDelete = true },
                 )
