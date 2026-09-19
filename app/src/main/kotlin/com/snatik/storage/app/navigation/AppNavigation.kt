@@ -301,9 +301,10 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.ProviderWatch> { route -> ProviderWatchScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }, initialWatchUri = route.watchUri, initialWatchLabel = route.watchLabel) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
-            entry<Route.Photos> { MediaGridScreen(onOpenMedia = { id -> push(Route.MediaPager(id)) }, onSwitchTab = ::switchTab, onFindDuplicates = { push(Route.Duplicates) }, onBrowseCloud = { push(Route.Cloud) }) }
+            entry<Route.Photos> { MediaGridScreen(onOpenMedia = { id -> push(Route.MediaPager(id)) }, onSwitchTab = ::switchTab, onFindDuplicates = { push(Route.Duplicates) }, onBrowseCloud = { push(Route.Cloud) }, onSyncCamera = { push(Route.Camera) }) }
             entry<Route.Duplicates> { com.snatik.storage.app.feature.media.DuplicatesScreen(onBack = ::pop) }
             entry<Route.Cloud> { com.snatik.storage.app.feature.cloud.CloudScreen(onBack = ::pop) }
+            entry<Route.Camera> { com.snatik.storage.app.feature.camera.CameraScreen(onBack = ::pop) }
             entry<Route.MediaPager> { route -> com.snatik.storage.app.feature.media.MediaPagerScreen(startId = route.startId, onBack = ::pop, onOpenVideo = ::openPath, onTiled = { path -> push(Route.TiledViewer(path)) }) }
             entry<Route.TiledViewer> { route -> com.snatik.storage.app.feature.media.TiledViewerScreen(path = route.path, onBack = ::pop) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }

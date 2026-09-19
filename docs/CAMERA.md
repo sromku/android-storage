@@ -38,7 +38,7 @@ strong fast-bulk follow-up.
 
 ## Phased plan
 
-- **Phase 1 - FTP receive (testable now).** Embedded FTP/FTPS server in the app + a "Camera" screen
+- [x] **Phase 1 - FTP receive (BUILT).** Embedded FTP server + a "Sync from camera" screen
   that shows the listen address (phone IP:port), a live list of incoming files, and drops them into
   a `Camera Sync` album that flows into the gallery/RAW viewer. You set the A1 II's FTP transfer
   target to the phone (over the phone's hotspot or a shared Wi-Fi). Handles JPEG/HEIF/RAW.

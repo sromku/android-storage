@@ -100,6 +100,15 @@
         </service>
 
         <service
+            android:name=".feature.camera.CameraSyncService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Receives photos the user's own camera pushes over Wi-Fi (FTP) into the gallery" />
+        </service>
+
+        <service
             android:name=".feature.monitor.ProviderRecorderService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
