@@ -42,11 +42,29 @@ class MediaGridViewModel(
     private var items: List<MediaItem> = emptyList()
     /** Per-item lowercased haystack (name, folder, type, camera, lens, ISO, ...) for search. */
     private var index: Map<Long, String> = emptyMap()
+    private var reloadJob: kotlinx.coroutines.Job? = null
 
-    init { load() }
+    /** Refresh the grid live when media changes (camera sync, convert, delete, new shots). */
+    private val observer = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            reloadJob?.cancel()
+            reloadJob = viewModelScope.launch { kotlinx.coroutines.delay(800); load(quiet = true) }
+        }
+    }
 
-    fun load() {
-        _state.value = _state.value.copy(loading = true)
+    init {
+        load()
+        val cr = application.contentResolver
+        cr.registerContentObserver(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, observer)
+        cr.registerContentObserver(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, observer)
+    }
+
+    override fun onCleared() {
+        runCatching { getApplication<Application>().contentResolver.unregisterContentObserver(observer) }
+    }
+
+    fun load(quiet: Boolean = false) {
+        if (!quiet) _state.value = _state.value.copy(loading = true)
         viewModelScope.launch {
             items = repo.all()
             index = baseIndex(items)
