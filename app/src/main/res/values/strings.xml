@@ -67,7 +67,16 @@
 
     <!-- Tabs -->
     <string name="tab_storage">Storage</string>
+    <string name="tab_photos">Photos</string>
     <string name="tab_apps">Apps</string>
+
+    <!-- Photos / media -->
+    <string name="photos_summary">%1$d items · %2$s</string>
+    <string name="photos_empty">No photos or videos</string>
+    <string name="photos_empty_body">Nothing to show yet. Photos and videos on this device will appear here.</string>
+    <string name="photos_needs_access">Photos &amp; videos</string>
+    <string name="photos_needs_access_body">Allow access to show the photos and videos on this device.</string>
+    <string name="photos_grant">Allow access</string>
 
     <!-- Apps -->
     <string name="apps_title">Apps</string>

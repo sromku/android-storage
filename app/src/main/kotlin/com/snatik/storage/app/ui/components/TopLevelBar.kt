@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Dataset
 import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -22,6 +23,12 @@ fun TopLevelBar(current: TopLevel, onSelect: (TopLevel) -> Unit) {
             onClick = { onSelect(TopLevel.STORAGE) },
             icon = { Icon(Icons.Default.Storage, contentDescription = null) },
             label = { Text(stringResource(R.string.tab_storage)) },
+        )
+        NavigationBarItem(
+            selected = current == TopLevel.PHOTOS,
+            onClick = { onSelect(TopLevel.PHOTOS) },
+            icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null) },
+            label = { Text(stringResource(R.string.tab_photos)) },
         )
         NavigationBarItem(
             selected = current == TopLevel.APPS,

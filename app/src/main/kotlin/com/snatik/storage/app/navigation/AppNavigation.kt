@@ -33,6 +33,7 @@ import com.snatik.storage.app.feature.monitor.NotificationMonitorScreen
 import com.snatik.storage.app.feature.monitor.ProviderWatchScreen
 import com.snatik.storage.app.feature.monitor.ClipboardScreen
 import com.snatik.storage.app.feature.insights.InsightsScreen
+import com.snatik.storage.app.feature.media.MediaGridScreen
 import com.snatik.storage.app.feature.disk.SunburstScreen
 import com.snatik.storage.app.feature.apps.AppStorageScreen
 import com.snatik.storage.app.feature.system.SystemScreen
@@ -123,6 +124,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
     fun switchTab(tab: TopLevel) {
         val root: Route = when (tab) {
             TopLevel.STORAGE -> Route.Home
+            TopLevel.PHOTOS -> Route.Photos
             TopLevel.APPS -> Route.Apps
             TopLevel.DATA -> Route.Data
             TopLevel.TOOLS -> Route.Tools
@@ -299,6 +301,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.ProviderWatch> { route -> ProviderWatchScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }, initialWatchUri = route.watchUri, initialWatchLabel = route.watchLabel) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
+            entry<Route.Photos> { MediaGridScreen(onOpen = ::openPath, onSwitchTab = ::switchTab) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
             entry<Route.System> { SystemScreen(onBack = ::pop, onOpenProcesses = { push(Route.ProcessMonitor(it)) }) }

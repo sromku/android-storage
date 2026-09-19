@@ -10,6 +10,9 @@ sealed interface Route : NavKey {
     data object Home : Route
 
     @Serializable
+    data object Photos : Route
+
+    @Serializable
     data object Apps : Route
 
     /** One directory of one volume. Each directory is its own back stack entry. */
@@ -190,4 +193,4 @@ sealed interface Route : NavKey {
 }
 
 /** The destinations reachable from the bottom bar. */
-enum class TopLevel { STORAGE, APPS, DATA, TOOLS }
+enum class TopLevel { STORAGE, PHOTOS, APPS, DATA, TOOLS }
