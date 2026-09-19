@@ -18,10 +18,16 @@ object MediaShare {
 
     private val rewritable = setOf("image/jpeg", "image/jpg", "image/png", "image/webp")
 
+    /** Strip metadata from several items for a multi-share; skips any that fail. */
+    suspend fun stripManyToCache(context: Context, items: List<MediaItem>): List<String> =
+        items.map { stripToCache(context, it)?.absolutePath ?: it.path }
+
     suspend fun stripToCache(context: Context, item: MediaItem): File? = withContext(Dispatchers.IO) {
         val src = File(item.path)
         if (!src.isFile) return@withContext null
-        val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+        // One sub-folder per item keeps the original filename (clean for the recipient) and lets a
+        // multi-select share strip many files without them clobbering each other.
+        val dir = File(context.cacheDir, "shared/${item.id}").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val dst = File(dir, item.name.ifBlank { "image_${item.id}" })
 

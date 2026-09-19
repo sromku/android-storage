@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
@@ -78,7 +79,7 @@ fun MediaPagerScreen(
     var chromeVisible by remember { mutableStateOf(true) }
     var showInfo by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
-    var shareMenu by remember { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val current = items[pagerState.currentPage.coerceIn(0, items.lastIndex)]
@@ -125,34 +126,44 @@ fun MediaPagerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showInfo = true }) { Icon(Icons.Default.Info, contentDescription = stringResource(R.string.details), tint = Color.White) }
                     Box {
-                        IconButton(onClick = { if (current.isVideo) Intents.share(context, listOf(current.path)) else shareMenu = true }) {
-                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share), tint = Color.White)
+                        IconButton(onClick = { overflow = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions), tint = Color.White)
                         }
-                        DropdownMenu(expanded = shareMenu, onDismissRequest = { shareMenu = false }) {
+                        DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.details)) },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                onClick = { overflow = false; showInfo = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.share_original)) },
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                                onClick = { shareMenu = false; Intents.share(context, listOf(current.path)) },
+                                onClick = { overflow = false; Intents.share(context, listOf(current.path)) },
                             )
+                            if (!current.isVideo) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.share_stripped)) },
+                                    leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
+                                    onClick = {
+                                        overflow = false
+                                        val target = current
+                                        Toast.makeText(context, R.string.share_stripping, Toast.LENGTH_SHORT).show()
+                                        scope.launch {
+                                            val clean = MediaShare.stripToCache(context, target)
+                                            if (clean != null) Intents.share(context, listOf(clean.absolutePath))
+                                            else Toast.makeText(context, R.string.share_strip_failed, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.share_stripped)) },
-                                leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
-                                onClick = {
-                                    shareMenu = false
-                                    val target = current
-                                    Toast.makeText(context, R.string.share_stripping, Toast.LENGTH_SHORT).show()
-                                    scope.launch {
-                                        val clean = MediaShare.stripToCache(context, target)
-                                        if (clean != null) Intents.share(context, listOf(clean.absolutePath))
-                                        else Toast.makeText(context, R.string.share_strip_failed, Toast.LENGTH_SHORT).show()
-                                    }
-                                },
+                                text = { Text(stringResource(R.string.open_with)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
+                                onClick = { overflow = false; Intents.openWith(context, current.path) },
                             )
                         }
                     }
-                    IconButton(onClick = { Intents.openWith(context, current.path) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.open_with), tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.5f)),
             )
