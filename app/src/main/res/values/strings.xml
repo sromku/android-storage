@@ -1130,6 +1130,16 @@
     <string name="filter_videos">Videos</string>
     <string name="filter_raw">RAW</string>
     <string name="filter_screenshots">Screenshots</string>
+    <string name="convert_to_jpg">Convert to JPG</string>
+    <string name="converting">Converting…</string>
+    <string name="dupes_find">Find duplicates</string>
+    <string name="dupes_title">Duplicates</string>
+    <string name="dupes_scanning">Scanning your photos…</string>
+    <string name="dupes_none">No duplicates found</string>
+    <string name="dupes_summary">%1$d groups · reclaim %2$s</string>
+    <string name="dupes_group_count">%1$d near-identical photos</string>
+    <string name="dupes_keep">Keep</string>
+    <string name="dupes_delete_title">Delete duplicates?</string>
     <string name="histogram">Histogram</string>
     <string name="privacy_report">What this photo reveals</string>
     <string name="privacy_report_lead_reveals">Shared as-is, this photo would tell the recipient:</string>
@@ -1788,4 +1798,16 @@
     <string name="apk_analyze_composition">Composition</string>
     <string name="apk_analyze_categories">Categories</string>
     <string name="apk_analyze_cat_meta">%1$d items · %2$d%%</string>
+    <plurals name="converted">
+        <item quantity="one">Converted %1$d photo to JPG</item>
+        <item quantity="other">Converted %1$d photos to JPG</item>
+    </plurals>
+    <plurals name="dupes_delete_action">
+        <item quantity="one">Delete %1$d duplicate</item>
+        <item quantity="other">Delete %1$d duplicates</item>
+    </plurals>
+    <plurals name="dupes_delete_body">
+        <item quantity="one">%1$d duplicate will be deleted, keeping the best copy.</item>
+        <item quantity="other">%1$d duplicates will be deleted, keeping the best copy.</item>
+    </plurals>
 </resources>

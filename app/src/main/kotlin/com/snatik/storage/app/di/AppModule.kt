@@ -171,6 +171,7 @@ val appModule = module {
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { com.snatik.storage.app.feature.media.MediaGridViewModel(get(), get()) }
+    viewModel { com.snatik.storage.app.feature.media.DuplicatesViewModel(get(), get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }

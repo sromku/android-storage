@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
@@ -98,8 +100,10 @@ private fun mediaPermissions(): Array<String> =
 fun MediaGridScreen(
     onOpenMedia: (Long) -> Unit,
     onSwitchTab: (TopLevel) -> Unit,
+    onFindDuplicates: () -> Unit,
     viewModel: MediaGridViewModel = koinViewModel(),
 ) {
+    var appMenu by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -132,6 +136,18 @@ fun MediaGridScreen(
             scope.launch { Intents.share(context, MediaShare.stripManyToCache(context, targets)) }
         } else {
             Intents.share(context, targets.map { it.path })
+        }
+        clearSelection()
+    }
+
+    fun convertSelected() {
+        val targets = selectedItems.filter { !it.isVideo }
+        if (targets.isEmpty()) return
+        Toast.makeText(context, R.string.converting, Toast.LENGTH_SHORT).show()
+        scope.launch {
+            val done = MediaConvert.toJpeg(context, targets)
+            Toast.makeText(context, context.resources.getQuantityString(R.plurals.converted, done, done), Toast.LENGTH_SHORT).show()
+            if (done > 0) viewModel.load()
         }
         clearSelection()
     }
@@ -177,6 +193,7 @@ fun MediaGridScreen(
                     onClose = { clearSelection() },
                     onShare = { shareSelected(strip = false) },
                     onShareStripped = { shareSelected(strip = true) },
+                    onConvert = { convertSelected() },
                     onDelete = { confirmDelete = true },
                 )
             } else {
@@ -190,6 +207,20 @@ fun MediaGridScreen(
                                     stringResource(R.string.photos_summary, state.total, state.totalBytes.readableSize()),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        Box {
+                            IconButton(onClick = { appMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions))
+                            }
+                            DropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.dupes_find)) },
+                                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                                    onClick = { appMenu = false; onFindDuplicates() },
                                 )
                             }
                         }
@@ -323,6 +354,7 @@ private fun SelectionBar(
     onClose: () -> Unit,
     onShare: () -> Unit,
     onShareStripped: () -> Unit,
+    onConvert: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -340,6 +372,11 @@ private fun SelectionBar(
                         text = { Text(stringResource(R.string.share_stripped)) },
                         leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },
                         onClick = { menu = false; onShareStripped() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.convert_to_jpg)) },
+                        leadingIcon = { Icon(Icons.Default.Transform, contentDescription = null) },
+                        onClick = { menu = false; onConvert() },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.delete)) },
