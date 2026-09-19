@@ -48,7 +48,7 @@ import com.snatik.storage.app.util.readableSize
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit) {
+fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
     val context = LocalContext.current
     val state by CameraSync.state.collectAsStateWithLifecycle()
 
@@ -111,7 +111,7 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit) {
                     }
                 }
             } else {
-                Idle(onStart = { startReceiving() }, onBrowse = onBrowse, error = state.error)
+                Idle(onStart = { startReceiving() }, onBrowse = onBrowse, onUsb = onUsb, error = state.error)
             }
         }
     }
@@ -149,7 +149,7 @@ private fun Field(label: String, value: String) {
 }
 
 @Composable
-private fun Idle(onStart: () -> Unit, onBrowse: () -> Unit, error: String?) {
+private fun Idle(onStart: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit, error: String?) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
@@ -169,6 +169,9 @@ private fun Idle(onStart: () -> Unit, onBrowse: () -> Unit, error: String?) {
             }
             androidx.compose.material3.TextButton(onClick = onBrowse, modifier = Modifier.padding(top = 8.dp)) {
                 Text(stringResource(R.string.camerabrowse_link))
+            }
+            androidx.compose.material3.TextButton(onClick = onUsb) {
+                Text(stringResource(R.string.usb_start_title))
             }
         }
     }

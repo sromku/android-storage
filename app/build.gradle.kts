@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.coil.gif)
+    implementation("androidx.documentfile:documentfile:1.0.1")
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
     implementation(libs.jadx.core)

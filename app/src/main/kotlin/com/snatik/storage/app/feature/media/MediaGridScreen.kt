@@ -183,10 +183,10 @@ fun MediaGridScreen(
     if (showMove) {
         MoveToFolderSheet(onDismiss = { showMove = false }) { folder ->
             showMove = false
-            val targets = selectedItems.map { it.uri }
+            val targets = selectedItems.map { it.path }.filter { it.isNotBlank() }
             scope.launch {
                 val n = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { MediaEdit.move(context, targets, folder) }
-                Toast.makeText(context, if (n > 0) context.getString(R.string.moved_to, folder) else context.getString(R.string.move_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, if (n > 0) context.getString(R.string.moved_to, folder.name) else context.getString(R.string.move_failed), Toast.LENGTH_SHORT).show()
                 clearSelection()
             }
         }

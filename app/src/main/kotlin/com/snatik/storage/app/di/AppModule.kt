@@ -177,6 +177,7 @@ val appModule = module {
     viewModel { com.snatik.storage.app.feature.media.PhotoInsightsViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.cloud.CloudViewModel(get(), get()) }
     viewModel { com.snatik.storage.app.feature.camera.CameraBrowseViewModel(get()) }
+    viewModel { com.snatik.storage.app.feature.camera.CameraUsbViewModel(get()) }
     viewModel { (route: Route.Browser) -> BrowserViewModel(route, get(), get(), get(), get(), get()) }
     viewModel { (path: String) -> TextViewerViewModel(path, get()) }
     viewModel { (path: String) -> HexViewerViewModel(path, get()) }
