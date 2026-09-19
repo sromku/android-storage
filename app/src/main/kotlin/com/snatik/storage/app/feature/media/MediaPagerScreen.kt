@@ -45,7 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.snatik.storage.app.R
-import com.snatik.storage.app.feature.viewer.ImageInfoSheet
+
 import com.snatik.storage.app.util.Intents
 import org.koin.compose.koinInject
 
@@ -95,7 +95,7 @@ fun MediaPagerScreen(
             }
         }
 
-        if (showInfo) ImageInfoSheet(current.path) { showInfo = false }
+        if (showInfo) MediaInfoSheet(current) { showInfo = false }
 
         AnimatedVisibility(
             visible = chromeVisible,
