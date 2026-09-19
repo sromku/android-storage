@@ -28,6 +28,20 @@ object Intents {
         }
     }
 
+    /** "Use as" - lets the system offer Set as wallpaper, contact photo, etc. */
+    fun useAs(context: Context, path: String) {
+        val file = File(path)
+        val intent = Intent(Intent.ACTION_ATTACH_DATA)
+            .setDataAndType(uri(context, file), MimeTypes.of(file.name))
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .putExtra("mimeType", MimeTypes.of(file.name))
+        try {
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.use_as)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, R.string.no_app_for_file, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun share(context: Context, paths: List<String>) {
         val files = paths.map(::File).filter { it.isFile }
         if (files.isEmpty()) {

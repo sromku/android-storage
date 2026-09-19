@@ -20,6 +20,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayCircle
@@ -31,11 +33,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.os.Build
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -87,10 +93,42 @@ fun MediaPagerScreen(
     var overflow by remember { mutableStateOf(false) }
     var showHistogram by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var histogram by remember { mutableStateOf<Histogram?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val current = items[pagerState.currentPage.coerceIn(0, items.lastIndex)]
+
+    val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) onBack() // item gone; leave the viewer
+    }
+    fun deleteCurrent() {
+        val uris = listOf(current.uri)
+        if (Build.VERSION.SDK_INT >= 30) {
+            val pi = android.provider.MediaStore.createDeleteRequest(context.contentResolver, uris)
+            deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(pi.intentSender).build())
+        } else {
+            runCatching { uris.forEach { context.contentResolver.delete(it, null, null) } }
+            onBack()
+        }
+    }
+
+    if (confirmDelete) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text(stringResource(R.string.photos_delete_title)) },
+            text = { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.photos_delete_body, 1, 1)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false; deleteCurrent() }) {
+                    Text(stringResource(R.string.delete), color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
 
     LaunchedEffect(current.id, showHistogram) {
         histogram = if (showHistogram && !current.isVideo) computeHistogram(context, mediaModel(current)) else null
@@ -215,6 +253,18 @@ fun MediaPagerScreen(
                                 text = { Text(stringResource(R.string.open_with)) },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
                                 onClick = { overflow = false; Intents.openWith(context, current.path) },
+                            )
+                            if (!current.isVideo) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.use_as)) },
+                                    leadingIcon = { Icon(Icons.Default.Wallpaper, contentDescription = null) },
+                                    onClick = { overflow = false; Intents.useAs(context, current.path) },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = { overflow = false; confirmDelete = true },
                             )
                         }
                     }
