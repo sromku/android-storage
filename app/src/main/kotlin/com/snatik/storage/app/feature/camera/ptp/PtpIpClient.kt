@@ -25,16 +25,21 @@ class PtpIpClient(
     private val friendlyName: String = "Storage Studio",
     private val timeoutMs: Int = 15_000,
 ) {
-    private lateinit var command: Socket
-    private lateinit var event: Socket
+    // Assigned before connecting so close()/abort() from another thread can interrupt a pending
+    // blocking connect (closing the socket makes connect() throw).
+    @Volatile private var command: Socket? = null
+    @Volatile private var event: Socket? = null
+    @Volatile private var aborted = false
     private lateinit var cin: InputStream
     private lateinit var cout: OutputStream
     private var transactionId = 0L
 
     fun connect() {
-        command = Socket().apply { connect(InetSocketAddress(host, Ptp.COMMAND_PORT), timeoutMs); soTimeout = timeoutMs; tcpNoDelay = true }
-        cin = command.getInputStream()
-        cout = command.getOutputStream()
+        val cmd = Socket().also { command = it }
+        cmd.connect(InetSocketAddress(host, Ptp.COMMAND_PORT), timeoutMs)
+        cmd.soTimeout = timeoutMs; cmd.tcpNoDelay = true
+        cin = cmd.getInputStream()
+        cout = cmd.getOutputStream()
 
         // Command connection handshake.
         writePacket(Ptp.packet(PtpIpType.INIT_CMD_REQ, Ptp.initCommandPayload(guid, friendlyName)))
@@ -44,11 +49,13 @@ class PtpIpClient(
         val connectionNumber = Ptp.parseInitAckConnectionNumber(ackPayload)
 
         // Event connection handshake.
-        event = Socket().apply { connect(InetSocketAddress(host, Ptp.COMMAND_PORT), timeoutMs); soTimeout = timeoutMs; tcpNoDelay = true }
-        val eout = event.getOutputStream()
+        val ev = Socket().also { event = it }
+        ev.connect(InetSocketAddress(host, Ptp.COMMAND_PORT), timeoutMs)
+        ev.soTimeout = timeoutMs; ev.tcpNoDelay = true
+        val eout = ev.getOutputStream()
         eout.write(Ptp.packet(PtpIpType.INIT_EVENT_REQ, LeWriter().u32(connectionNumber).toByteArray()))
         eout.flush()
-        val (evType, _) = readPacket(event.getInputStream())
+        val (evType, _) = readPacket(ev.getInputStream())
         if (evType != PtpIpType.INIT_EVENT_ACK) throw PtpException("Event handshake failed: $evType")
     }
 
@@ -92,9 +99,11 @@ class PtpIpClient(
         }
     }
 
+    /** Closes the sockets. Safe to call from another thread to interrupt a pending connect. */
     fun close() {
-        runCatching { command.close() }
-        runCatching { event.close() }
+        aborted = true
+        runCatching { command?.close() }
+        runCatching { event?.close() }
     }
 
     // --- transactions ---------------------------------------------------------------

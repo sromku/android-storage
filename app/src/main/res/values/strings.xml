@@ -1165,6 +1165,7 @@
     <string name="camerabrowse_download">Download %1$d</string>
     <string name="camerabrowse_all">Select all</string>
     <string name="camerabrowse_none">Clear</string>
+    <string name="camerabrowse_cancel">Cancel</string>
     <string name="cloud_disconnect">Disconnect</string>
     <string name="cloud_empty">This folder is empty</string>
     <string name="cloud_connect_title">Connect your cloud</string>

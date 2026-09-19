@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -47,6 +48,7 @@ class CameraBrowseViewModel(application: Application) : AndroidViewModel(applica
     private val prefs = application.getSharedPreferences("camera_ptp", Context.MODE_PRIVATE)
     private val ptpMutex = Mutex()
     private var client: PtpIpClient? = null
+    private var connectJob: kotlinx.coroutines.Job? = null
 
     private val _state = MutableStateFlow(CameraBrowseState(host = defaultGateway()))
     val state: StateFlow<CameraBrowseState> = _state.asStateFlow()
@@ -56,8 +58,8 @@ class CameraBrowseViewModel(application: Application) : AndroidViewModel(applica
     fun connect() {
         val host = _state.value.host.trim()
         if (host.isEmpty()) { _state.update { it.copy(status = CamStatus.ERROR, error = "Enter the camera's IP") }; return }
-        viewModelScope.launch(Dispatchers.IO) {
-            _state.update { it.copy(status = CamStatus.CONNECTING, error = null, items = emptyList(), selected = emptySet()) }
+        connectJob = viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(status = CamStatus.CONNECTING, error = null, items = emptyList(), selected = emptySet(), listed = 0, total = 0) }
             val ok = runCatching {
                 ptpMutex.withLock {
                     val c = PtpIpClient(host, guid()).also { client = it }
@@ -67,6 +69,7 @@ class CameraBrowseViewModel(application: Application) : AndroidViewModel(applica
                     val handles = c.storageIds().flatMap { c.objectHandles(it).toList() }
                     _state.update { it.copy(total = handles.size) }
                     for (h in handles) {
+                        if (!isActive) break
                         val info = runCatching { c.objectInfo(h) }.getOrNull()
                         if (info != null && !info.isFolder && isMedia(info.filename)) {
                             val item = CameraItem(h, info.filename, info.compressedSize, isRawExt(info.filename), info.imageWidth, info.imageHeight)
@@ -77,9 +80,19 @@ class CameraBrowseViewModel(application: Application) : AndroidViewModel(applica
                     }
                 }
             }
+            if (!isActive) return@launch // cancelled - leave the state as cancelConnect() set it
             if (ok.isSuccess) { _state.update { it.copy(status = CamStatus.CONNECTED) }; loadThumbnails() }
             else _state.update { it.copy(status = CamStatus.ERROR, error = ok.exceptionOrNull()?.message ?: "Connection failed") }
         }
+    }
+
+    /** Abort an in-progress connect immediately (closing the socket interrupts the blocking connect). */
+    fun cancelConnect() {
+        connectJob?.cancel()
+        connectJob = null
+        runCatching { client?.close() }
+        client = null
+        _state.update { it.copy(status = CamStatus.IDLE, error = null, items = emptyList(), selected = emptySet(), listed = 0, total = 0) }
     }
 
     fun toggle(handle: Long) = _state.update {

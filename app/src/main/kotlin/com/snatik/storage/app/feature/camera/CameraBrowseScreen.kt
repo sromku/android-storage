@@ -73,7 +73,13 @@ fun CameraBrowseScreen(onBack: () -> Unit, viewModel: CameraBrowseViewModel = ko
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { if (state.status == CamStatus.IDLE) onBack() else viewModel.disconnect() }) {
+                    IconButton(onClick = {
+                        when (state.status) {
+                            CamStatus.IDLE, CamStatus.ERROR -> onBack()
+                            CamStatus.CONNECTING, CamStatus.LISTING -> viewModel.cancelConnect()
+                            else -> viewModel.disconnect()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
                     }
                 },
@@ -101,8 +107,8 @@ fun CameraBrowseScreen(onBack: () -> Unit, viewModel: CameraBrowseViewModel = ko
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (state.status) {
                 CamStatus.IDLE, CamStatus.ERROR -> ConnectForm(state, onHost = viewModel::setHost, onConnect = viewModel::connect)
-                CamStatus.CONNECTING -> Loading(stringResource(R.string.camerabrowse_connecting))
-                CamStatus.LISTING -> Loading(stringResource(R.string.camerabrowse_listing, state.listed, state.total))
+                CamStatus.CONNECTING -> Loading(stringResource(R.string.camerabrowse_connecting), viewModel::cancelConnect)
+                CamStatus.LISTING -> Loading(stringResource(R.string.camerabrowse_listing, state.listed, state.total), viewModel::cancelConnect)
                 CamStatus.CONNECTED, CamStatus.DOWNLOADING -> Grid(state, onToggle = viewModel::toggle)
             }
             if (state.status == CamStatus.DOWNLOADING) {
@@ -123,10 +129,11 @@ fun CameraBrowseScreen(onBack: () -> Unit, viewModel: CameraBrowseViewModel = ko
 }
 
 @Composable
-private fun Loading(text: String) {
+private fun Loading(text: String, onCancel: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         CircularProgressIndicator()
         Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+        TextButton(onClick = onCancel, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.camerabrowse_cancel)) }
     }
 }
 
