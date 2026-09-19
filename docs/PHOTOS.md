@@ -102,7 +102,7 @@ RAW / HEIC / huge file"; power users get the metadata depth.
 - [x] Organize - smart-view chips (All/Photos/Videos/RAW/Screenshots) + on-device EXIF search (#21, #22)
 - [x] Pro viewer - histogram overlay, "what this reveals" privacy report, video stream inspector, animated formats (#6, #7, #11, #12)
 - [x] Convert + dedupe - HEIC/RAW/AVIF -> JPG, perceptual-hash duplicate finder (#23, #27)
-- [ ] Cloud connect + browse + stream-preview (#16-#18) - needs a one-time OAuth app registration
+- [~] Cloud connect + browse + stream-preview (#16-#18) - Dropbox foundation built (PKCE OAuth, browse, stream-preview); needs a Dropbox app key in DropboxConfig.APP_KEY to connect
 - [ ] Tiled huge-file viewer (#4)
 
 ## Technical notes (the hard parts)
