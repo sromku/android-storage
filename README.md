@@ -1,4 +1,4 @@
-# Storage Studio
+# <img src="assets/icon.png" width="34" align="top" alt=""> Storage Studio
 
 A powerful **file, app, and system inspector for Android** - grown from the 2017
 [`android-storage`](#the-library) library, which still ships underneath. Browse a phone like a file
@@ -6,12 +6,12 @@ manager, then keep going: inspect apps and APKs, read providers and databases, w
 broadcasts moving through the system, reclaim space - and drive the whole thing from an AI agent over
 HTTP and MCP.
 
-Kotlin · Jetpack Compose · Apache 2.0.
+Kotlin · Jetpack Compose · Apache 2.0 · **[Full feature tour with screenshots →](https://sromku.com/storage-studio/)**
 
 <p align="center">
-  <img src="assets/home.png" width="30%" alt="Home: volumes, usage and the app's own directories" />
-  <img src="assets/browser.png" width="30%" alt="File browser with thumbnails and multi-select" />
-  <img src="assets/hex.png" width="30%" alt="Binary inspector: hex, strings and type detection" />
+  <img src="assets/sunburst.png" width="30%" alt="Disk usage as a radial sunburst" />
+  <img src="assets/system.png" width="30%" alt="Live system inspector with CPU and memory graphs" />
+  <img src="assets/network.png" width="30%" alt="Per-app network usage graph" />
 </p>
 
 ## The story
