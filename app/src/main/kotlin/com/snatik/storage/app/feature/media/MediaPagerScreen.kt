@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ fun MediaPagerScreen(
     startId: Long,
     onBack: () -> Unit,
     onOpenVideo: (String) -> Unit,
+    onTiled: (String) -> Unit,
     repo: MediaRepository = koinInject(),
 ) {
     val items = remember { repo.cached }
@@ -161,6 +163,13 @@ fun MediaPagerScreen(
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                                 onClick = { overflow = false; Intents.share(context, listOf(current.path)) },
                             )
+                            if (supportsTiling(current)) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.full_resolution)) },
+                                    leadingIcon = { Icon(Icons.Default.ZoomIn, contentDescription = null) },
+                                    onClick = { overflow = false; onTiled(current.path) },
+                                )
+                            }
                             if (!current.isVideo) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.histogram)) },

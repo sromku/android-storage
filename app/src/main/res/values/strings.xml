@@ -1151,6 +1151,7 @@
     <string name="dupes_keep">Keep</string>
     <string name="dupes_delete_title">Delete duplicates?</string>
     <string name="histogram">Histogram</string>
+    <string name="full_resolution">View at full resolution</string>
     <string name="privacy_report">What this photo reveals</string>
     <string name="privacy_report_lead_reveals">Shared as-is, this photo would tell the recipient:</string>
     <string name="privacy_report_lead_clean">Good news - this photo carries little that identifies you.</string>

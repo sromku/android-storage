@@ -22,6 +22,9 @@ sealed interface Route : NavKey {
     data object Cloud : Route
 
     @Serializable
+    data class TiledViewer(val path: String) : Route
+
+    @Serializable
     data object Apps : Route
 
     /** One directory of one volume. Each directory is its own back stack entry. */
