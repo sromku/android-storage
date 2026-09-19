@@ -45,6 +45,13 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,7 +79,6 @@ import com.snatik.storage.core.shell.RootStatus
 import com.snatik.storage.core.shell.ShizukuManager
 import com.snatik.storage.core.shell.ShizukuStatus
 import androidx.compose.material.icons.filled.Adb
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Switch
@@ -80,6 +86,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.DonutLarge
 import com.snatik.storage.app.navigation.TopLevel
 import com.snatik.storage.app.ui.components.TopLevelBar
+import com.snatik.storage.app.ui.components.AppIcon
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.Spacer
@@ -156,23 +163,32 @@ fun HomeScreen(
                         onPreferRoot = viewModel::setPreferRoot,
                     )
                 }
-                item(key = "volumes-header") { SectionHeader(stringResource(R.string.section_volumes), topPadding = 12.dp) }
-                items(state.volumes, key = { it.path }) { volume ->
-                    val label = volume.label()
-                    VolumeCard(volume, onClick = { onOpenVolume(label, volume.path) }, onAnalyze = { onOpenDiskUsage(label, volume.path) })
-                }
-                item(key = "app-header") { SectionHeader(stringResource(R.string.section_app_storage), topPadding = 12.dp) }
-                items(state.appVolumes, key = { it.path }) { volume ->
-                    val label = volume.label()
-                    AppVolumeRow(volume, onClick = { onOpenVolume(label, volume.path) })
-                }
-                if (state.debuggableApps.isNotEmpty()) {
-                    item(key = "debuggable-header") { SectionHeader(stringResource(R.string.section_debuggable), topPadding = 12.dp) }
-                    items(state.debuggableApps, key = { "dbg:" + it.packageName }) { app ->
-                        DebuggableAppRow(app, onClick = { onOpenVolume(app.label, app.dataDir) })
+                if (state.loading && state.volumes.isEmpty()) {
+                    item(key = "loading") {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
                     }
+                } else {
+                    item(key = "summary") { StorageSummaryCard(state.volumes) }
+                    item(key = "volumes-header") { SectionHeader(stringResource(R.string.section_volumes), topPadding = 12.dp) }
+                    items(state.volumes, key = { it.path }) { volume ->
+                        val label = volume.label()
+                        VolumeCard(volume, onClick = { onOpenVolume(label, volume.path) }, onAnalyze = { onOpenDiskUsage(label, volume.path) })
+                    }
+                    item(key = "app-header") { SectionHeader(stringResource(R.string.section_app_storage), topPadding = 12.dp) }
+                    items(state.appVolumes, key = { it.path }) { volume ->
+                        val label = volume.label()
+                        AppVolumeRow(volume, onClick = { onOpenVolume(label, volume.path) })
+                    }
+                    if (state.debuggableApps.isNotEmpty()) {
+                        item(key = "debuggable-header") { SectionHeader(stringResource(R.string.section_debuggable), topPadding = 12.dp) }
+                        items(state.debuggableApps, key = { "dbg:" + it.packageName }) { app ->
+                            DebuggableAppRow(app, onClick = { onOpenVolume(app.label, app.dataDir) })
+                        }
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
@@ -186,6 +202,49 @@ private fun SectionHeader(text: String, topPadding: androidx.compose.ui.unit.Dp 
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 4.dp, top = topPadding, bottom = 2.dp),
     )
+}
+
+/** Whole-device summary: aggregates the mounted physical volumes (internal + SD + USB). */
+@Composable
+private fun StorageSummaryCard(volumes: List<Volume>) {
+    val physical = volumes.filter {
+        it.totalBytes > 0 && (it.kind == VolumeKind.SHARED || it.kind == VolumeKind.SD_CARD || it.kind == VolumeKind.USB)
+    }
+    val total = physical.sumOf { it.totalBytes }
+    if (total <= 0L) return
+    val used = physical.sumOf { it.usedBytes }
+    val fraction = (used.toDouble() / total).toFloat().coerceIn(0f, 1f)
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.storage_overview),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stringResource(R.string.storage_full_percent, (fraction * 100).roundToInt()),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth(),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
+            Text(
+                stringResource(R.string.used_of, used.readableSize(), total.readableSize()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
@@ -297,16 +356,42 @@ private fun AccessCard(
         is ShizukuStatus.Connected -> stringResource(R.string.shizuku_connected, s.uid) to null
     }
     val privileged = privilege.isPrivileged
+    // Once a shell is connected the card collapses to a status pill; it stays expanded while
+    // there is still something to act on (no privilege yet).
+    var expanded by rememberSaveable(privileged) { mutableStateOf(!privileged) }
+    val connected = privilege.shizuku as? ShizukuStatus.Connected
+    val compactStatus = when (privilege.tier) {
+        PrivilegeTier.ROOT -> stringResource(R.string.access_tier_root)
+        PrivilegeTier.SHIZUKU -> if (connected != null) stringResource(R.string.shizuku_connected, connected.uid) else tierLabel
+        PrivilegeTier.NONE -> tierLabel
+    }
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (privileged) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         ),
         modifier = Modifier.fillMaxWidth(),
     ) {
+        if (privileged && !expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(compactStatus, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.access_details_show))
+            }
+            return@Card
+        }
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(if (privileged) Icons.Default.Terminal else Icons.Default.Security, contentDescription = null)
-                Text(tierLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(tierLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (privileged) {
+                    IconButton(onClick = { expanded = false }) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.access_details_hide))
+                    }
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Adb, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
@@ -348,7 +433,7 @@ private fun DebuggableAppRow(app: DebuggableApp, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Icon(Icons.Default.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppIcon(app.packageName, size = 40.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(app.label, style = MaterialTheme.typography.bodyLarge)
             Text(app.dataDir, style = MonoStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)

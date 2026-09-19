@@ -38,6 +38,10 @@
     <string name="volume_app_external">App external files</string>
     <string name="volume_unavailable">Not mounted</string>
     <string name="used_of">%1$s used of %2$s</string>
+    <string name="storage_overview">Device storage</string>
+    <string name="storage_full_percent">%1$d%% full</string>
+    <string name="access_details_show">Show access details</string>
+    <string name="access_details_hide">Hide access details</string>
     <string name="permission_all_files_title">All files access is off</string>
     <string name="permission_all_files_body">Without it, most of shared storage stays out of reach. Grant it once and every volume becomes browsable.</string>
     <string name="permission_grant">Grant access</string>
