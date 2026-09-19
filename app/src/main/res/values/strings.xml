@@ -1130,6 +1130,7 @@
     <string name="filter_videos">Videos</string>
     <string name="filter_raw">RAW</string>
     <string name="filter_screenshots">Screenshots</string>
+    <string name="filter_camera">Camera</string>
     <string name="convert_to_jpg">Convert to JPG</string>
     <string name="converting">Converting…</string>
     <string name="dupes_find">Find duplicates</string>

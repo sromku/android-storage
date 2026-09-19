@@ -74,7 +74,7 @@ fun MediaPagerScreen(
     onTiled: (String) -> Unit,
     repo: MediaRepository = koinInject(),
 ) {
-    val items = remember { repo.cached }
+    val items = remember { repo.pagerItems.ifEmpty { repo.cached } }
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
         return

@@ -31,6 +31,10 @@ class MediaRepository(private val context: Context) {
     var cached: List<MediaItem> = emptyList()
         private set
 
+    /** The list the full-screen pager should page through (the currently-visible, filtered set). */
+    @Volatile
+    var pagerItems: List<MediaItem> = emptyList()
+
     suspend fun all(): List<MediaItem> = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri("external")
         val projection = arrayOf(

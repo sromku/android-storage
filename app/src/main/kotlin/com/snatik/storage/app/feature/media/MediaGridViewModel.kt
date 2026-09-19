@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 data class MediaSection(val label: String, val items: List<MediaItem>)
 
 /** Smart views over the library. */
-enum class MediaFilter { ALL, PHOTOS, VIDEOS, RAW, SCREENSHOTS }
+enum class MediaFilter { ALL, PHOTOS, VIDEOS, RAW, SCREENSHOTS, CAMERA }
 
 data class MediaGridState(
     val loading: Boolean = true,
@@ -28,6 +28,7 @@ data class MediaGridState(
     val shown: Int = 0,          // after filter + query
     val filter: MediaFilter = MediaFilter.ALL,
     val query: String = "",
+    val hasCamera: Boolean = false,
 )
 
 class MediaGridViewModel(
@@ -54,6 +55,7 @@ class MediaGridViewModel(
                 loading = false,
                 total = items.size,
                 totalBytes = items.sumOf { it.size },
+                hasCamera = items.any { isCameraImport(it) },
             )
             // Enrich the index with EXIF (camera/lens/ISO/focal) in the background, then let any
             // active query re-run against the richer terms.
@@ -80,6 +82,9 @@ class MediaGridViewModel(
             .filter { matchesFilter(it, filter) }
             .filter { q.isEmpty() || q.split(' ').all { term -> index[it.id]?.contains(term) == true } }
             .toList()
+        // Keep the pager's source in sync with what's on screen, so opening an item pages through
+        // the filtered/searched set instead of the whole library.
+        repo.pagerItems = filtered
         _state.value = _state.value.copy(sections = groupByDay(filtered), shown = filtered.size)
     }
 
@@ -89,7 +94,10 @@ class MediaGridViewModel(
         MediaFilter.VIDEOS -> item.isVideo
         MediaFilter.RAW -> isRawMedia(item.name, item.mime)
         MediaFilter.SCREENSHOTS -> isScreenshot(item)
+        MediaFilter.CAMERA -> isCameraImport(item)
     }
+
+    private fun isCameraImport(item: MediaItem): Boolean = item.path.contains("/Storage Studio/Camera")
 
     private fun isScreenshot(item: MediaItem): Boolean =
         item.bucket.equals("Screenshots", ignoreCase = true) ||
