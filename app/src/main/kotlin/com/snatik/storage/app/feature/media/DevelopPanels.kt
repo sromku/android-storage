@@ -40,6 +40,7 @@ fun CurveEditor(curve: ToneCurve, onChange: (ToneCurve) -> Unit) {
         1 -> c.copy(r = pts); 2 -> c.copy(g = pts); 3 -> c.copy(b = pts); else -> c.copy(rgb = pts)
     }
     val points = channelPoints(curve)
+    val live = androidx.compose.runtime.rememberUpdatedState(curve)
 
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -58,44 +59,52 @@ fun CurveEditor(curve: ToneCurve, onChange: (ToneCurve) -> Unit) {
                 .aspectRatio(1.3f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF0E0F11))
-                .pointerInput(channel, points.size) {
+                .pointerInput(channel) {
+                    // Grab (or insert) ONE point on touch-down and drag only that one. The working
+                    // list is kept local to the gesture so recomposition timing can't swap indices.
+                    var grabbed = -1
+                    var work: MutableList<Pair<Float, Float>>? = null
                     detectDragGestures(
-                        onDragStart = {},
+                        onDragStart = { pos ->
+                            val px = (pos.x / size.width).coerceIn(0f, 1f)
+                            val py = (1f - pos.y / size.height).coerceIn(0f, 1f)
+                            val pts = channelPoints(live.value).toMutableList()
+                            val near = pts.indexOfFirst { kotlin.math.abs(it.first - px) < 0.05f }
+                            grabbed = if (near >= 0) {
+                                near
+                            } else if (pts.size < 8) {
+                                val at = pts.indexOfFirst { it.first > px }.let { if (it < 0) pts.size else it }
+                                pts.add(at, px to py)
+                                at
+                            } else -1
+                            work = pts
+                            if (grabbed >= 0) onChange(withPoints(live.value, pts.toList()))
+                        },
                         onDrag = { change, _ ->
                             change.consume()
-                            val px = (change.position.x / size.width).coerceIn(0f, 1f)
-                            val py = (1f - change.position.y / size.height).coerceIn(0f, 1f)
-                            val pts = channelPoints(curve).toMutableList()
-                            // nearest point to the finger
-                            var idx = 0; var best = Float.MAX_VALUE
-                            pts.forEachIndexed { i, p ->
-                                val d = (p.first - px) * (p.first - px) + (p.second - py) * (p.second - py)
-                                if (d < best) { best = d; idx = i }
+                            val w = work ?: return@detectDragGestures
+                            if (grabbed in 0..w.lastIndex) {
+                                val py = (1f - change.position.y / size.height).coerceIn(0f, 1f)
+                                val nx = when (grabbed) {
+                                    0 -> 0f
+                                    w.lastIndex -> 1f
+                                    else -> (change.position.x / size.width).coerceIn(w[grabbed - 1].first + 0.02f, w[grabbed + 1].first - 0.02f)
+                                }
+                                w[grabbed] = nx to py
+                                onChange(withPoints(live.value, w.toList()))
                             }
-                            val minX = if (idx == 0) 0f else pts[idx - 1].first + 0.02f
-                            val maxX = if (idx == pts.lastIndex) 1f else pts[idx + 1].first - 0.02f
-                            val nx = if (idx == 0 || idx == pts.lastIndex) pts[idx].first else px.coerceIn(minX, maxX)
-                            pts[idx] = nx to py
-                            onChange(withPoints(curve, pts))
                         },
+                        onDragEnd = { grabbed = -1; work = null },
+                        onDragCancel = { grabbed = -1; work = null },
                     )
                 }
                 .pointerInput(channel) {
                     detectTapGestures(
-                        onTap = { pos ->
-                            val px = (pos.x / size.width).coerceIn(0f, 1f)
-                            val py = (1f - pos.y / size.height).coerceIn(0f, 1f)
-                            val pts = channelPoints(curve).toMutableList()
-                            if (pts.none { kotlin.math.abs(it.first - px) < 0.04f } && pts.size < 8) {
-                                pts.add(px to py); pts.sortBy { it.first }
-                                onChange(withPoints(curve, pts))
-                            }
-                        },
                         onDoubleTap = { pos ->
                             val px = pos.x / size.width
-                            val pts = channelPoints(curve).toMutableList()
+                            val pts = channelPoints(live.value).toMutableList()
                             val idx = pts.indices.minByOrNull { kotlin.math.abs(pts[it].first - px) } ?: return@detectTapGestures
-                            if (idx != 0 && idx != pts.lastIndex) { pts.removeAt(idx); onChange(withPoints(curve, pts)) }
+                            if (idx != 0 && idx != pts.lastIndex) { pts.removeAt(idx); onChange(withPoints(live.value, pts)) }
                         },
                     )
                 },
@@ -125,7 +134,7 @@ fun CurveEditor(curve: ToneCurve, onChange: (ToneCurve) -> Unit) {
             }
         }
         androidx.compose.material3.Text(
-            "Drag points  ·  tap to add  ·  double-tap to remove",
+            "Touch the curve to add a point and drag  ·  double-tap a point to remove",
             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
             color = OnDarkDim,
             modifier = Modifier.padding(top = 8.dp),
