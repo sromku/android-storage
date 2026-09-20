@@ -243,6 +243,12 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Demosaic.entries.forEach { dm -> DarkChip(selected = params.demosaic == dm, label = dm.label) { onChange(params.copy(demosaic = dm)) } }
                     }
+                    Text(
+                        "Demosaic and noise reduction shape fine pixel detail, so they show in the exported full-resolution image; the live preview is a fast approximation.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OnDarkDim,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
                 }
             }
         }
