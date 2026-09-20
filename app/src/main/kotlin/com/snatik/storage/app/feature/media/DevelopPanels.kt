@@ -42,8 +42,15 @@ fun CurveEditor(curve: ToneCurve, onChange: (ToneCurve) -> Unit) {
     val points = channelPoints(curve)
 
     Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            labels.forEachIndexed { i, l -> DarkChip(selected = channel == i, label = l) { channel = i } }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                labels.forEachIndexed { i, l -> DarkChip(selected = channel == i, label = l) { channel = i } }
+            }
+            if (points != ToneCurve.IDENTITY) {
+                androidx.compose.material3.TextButton(onClick = { onChange(withPoints(curve, ToneCurve.IDENTITY)) }) {
+                    androidx.compose.material3.Text("Reset", color = Accent)
+                }
+            }
         }
         Canvas(
             Modifier

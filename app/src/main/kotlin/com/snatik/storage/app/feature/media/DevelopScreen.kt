@@ -3,6 +3,10 @@ package com.snatik.storage.app.feature.media
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -177,7 +181,7 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
             when (tab) {
                 DevTab.LIGHT -> {
                     SliderRow("Exposure", "%+.2f EV".format(params.exposure), params.exposure, -3f..3f) { onChange(params.copy(exposure = it)) }
-                    SliderRow("Brightness", "%.2fx".format(params.bright), params.bright, 0.3f..2.5f) { onChange(params.copy(bright = it)) }
+                    SliderRow("Brightness", "%.2fx".format(params.bright), params.bright, 0.3f..2.5f, default = 1f) { onChange(params.copy(bright = it)) }
                     LabelRow("Highlights")
                     ChipRow(listOf(0 to "Clip", 2 to "Blend", 3 to "Rebuild"), params.highlight) { onChange(params.copy(highlight = it)) }
                     if (params.highlight >= 3) {
@@ -207,7 +211,7 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
                         }
                     }
                     if (params.wb == RawWb.CUSTOM) {
-                        SliderRow("Temperature", "${params.temp.roundToInt()} K", params.temp, 2500f..10000f) { onChange(params.copy(temp = it)) }
+                        SliderRow("Temperature", "${params.temp.roundToInt()} K", params.temp, 2500f..10000f, default = 5500f) { onChange(params.copy(temp = it)) }
                         SliderRow("Tint", if (params.tint >= 0) "Magenta" else "Green", params.tint, -100f..100f) { onChange(params.copy(tint = it)) }
                     } else {
                         LabelRow(if (params.wb == RawWb.AUTO) "Auto-balanced from the whole frame." else "Using the camera's as-shot balance.")
@@ -231,7 +235,7 @@ private fun Controls(params: DevelopParams, onChange: (DevelopParams) -> Unit) {
                 DevTab.DETAIL -> {
                     LabelRow("Sharpening")
                     SliderRow("Amount", "${params.sharpen.roundToInt()}", params.sharpen, 0f..100f) { onChange(params.copy(sharpen = it)) }
-                    SliderRow("Radius", "${params.sharpenRadius.roundToInt()} px", params.sharpenRadius, 1f..3f) { onChange(params.copy(sharpenRadius = it)) }
+                    SliderRow("Radius", "${params.sharpenRadius.roundToInt()} px", params.sharpenRadius, 1f..3f, default = 1f) { onChange(params.copy(sharpenRadius = it)) }
                     SliderRow("Masking", "${params.sharpenMask.roundToInt()}", params.sharpenMask, 0f..100f) { onChange(params.copy(sharpenMask = it)) }
                     LabelRow("Noise reduction")
                     ChipRow(listOf(0 to "Off", 1 to "Light", 2 to "Full"), params.fbdd) { onChange(params.copy(fbdd = it)) }
@@ -292,10 +296,28 @@ internal fun LabelRow(label: String) {
 }
 
 @Composable
-internal fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+internal fun SliderRow(label: String, value: String, current: Float, range: ClosedFloatingPointRange<Float>, default: Float = 0f, onChange: (Float) -> Unit) {
+    val modified = kotlin.math.abs(current - default) > 1e-4f
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 18.dp)
+            .pointerInput(default) { detectTapGestures(onDoubleTap = { onChange(default) }) },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(label, color = OnDark, style = MaterialTheme.typography.titleSmall)
-        Text(value, color = Accent, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (modified) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Reset $label",
+                    tint = OnDarkDim,
+                    modifier = Modifier.size(16.dp).clickable { onChange(default) }.padding(end = 6.dp),
+                )
+            }
+            Text(value, color = Accent, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        }
     }
     Slider(
         value = current,
