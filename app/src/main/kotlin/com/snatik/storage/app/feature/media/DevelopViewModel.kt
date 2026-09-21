@@ -29,11 +29,14 @@ data class DevelopState(
     val params: DevelopParams = DevelopParams(),
     val preview: Bitmap? = null,
     val rendering: Boolean = false,
+    val highQuality: Boolean = false, // the shown bitmap is the full-quality zoom render
+    val renderingHq: Boolean = false,
     val exporting: Boolean = false,
     val exportMsg: String? = null,
 )
 
-private const val PREVIEW_CAP = 2048 // longest-edge cap for the on-screen preview
+private const val PREVIEW_CAP = 2048 // longest-edge cap for the fast live preview
+private const val QUALITY_CAP = 4096 // longest-edge cap for the zoomed full-quality render
 
 /** Drives a live LibRaw develop session for one RAW file. */
 @OptIn(FlowPreview::class)
@@ -46,6 +49,7 @@ class DevelopViewModel(
     val state: StateFlow<DevelopState> = _state.asStateFlow()
 
     private val paramsFlow = MutableStateFlow(DevelopParams())
+    private val zoomActive = MutableStateFlow(false)
     private val renderLock = Mutex()
     private var dev: RawDeveloper? = null
 
@@ -59,9 +63,15 @@ class DevelopViewModel(
             dev = opened
             renderPreview(paramsFlow.value, first = true)
         }
-        // Re-render on parameter changes (debounced, latest wins).
+        // Fast live preview on parameter changes (debounced, latest wins).
         viewModelScope.launch {
             paramsFlow.drop(1).debounce(180).collectLatest { renderPreview(it, first = false) }
+        }
+        // Full-quality render for the zoomed view: kicks in once the edit/zoom settles.
+        viewModelScope.launch {
+            kotlinx.coroutines.flow.combine(paramsFlow, zoomActive) { p, z -> p to z }
+                .debounce(420)
+                .collectLatest { (p, z) -> if (z) renderQuality(p) }
         }
     }
 
@@ -69,6 +79,9 @@ class DevelopViewModel(
         _state.value = _state.value.copy(params = params)
         paramsFlow.value = params
     }
+
+    /** The preview is zoomed in; ask for the full-quality render (called from the editor). */
+    fun setZoomActive(active: Boolean) { zoomActive.value = active }
 
     private suspend fun renderPreview(params: DevelopParams, first: Boolean) {
         val d = dev ?: return
@@ -86,8 +99,34 @@ class DevelopViewModel(
             }
         }
         val old = _state.value.preview
-        _state.value = _state.value.copy(preview = bmp ?: old, rendering = false, loading = false)
+        _state.value = _state.value.copy(preview = bmp ?: old, rendering = false, loading = false, highQuality = false)
         if (bmp != null && old != null && old != bmp) old.recycle()
+    }
+
+    /** Full-resolution develop with the chosen demosaic, downscaled to a texture-safe size, for the zoomed view. */
+    private suspend fun renderQuality(params: DevelopParams) {
+        val d = dev ?: return
+        if (_state.value.highQuality) return // already sharp for these params
+        _state.value = _state.value.copy(renderingHq = true)
+        val bmp = withContext(Dispatchers.IO) {
+            renderLock.withLock {
+                val full = d.render(params, half = false) ?: return@withLock null
+                val longest = maxOf(full.width, full.height)
+                if (longest > QUALITY_CAP) {
+                    val s = QUALITY_CAP.toFloat() / longest
+                    val small = full.scale((full.width * s).toInt().coerceAtLeast(1), (full.height * s).toInt().coerceAtLeast(1))
+                    if (small != full) full.recycle()
+                    small
+                } else full
+            }
+        }
+        val old = _state.value.preview
+        if (bmp != null) {
+            _state.value = _state.value.copy(preview = bmp, highQuality = true, renderingHq = false)
+            if (old != null && old != bmp) old.recycle()
+        } else {
+            _state.value = _state.value.copy(renderingHq = false)
+        }
     }
 
     fun exportJpeg(quality: Int = 95) {

@@ -2,6 +2,13 @@ package com.snatik.storage.app.feature.media
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.size
@@ -101,16 +108,58 @@ fun DevelopScreen(path: String, onBack: () -> Unit, viewModel: DevelopViewModel 
             )
         },
     ) { pad ->
+        // Pinch / double-tap / drag to zoom the developed image; full quality streams in when zoomed.
+        var scale by remember { mutableFloatStateOf(1f) }
+        var offset by remember { mutableStateOf(Offset.Zero) }
+        LaunchedEffect(scale) { viewModel.setZoomActive(scale > 1.15f) }
+
         Column(Modifier.fillMaxSize().padding(pad)) {
             // Preview
-            Box(Modifier.fillMaxWidth().weight(1f).background(Ink), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Ink)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = {
+                            if (scale > 1f) { scale = 1f; offset = Offset.Zero } else scale = 2.5f
+                        })
+                    }
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.count { it.pressed }
+                                when {
+                                    pressed >= 2 -> {
+                                        scale = (scale * event.calculateZoom()).coerceIn(1f, 8f)
+                                        offset = if (scale > 1f) offset + event.calculatePan() else Offset.Zero
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                    scale > 1f && pressed == 1 -> {
+                                        offset += event.calculatePan()
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 val preview = s.preview
                 if (preview != null && !preview.isRecycled) {
                     Image(
                         bitmap = preview.asImageBitmap(),
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(4.dp)
+                            .graphicsLayer {
+                                scaleX = scale; scaleY = scale
+                                translationX = offset.x; translationY = offset.y
+                            },
                     )
                 }
                 when {
@@ -121,7 +170,21 @@ fun DevelopScreen(path: String, onBack: () -> Unit, viewModel: DevelopViewModel 
                         Text("Unpacking sensor data", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                if (s.rendering && !s.loading) {
+                if (scale > 1.05f) {
+                    androidx.compose.material3.Surface(
+                        color = Color.Black.copy(alpha = 0.55f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                    ) {
+                        Text(
+                            if (s.renderingHq) "%.1fx  ·  sharpening".format(scale) else if (s.highQuality) "%.1fx  ·  full quality".format(scale) else "%.1fx".format(scale),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        )
+                    }
+                }
+                if ((s.rendering || s.renderingHq) && !s.loading) {
                     CircularProgressIndicator(color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).width(22.dp).height(22.dp))
                 }
                 if (s.exporting) {
