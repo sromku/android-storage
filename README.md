@@ -13,6 +13,11 @@ Kotlin · Jetpack Compose · Apache 2.0 · **[Full feature tour with screenshots
   <img src="assets/system.png" width="30%" alt="Live system inspector with CPU and memory graphs" />
   <img src="assets/network.png" width="30%" alt="Per-app network usage graph" />
 </p>
+<p align="center">
+  <img src="assets/photos-develop.png" width="30%" alt="Native RAW develop: tone curve on a photo" />
+  <img src="assets/photos-peaking.png" width="30%" alt="Focus peaking on a RAW photo" />
+  <img src="assets/photos-insights.png" width="30%" alt="Photo library insights" />
+</p>
 
 ## The story
 
@@ -27,6 +32,10 @@ over an HTTP and [MCP](https://modelcontextprotocol.io) API so agents can drive 
 
 Depending on how much access you grant it, the app spans a lot of ground:
 
+- **Photos & RAW darkroom** - a day-grouped gallery that reads JPEGs, videos and camera RAW; a native
+  **LibRaw** develop pipeline edits Sony `.ARW` from the sensor (exposure, tone curve, HSL, presence,
+  effects) and exports JPEG, **16-bit TIFF** or an archival **DNG**; focus peaking, clipping warnings,
+  histogram and deep EXIF; plus camera sync over **Wi-Fi FTP / PTP / USB**, duplicate finder and library insights.
 - **Browse & view** - file manager with search, sort and thumbnails; viewers for code, JSON/XML trees,
   images with EXIF, video/audio, PDF and fonts; a binary inspector (hex, strings, magic-byte types,
   protobuf); and a canvas renderer for Android vector drawables.
