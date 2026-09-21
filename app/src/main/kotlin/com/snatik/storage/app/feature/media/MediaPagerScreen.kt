@@ -203,12 +203,14 @@ fun MediaPagerScreen(
         }
     }
     if (showMove) {
+        val movedToFmt = stringResource(R.string.moved_to)
+        val moveFailedMsg = stringResource(R.string.move_failed)
         MoveToFolderSheet(onDismiss = { showMove = false }) { folder ->
             showMove = false
             val src = current.path
             scope.launch {
                 val n = withContext(kotlinx.coroutines.Dispatchers.IO) { MediaEdit.move(context, listOf(src), folder) }
-                Toast.makeText(context, if (n > 0) context.getString(R.string.moved_to, folder.name) else context.getString(R.string.move_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, if (n > 0) movedToFmt.format(folder.name) else moveFailedMsg, Toast.LENGTH_SHORT).show()
             }
         }
     }
