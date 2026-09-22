@@ -20,6 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,10 +74,13 @@ private class Tile(val bitmap: android.graphics.Bitmap, val srcRect: Rect)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TiledViewerScreen(path: String, onBack: () -> Unit) {
+fun TiledViewerScreen(path: String, onBack: () -> Unit, onEdit: (String) -> Unit = {}) {
     val source by produceState<RegionSource?>(initialValue = null, path) {
         value = withContext(Dispatchers.IO) { openRegionDecoder(path) }
     }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var menu by remember { mutableStateOf(false) }
+    val editable = remember(path) { !isRawMedia(File(path).name, "") }
 
     androidx.compose.material3.Scaffold(
         containerColor = Color.Black,
@@ -95,6 +102,28 @@ fun TiledViewerScreen(path: String, onBack: () -> Unit) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) }
+                },
+                actions = {
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions), tint = Color.White) }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (editable) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.edit_crop)) },
+                                leadingIcon = { Icon(Icons.Default.Crop, contentDescription = null) },
+                                onClick = { menu = false; onEdit(path) },
+                            )
+                        }
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_share_send)) },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                            onClick = { menu = false; com.snatik.storage.app.util.Intents.share(context, listOf(path)) },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.open_with)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
+                            onClick = { menu = false; com.snatik.storage.app.util.Intents.openWith(context, path) },
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.5f)),
             )

@@ -1136,6 +1136,9 @@
     <string name="move_to_folder">Move to folder</string>
     <string name="group_timeline">Timeline</string>
     <string name="group_folders">Folders</string>
+    <string name="filter_and_group">Filter and group</string>
+    <string name="filter_show">Show</string>
+    <string name="filter_group_by">Group by</string>
     <string name="edit_crop">Edit and crop</string>
     <string name="edit_crop_sub">Crop, resize and export a copy</string>
     <string name="edit_photo_title">Edit</string>

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -63,6 +64,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextField
@@ -129,6 +132,7 @@ fun MediaGridScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var showMove by remember { mutableStateOf(false) }
     var showConvert by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val allItems = remember(state.sections) { state.sections.flatMap { it.items } }
     val selectedItems = remember(selection, allItems) { allItems.filter { it.id in selection } }
@@ -192,6 +196,17 @@ fun MediaGridScreen(
             onBrowseCloud = { appMenu = false; onBrowseCloud() },
             onSyncCamera = { appMenu = false; onSyncCamera() },
             onInsights = { appMenu = false; onInsights() },
+        )
+    }
+    if (showFilterSheet) {
+        FilterSortSheet(
+            filter = state.filter,
+            groupMode = state.groupMode,
+            hasCamera = state.hasCamera,
+            hasFavorites = state.hasFavorites,
+            onFilter = viewModel::setFilter,
+            onGroup = viewModel::setGroupMode,
+            onDismiss = { showFilterSheet = false },
         )
     }
     if (showConvert) {
@@ -268,6 +283,14 @@ fun MediaGridScreen(
                         }
                     },
                     actions = {
+                        val filterActive = state.filter != MediaFilter.ALL || state.groupMode != GroupMode.TIMELINE
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = stringResource(R.string.filter_and_group),
+                                tint = if (filterActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
                         IconButton(onClick = { viewModel.setSearchActive(true) }) {
                             Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                         }
@@ -293,20 +316,8 @@ fun MediaGridScreen(
                     .fillMaxSize()
                     .padding(top = padding.calculateTopPadding()),
             ) {
-                if (!selecting) {
-                    MediaFilterBar(
-                        filter = state.filter,
-                        hasCamera = state.hasCamera,
-                        hasFavorites = state.hasFavorites,
-                        onFilter = viewModel::setFilter,
-                    )
-                }
-                if (!selecting && !state.searchActive) {
-                    if (state.folderPath != null) {
-                        OpenedFolderHeader(name = state.folderName ?: "", count = state.shown, onBack = { viewModel.closeFolder() })
-                    } else {
-                        GroupModeToggle(mode = state.groupMode, onSet = viewModel::setGroupMode)
-                    }
+                if (!selecting && !state.searchActive && state.folderPath != null) {
+                    OpenedFolderHeader(name = state.folderName ?: "", count = state.shown, onBack = { viewModel.closeFolder() })
                 }
                 val foldersView = state.groupMode == GroupMode.FOLDERS && state.folderPath == null
                 if (foldersView) {
@@ -405,26 +416,39 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> U
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun MediaFilterBar(
+private fun FilterSortSheet(
     filter: MediaFilter,
+    groupMode: GroupMode,
     hasCamera: Boolean,
     hasFavorites: Boolean,
     onFilter: (MediaFilter) -> Unit,
+    onGroup: (GroupMode) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    Row(
-        Modifier
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        MediaFilter.entries.filter { (it != MediaFilter.CAMERA || hasCamera) && (it != MediaFilter.FAVORITES || hasFavorites) }.forEach { f ->
-            FilterChip(
-                selected = filter == f,
-                onClick = { onFilter(f) },
-                label = { Text(stringResource(filterLabel(f))) },
-            )
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+        ) {
+            Text(stringResource(R.string.filter_and_group), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+
+            Text(stringResource(R.string.filter_show), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MediaFilter.entries.filter { (it != MediaFilter.CAMERA || hasCamera) && (it != MediaFilter.FAVORITES || hasFavorites) }.forEach { f ->
+                    FilterChip(selected = filter == f, onClick = { onFilter(f) }, label = { Text(stringResource(filterLabel(f))) })
+                }
+            }
+
+            Text(stringResource(R.string.filter_group_by), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = groupMode == GroupMode.TIMELINE, onClick = { onGroup(GroupMode.TIMELINE) }, label = { Text(stringResource(R.string.group_timeline)) })
+                FilterChip(selected = groupMode == GroupMode.FOLDERS, onClick = { onGroup(GroupMode.FOLDERS) }, label = { Text(stringResource(R.string.group_folders)) })
+            }
         }
     }
 }
@@ -437,18 +461,6 @@ private fun filterLabel(f: MediaFilter): Int = when (f) {
     MediaFilter.SCREENSHOTS -> R.string.filter_screenshots
     MediaFilter.CAMERA -> R.string.filter_camera
     MediaFilter.FAVORITES -> R.string.filter_favorites
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GroupModeToggle(mode: GroupMode, onSet: (GroupMode) -> Unit) {
-    Row(
-        Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        FilterChip(selected = mode == GroupMode.TIMELINE, onClick = { onSet(GroupMode.TIMELINE) }, label = { Text(stringResource(R.string.group_timeline)) })
-        FilterChip(selected = mode == GroupMode.FOLDERS, onClick = { onSet(GroupMode.FOLDERS) }, label = { Text(stringResource(R.string.group_folders)) })
-    }
 }
 
 @Composable

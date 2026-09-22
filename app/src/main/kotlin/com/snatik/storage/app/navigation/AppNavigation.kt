@@ -310,7 +310,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.CameraUsb> { com.snatik.storage.app.feature.camera.CameraUsbScreen(onBack = ::pop) }
             entry<Route.MediaPager> { route -> com.snatik.storage.app.feature.media.MediaPagerScreen(startId = route.startId, onBack = ::pop, onOpenVideo = ::openPath, onTiled = { path -> push(Route.TiledViewer(path)) }, onDevelop = { path -> push(Route.Develop(path)) }, onEdit = { path -> push(Route.PhotoEdit(path)) }) }
             entry<Route.PhotoEdit> { route -> com.snatik.storage.app.feature.media.PhotoEditScreen(path = route.path, name = java.io.File(route.path).name, onBack = ::pop) }
-            entry<Route.TiledViewer> { route -> com.snatik.storage.app.feature.media.TiledViewerScreen(path = route.path, onBack = ::pop) }
+            entry<Route.TiledViewer> { route -> com.snatik.storage.app.feature.media.TiledViewerScreen(path = route.path, onBack = ::pop, onEdit = { path -> push(Route.PhotoEdit(path)) }) }
             entry<Route.Develop> { route -> com.snatik.storage.app.feature.media.DevelopScreen(path = route.path, onBack = ::pop) }
             entry<Route.Sunburst> { route -> SunburstScreen(route = route, onBack = ::pop) }
             entry<Route.AppStorage> { route -> AppStorageScreen(packageName = route.packageName, onBack = ::pop) }
