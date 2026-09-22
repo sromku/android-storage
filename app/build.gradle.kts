@@ -19,6 +19,12 @@ android {
     compileSdk = 37
     ndkVersion = "28.2.13676358"
 
+    // Media3 Transformer/CompositionPlayer are entirely annotated @UnstableApi; the video studio
+    // opts into them deliberately. Don't fail the build on that opt-in (still marked in code).
+    lint {
+        disable += "UnsafeOptInUsageError"
+    }
+
     defaultConfig {
         applicationId = "com.snatik.storage.app"
         minSdk = 28

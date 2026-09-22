@@ -45,7 +45,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     init {
         val durationMs = runCatching {
-            MediaMetadataRetriever().use { it.setDataSource(path); it.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
+            val r = MediaMetadataRetriever()
+            try { r.setDataSource(path); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
+            finally { r.release() }
         }.getOrDefault(0L)
         val clip = VideoClip(id = nextId++, uri = uri, startMs = 0, endMs = durationMs)
         _state.value = _state.value.copy(clips = listOf(clip), selectedId = clip.id, totalMs = durationMs)

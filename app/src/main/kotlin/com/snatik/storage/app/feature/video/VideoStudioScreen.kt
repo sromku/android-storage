@@ -266,8 +266,11 @@ private fun fmt(ms: Long): String {
 }
 
 private fun frameAt(uri: Uri, atMs: Long): Bitmap? = runCatching {
-    MediaMetadataRetriever().use { r ->
+    val r = MediaMetadataRetriever()
+    try {
         r.setDataSource(uri.path)
         r.getScaledFrameAtTime(atMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 240, 240)
+    } finally {
+        r.release()
     }
 }.getOrNull()
