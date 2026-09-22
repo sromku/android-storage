@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.ZoomIn
@@ -99,6 +100,7 @@ fun PagerActionSheet(
     onInspect: () -> Unit,
     onDetails: () -> Unit,
     onDevelop: () -> Unit,
+    onEdit: () -> Unit,
     onFullRes: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
@@ -122,6 +124,7 @@ fun PagerActionSheet(
                 )
             }
             if (isRaw) ActionRow(Icons.Default.Tune, stringResource(R.string.develop_raw), subtitle = stringResource(R.string.develop_raw_sub), onClick = onDevelop)
+            if (!item.isVideo && !isRaw) ActionRow(Icons.Default.Crop, stringResource(R.string.edit_crop), subtitle = stringResource(R.string.edit_crop_sub), onClick = onEdit)
             if (canTile) ActionRow(Icons.Default.ZoomIn, stringResource(R.string.full_resolution), onClick = onFullRes)
 
             HorizontalDivider(Modifier.padding(vertical = 4.dp))

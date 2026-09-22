@@ -216,12 +216,19 @@ class MediaGridViewModel(
         }
     }
 
+    private val storageRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
+
+    private fun folderLabel(path: String): String = when {
+        path == storageRoot -> getApplication<Application>().getString(com.snatik.storage.app.R.string.internal_storage)
+        else -> path.substringAfterLast('/').ifEmpty { path }
+    }
+
     private fun groupByFolder(items: List<MediaItem>): List<FolderBucket> =
         items
             .groupBy { folderOf(it) }
             .map { (path, list) ->
                 val cover = list.maxByOrNull { it.takenAt } ?: list.first()
-                FolderBucket(path = path, name = path.substringAfterLast('/').ifEmpty { path }, count = list.size, cover = cover)
+                FolderBucket(path = path, name = folderLabel(path), count = list.size, cover = cover)
             }
             .sortedByDescending { it.cover.takenAt } // most recently active folders first
 
