@@ -17,12 +17,22 @@ import java.time.format.DateTimeFormatter
 /** A day's worth of media, for the grouped grid. */
 data class MediaSection(val label: String, val items: List<MediaItem>)
 
+/** A folder of media, for the folders view. */
+data class FolderBucket(val path: String, val name: String, val count: Int, val cover: MediaItem)
+
 /** Smart views over the library. */
 enum class MediaFilter { ALL, PHOTOS, VIDEOS, RAW, SCREENSHOTS, CAMERA, FAVORITES }
+
+/** How the grid is organised. */
+enum class GroupMode { TIMELINE, FOLDERS }
 
 data class MediaGridState(
     val loading: Boolean = true,
     val sections: List<MediaSection> = emptyList(),
+    val folders: List<FolderBucket> = emptyList(), // shown in FOLDERS mode with no folder opened
+    val groupMode: GroupMode = GroupMode.TIMELINE,
+    val folderPath: String? = null,   // the opened folder, if any
+    val folderName: String? = null,
     val total: Int = 0,          // whole library
     val totalBytes: Long = 0,
     val shown: Int = 0,          // after filter + query
@@ -107,17 +117,45 @@ class MediaGridViewModel(
         recompute()
     }
 
+    fun setGroupMode(mode: GroupMode) {
+        if (mode == _state.value.groupMode && _state.value.folderPath == null) return
+        _state.value = _state.value.copy(groupMode = mode, folderPath = null, folderName = null)
+        recompute()
+    }
+
+    /** Open a single folder (drill in from the folders view). */
+    fun openFolder(bucket: FolderBucket) {
+        _state.value = _state.value.copy(folderPath = bucket.path, folderName = bucket.name)
+        recompute()
+    }
+
+    /** Leave the opened folder, back to the folder list. */
+    fun closeFolder() {
+        if (_state.value.folderPath == null) return
+        _state.value = _state.value.copy(folderPath = null, folderName = null)
+        recompute()
+    }
+
+    private fun folderOf(item: MediaItem): String = item.path.substringBeforeLast('/', "")
+
     private fun recompute() {
         val filter = _state.value.filter
         val q = _state.value.query.trim().lowercase()
+        val folderPath = _state.value.folderPath
         val filtered = items.asSequence()
             .filter { matchesFilter(it, filter) }
+            .filter { folderPath == null || folderOf(it) == folderPath }
             .filter { q.isEmpty() || q.split(' ').all { term -> index[it.id]?.contains(term) == true } }
             .toList()
         // Keep the pager's source in sync with what's on screen, so opening an item pages through
         // the filtered/searched set instead of the whole library.
         repo.pagerItems = filtered
-        _state.value = _state.value.copy(sections = groupByDay(filtered), shown = filtered.size)
+        val foldersView = _state.value.groupMode == GroupMode.FOLDERS && folderPath == null
+        _state.value = _state.value.copy(
+            sections = if (foldersView) emptyList() else groupByDay(filtered),
+            folders = if (foldersView) groupByFolder(filtered) else emptyList(),
+            shown = filtered.size,
+        )
     }
 
     private fun matchesFilter(item: MediaItem, filter: MediaFilter): Boolean = when (filter) {
@@ -177,6 +215,15 @@ class MediaGridViewModel(
             }
         }
     }
+
+    private fun groupByFolder(items: List<MediaItem>): List<FolderBucket> =
+        items
+            .groupBy { folderOf(it) }
+            .map { (path, list) ->
+                val cover = list.maxByOrNull { it.takenAt } ?: list.first()
+                FolderBucket(path = path, name = path.substringAfterLast('/').ifEmpty { path }, count = list.size, cover = cover)
+            }
+            .sortedByDescending { it.cover.takenAt } // most recently active folders first
 
     private fun groupByDay(items: List<MediaItem>): List<MediaSection> {
         val zone = ZoneId.systemDefault()

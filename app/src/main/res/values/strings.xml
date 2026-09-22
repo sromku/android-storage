@@ -1134,6 +1134,8 @@
     <string name="renamed">Renamed</string>
     <string name="rename_failed">Could not rename</string>
     <string name="move_to_folder">Move to folder</string>
+    <string name="group_timeline">Timeline</string>
+    <string name="group_folders">Folders</string>
     <string name="move">Move</string>
     <string name="moved_to">Moved to %1$s</string>
     <string name="move_failed">Could not move</string>

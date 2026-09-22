@@ -12,6 +12,8 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
@@ -56,6 +59,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -210,6 +214,7 @@ fun MediaGridScreen(
         }
     }
     BackHandler(enabled = !selecting && state.searchActive) { viewModel.setSearchActive(false) }
+    BackHandler(enabled = !selecting && !state.searchActive && state.folderPath != null) { viewModel.closeFolder() }
 
     if (confirmDelete) {
         AlertDialog(
@@ -296,7 +301,33 @@ fun MediaGridScreen(
                         onFilter = viewModel::setFilter,
                     )
                 }
-                if (state.sections.isEmpty()) {
+                if (!selecting && !state.searchActive) {
+                    if (state.folderPath != null) {
+                        OpenedFolderHeader(name = state.folderName ?: "", count = state.shown, onBack = { viewModel.closeFolder() })
+                    } else {
+                        GroupModeToggle(mode = state.groupMode, onSet = viewModel::setGroupMode)
+                    }
+                }
+                val foldersView = state.groupMode == GroupMode.FOLDERS && state.folderPath == null
+                if (foldersView) {
+                    if (state.folders.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Text(stringResource(R.string.photos_no_matches), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 160.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 6.dp, bottom = padding.calculateBottomPadding() + 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            items(state.folders, key = { it.path }) { folder ->
+                                FolderCard(folder = folder, onClick = { viewModel.openFolder(folder) })
+                            }
+                        }
+                    }
+                } else if (state.sections.isEmpty()) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Text(
                             stringResource(R.string.photos_no_matches),
@@ -406,6 +437,82 @@ private fun filterLabel(f: MediaFilter): Int = when (f) {
     MediaFilter.SCREENSHOTS -> R.string.filter_screenshots
     MediaFilter.CAMERA -> R.string.filter_camera
     MediaFilter.FAVORITES -> R.string.filter_favorites
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GroupModeToggle(mode: GroupMode, onSet: (GroupMode) -> Unit) {
+    Row(
+        Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(selected = mode == GroupMode.TIMELINE, onClick = { onSet(GroupMode.TIMELINE) }, label = { Text(stringResource(R.string.group_timeline)) })
+        FilterChip(selected = mode == GroupMode.FOLDERS, onClick = { onSet(GroupMode.FOLDERS) }, label = { Text(stringResource(R.string.group_folders)) })
+    }
+}
+
+@Composable
+private fun OpenedFolderHeader(name: String, count: Int, onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.close)) }
+        Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Text(
+            name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        )
+        Text("$count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun FolderCard(folder: FolderBucket, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = mediaModel(folder.cover),
+                contentDescription = folder.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            Surface(
+                color = Color.Black.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+            ) {
+                Text(
+                    "${folder.count}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+        }
+        Text(
+            folder.name,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
