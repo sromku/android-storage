@@ -28,6 +28,8 @@ data class VideoStudioState(
     val selectedId: Long = -1,
     val overlays: List<VideoOverlay> = emptyList(),
     val selectedOverlayId: Long = -1,
+    val music: MusicTrack? = null,
+    val videoVolume: Float = 1f,
     val playing: Boolean = false,
     val positionMs: Long = 0,       // playhead on the global timeline
     val totalMs: Long = 0,
@@ -42,6 +44,7 @@ data class VideoStudioState(
 class VideoStudioViewModel(application: Application, private val path: String) : AndroidViewModel(application) {
 
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
+    private var musicPlayer: ExoPlayer? = null
 
     private val _state = MutableStateFlow(VideoStudioState())
     val state: StateFlow<VideoStudioState> = _state.asStateFlow()
@@ -75,7 +78,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         // Playhead ticker.
         viewModelScope.launch {
             while (true) {
-                if (player.isPlaying) _state.value = _state.value.copy(positionMs = globalPosition())
+                if (player.isPlaying) { _state.value = _state.value.copy(positionMs = globalPosition()); syncMusic() }
                 delay(33)
             }
         }
@@ -123,9 +126,13 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
         _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs))
+        musicPlayer?.seekTo(_state.value.positionMs)
     }
 
-    fun playPause() { if (player.isPlaying) player.pause() else { if (player.playbackState == Player.STATE_ENDED) seekToGlobal(0); player.play() } }
+    fun playPause() {
+        if (player.isPlaying) player.pause() else { if (player.playbackState == Player.STATE_ENDED) seekToGlobal(0); player.play() }
+        syncMusic()
+    }
     fun select(id: Long) { _state.value = _state.value.copy(selectedId = id) }
 
     /** Split the clip under the playhead into two, so the middle can be cut out or an ad inserted. */
@@ -236,6 +243,49 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(overlays = _state.value.overlays.filterNot { it.id == id }, selectedOverlayId = -1)
     }
 
+    // ---- Music / audio ----
+
+    fun addMusic(uri: android.net.Uri) {
+        val name = runCatching {
+            getApplication<Application>().contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        }.getOrNull() ?: "Music"
+        val track = MusicTrack(uri = uri, name = name)
+        _state.value = _state.value.copy(music = track)
+        musicPlayer?.release()
+        musicPlayer = ExoPlayer.Builder(getApplication()).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+            volume = track.volume
+            prepare()
+            seekTo(_state.value.positionMs)
+            playWhenReady = player.isPlaying
+        }
+    }
+
+    fun removeMusic() {
+        musicPlayer?.release(); musicPlayer = null
+        _state.value = _state.value.copy(music = null)
+    }
+
+    fun setMusicVolume(v: Float) {
+        val vol = v.coerceIn(0f, 1f)
+        _state.value = _state.value.copy(music = _state.value.music?.copy(volume = vol))
+        musicPlayer?.volume = vol
+    }
+
+    fun setVideoVolume(v: Float) {
+        val vol = v.coerceIn(0f, 1f)
+        _state.value = _state.value.copy(videoVolume = vol)
+        player.volume = vol
+    }
+
+    private fun syncMusic() {
+        val mp = musicPlayer ?: return
+        if (kotlin.math.abs(mp.currentPosition - _state.value.positionMs) > 120) mp.seekTo(_state.value.positionMs)
+        mp.playWhenReady = player.playWhenReady
+    }
+
     fun export() {
         if (_state.value.exporting) return
         val app = getApplication<Application>()
@@ -254,7 +304,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
                 _state.value = _state.value.copy(exporting = false, message = "Export failed: ${exception.message}")
             }
         }
-        transformer = VideoExporter.start(app, clips(), _state.value.overlays, out, listener)
+        musicPlayer?.pause()
+        transformer = VideoExporter.start(app, clips(), _state.value.overlays, _state.value.music, _state.value.videoVolume, out, listener)
         // Poll progress.
         viewModelScope.launch {
             val holder = ProgressHolder()
@@ -278,6 +329,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     override fun onCleared() {
         runCatching { transformer?.cancel() }
+        musicPlayer?.release()
         player.release()
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,6 +45,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -100,6 +103,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
     ) { uri -> uri?.let { viewModel.addImageOverlay(it) } }
+    val pickAudio = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri -> uri?.let { viewModel.addMusic(it) } }
 
     LaunchedEffect(state.message) {
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
@@ -121,7 +127,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
         },
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().weight(1.3f), contentAlignment = Alignment.Center) {
                 AndroidView(
                     factory = { ctx ->
                         PlayerView(ctx).apply {
@@ -140,28 +146,31 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 )
             }
 
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.playPause() }) {
-                    Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { viewModel.playPause() }) {
+                        Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    }
+                    Text(
+                        "${fmt(state.positionMs)} / ${fmt(state.totalMs)}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { viewModel.splitAtPlayhead() }) {
+                        Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
+                    }
+                    IconButton(onClick = { viewModel.deleteSelected() }, enabled = state.clips.size > 1) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (state.clips.size > 1) Color.White else Color.DarkGray)
+                    }
                 }
-                Text(
-                    "${fmt(state.positionMs)} / ${fmt(state.totalMs)}",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = { viewModel.splitAtPlayhead() }) {
-                    Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
-                }
-                IconButton(onClick = { viewModel.deleteSelected() }, enabled = state.clips.size > 1) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (state.clips.size > 1) Color.White else Color.DarkGray)
-                }
-            }
 
-            SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
-            Timeline(state, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected)
-            OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
-            Spacer(Modifier.height(8.dp))
+                SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
+                Timeline(state, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected)
+                OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
+                AudioBar(state, viewModel, onPickAudio = { pickAudio.launch("audio/*") })
+                Spacer(Modifier.height(8.dp))
+            }
         }
 
         if (state.exporting) {
@@ -433,6 +442,36 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel,
                 IconButton(onClick = { viewModel.deleteOverlay(sel.id) }) { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White) }
             }
         }
+    }
+}
+
+@Composable
+private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onPickAudio: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        val music = state.music
+        if (music == null) {
+            androidx.compose.material3.OutlinedButton(onClick = onPickAudio) {
+                Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.video_add_music), modifier = Modifier.padding(start = 6.dp))
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Text(music.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                IconButton(onClick = { viewModel.removeMusic() }) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = null, tint = Color.White) }
+            }
+            VolumeSlider(stringResource(R.string.video_music_volume), music.volume) { viewModel.setMusicVolume(it) }
+            VolumeSlider(stringResource(R.string.video_video_volume), state.videoVolume) { viewModel.setVideoVolume(it) }
+        }
+    }
+}
+
+@Composable
+private fun VolumeSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(96.dp))
+        androidx.compose.material3.Slider(value = value, onValueChange = onChange, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+        Text("${(value * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
     }
 }
 

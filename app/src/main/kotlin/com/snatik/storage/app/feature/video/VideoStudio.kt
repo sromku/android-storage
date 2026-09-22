@@ -36,6 +36,13 @@ data class VideoClip(
     val durationMs: Long get() = (sourceDurationMs / speed).toLong().coerceAtLeast(0)
 }
 
+/** A background music/sound track mixed under the video. [volume] 0..1. */
+data class MusicTrack(
+    val uri: Uri,
+    val name: String,
+    val volume: Float = 0.8f,
+)
+
 /** Builds the edited MediaItem playlist (for preview) from the timeline clips. */
 fun VideoClip.toMediaItem(): MediaItem =
     MediaItem.Builder()
@@ -59,10 +66,13 @@ object VideoExporter {
         context: Context,
         clips: List<VideoClip>,
         overlays: List<VideoOverlay>,
+        music: MusicTrack?,
+        videoVolume: Float,
         outFile: File,
         listener: Transformer.Listener,
     ): Transformer {
         val (w, h) = clips.firstOrNull()?.let { frameSize(it.uri.path) } ?: (1080 to 1920)
+        val totalMs = clips.sumOf { it.durationMs }
         var globalMs = 0L
         val items = clips.map { clip ->
             val clipStart = globalMs
@@ -78,6 +88,7 @@ object VideoExporter {
                 sonic.setSpeed(clip.speed)
                 audioProcessors.add(sonic)
             }
+            if (videoVolume != 1f) volumeProcessor(videoVolume)?.let { audioProcessors.add(it) }
             if (overlays.isNotEmpty()) {
                 val textureOverlays = overlaysForClip(overlays, clipStart, clipEnd, h, w)
                 if (textureOverlays.isNotEmpty()) videoEffects.add(OverlayEffect(ImmutableList.copyOf(textureOverlays)))
@@ -87,12 +98,35 @@ object VideoExporter {
             }
             builder.build()
         }
-        val sequence = EditedMediaItemSequence(items)
-        val composition = Composition.Builder(sequence).build()
+        val videoSequence = EditedMediaItemSequence(items)
+
+        val sequences = ArrayList<EditedMediaItemSequence>().apply { add(videoSequence) }
+        if (music != null && totalMs > 0) {
+            val musicItem = MediaItem.Builder()
+                .setUri(music.uri)
+                .setClippingConfiguration(
+                    MediaItem.ClippingConfiguration.Builder().setStartPositionMs(0).setEndPositionMs(totalMs).build(),
+                )
+                .build()
+            val mb = EditedMediaItem.Builder(musicItem).setRemoveVideo(true)
+            volumeProcessor(music.volume)?.let { mb.setEffects(Effects(listOf(it), emptyList())) }
+            sequences.add(EditedMediaItemSequence(listOf(mb.build())))
+        }
+
+        val composition = Composition.Builder(sequences).build()
         val transformer = Transformer.Builder(context).addListener(listener).build()
         transformer.start(composition, outFile.absolutePath)
         return transformer
     }
+
+    /** An audio processor that scales the signal by [gain] (0..1+), for volume / ducking. */
+    private fun volumeProcessor(gain: Float): androidx.media3.common.audio.AudioProcessor? = runCatching {
+        val p = androidx.media3.common.audio.ChannelMixingAudioProcessor()
+        for (ch in 1..2) {
+            p.putChannelMixingMatrix(androidx.media3.common.audio.ChannelMixingMatrix.create(ch, ch).scaleBy(gain))
+        }
+        p
+    }.getOrNull()
 
     private fun frameSize(path: String?): Pair<Int, Int> {
         if (path == null) return 1080 to 1920
