@@ -36,11 +36,17 @@ data class VideoClip(
     val durationMs: Long get() = (sourceDurationMs / speed).toLong().coerceAtLeast(0)
 }
 
-/** A background music/sound track mixed under the video. [volume] 0..1. */
-data class MusicTrack(
+/**
+ * A background music/sound track mixed under the video. [startMs] is where it begins on the timeline
+ * (drag to shift), [durationMs] its source length, [volume] 0..1.
+ */
+data class AudioTrack(
+    val id: Long,
     val uri: Uri,
     val name: String,
     val volume: Float = 0.8f,
+    val startMs: Long = 0,
+    val durationMs: Long = 0,
 )
 
 /** Builds the edited MediaItem playlist (for preview) from the timeline clips. */
@@ -66,7 +72,7 @@ object VideoExporter {
         context: Context,
         clips: List<VideoClip>,
         overlays: List<VideoOverlay>,
-        music: MusicTrack?,
+        audioTracks: List<AudioTrack>,
         videoVolume: Float,
         outFile: File,
         listener: Transformer.Listener,
@@ -101,16 +107,24 @@ object VideoExporter {
         val videoSequence = EditedMediaItemSequence(items)
 
         val sequences = ArrayList<EditedMediaItemSequence>().apply { add(videoSequence) }
-        if (music != null && totalMs > 0) {
-            val musicItem = MediaItem.Builder()
-                .setUri(music.uri)
-                .setClippingConfiguration(
-                    MediaItem.ClippingConfiguration.Builder().setStartPositionMs(0).setEndPositionMs(totalMs).build(),
-                )
-                .build()
-            val mb = EditedMediaItem.Builder(musicItem).setRemoveVideo(true)
-            volumeProcessor(music.volume)?.let { mb.setEffects(Effects(listOf(it), emptyList())) }
-            sequences.add(EditedMediaItemSequence(listOf(mb.build())))
+        if (totalMs > 0) {
+            audioTracks.forEach { track ->
+                val start = track.startMs.coerceIn(0, totalMs)
+                val playMs = (totalMs - start).coerceAtLeast(0)
+                if (playMs <= 0) return@forEach
+                val audioItem = MediaItem.Builder()
+                    .setUri(track.uri)
+                    .setClippingConfiguration(
+                        MediaItem.ClippingConfiguration.Builder().setStartPositionMs(0).setEndPositionMs(playMs).build(),
+                    )
+                    .build()
+                val ab = EditedMediaItem.Builder(audioItem).setRemoveVideo(true)
+                volumeProcessor(track.volume)?.let { ab.setEffects(Effects(listOf(it), emptyList())) }
+                val seqBuilder = EditedMediaItemSequence.Builder()
+                if (start > 0) seqBuilder.addGap(start * 1000) // leading silence to offset the track
+                seqBuilder.addItem(ab.build())
+                sequences.add(seqBuilder.build())
+            }
         }
 
         val composition = Composition.Builder(sequences).build()

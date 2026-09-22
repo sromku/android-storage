@@ -28,7 +28,8 @@ data class VideoStudioState(
     val selectedId: Long = -1,
     val overlays: List<VideoOverlay> = emptyList(),
     val selectedOverlayId: Long = -1,
-    val music: MusicTrack? = null,
+    val audioTracks: List<AudioTrack> = emptyList(),
+    val selectedAudioId: Long = -1,
     val videoVolume: Float = 1f,
     val playing: Boolean = false,
     val positionMs: Long = 0,       // playhead on the global timeline
@@ -44,7 +45,7 @@ data class VideoStudioState(
 class VideoStudioViewModel(application: Application, private val path: String) : AndroidViewModel(application) {
 
     val player: ExoPlayer = ExoPlayer.Builder(application).build()
-    private var musicPlayer: ExoPlayer? = null
+
 
     private val _state = MutableStateFlow(VideoStudioState())
     val state: StateFlow<VideoStudioState> = _state.asStateFlow()
@@ -78,7 +79,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         // Playhead ticker.
         viewModelScope.launch {
             while (true) {
-                if (player.isPlaying) { _state.value = _state.value.copy(positionMs = globalPosition()); syncMusic() }
+                if (player.isPlaying) { _state.value = _state.value.copy(positionMs = globalPosition()); syncAudio() }
                 delay(33)
             }
         }
@@ -126,12 +127,12 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
         _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs))
-        musicPlayer?.seekTo(_state.value.positionMs)
+        syncAudio()
     }
 
     fun playPause() {
         if (player.isPlaying) player.pause() else { if (player.playbackState == Player.STATE_ENDED) seekToGlobal(0); player.play() }
-        syncMusic()
+        syncAudio()
     }
     fun select(id: Long) { _state.value = _state.value.copy(selectedId = id) }
 
@@ -243,35 +244,65 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(overlays = _state.value.overlays.filterNot { it.id == id }, selectedOverlayId = -1)
     }
 
+    /** Shift an overlay's whole time window by [deltaMs] (drag on the timeline lane). */
+    fun shiftOverlay(id: Long, deltaMs: Long) {
+        val total = _state.value.totalMs
+        mutateOverlay(id) {
+            val end = if (it.endMs >= total) total else it.endMs
+            val len = end - it.startMs
+            val ns = (it.startMs + deltaMs).coerceIn(0, (total - len).coerceAtLeast(0))
+            it.copy(startMs = ns, endMs = ns + len)
+        }
+    }
+
     // ---- Music / audio ----
 
-    fun addMusic(uri: android.net.Uri) {
+    private var nextAudioId = 1L
+    private val audioPlayers = HashMap<Long, ExoPlayer>()
+
+    fun addAudio(uri: android.net.Uri) {
         val name = runCatching {
             getApplication<Application>().contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
             }
-        }.getOrNull() ?: "Music"
-        val track = MusicTrack(uri = uri, name = name)
-        _state.value = _state.value.copy(music = track)
-        musicPlayer?.release()
-        musicPlayer = ExoPlayer.Builder(getApplication()).build().apply {
+        }.getOrNull() ?: "Audio"
+        val durationMs = runCatching {
+            val r = MediaMetadataRetriever()
+            try { r.setDataSource(getApplication(), uri); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
+            finally { r.release() }
+        }.getOrDefault(0L)
+        val track = AudioTrack(id = nextAudioId++, uri = uri, name = name, startMs = _state.value.positionMs, durationMs = durationMs)
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks + track, selectedAudioId = track.id)
+        audioPlayers[track.id] = ExoPlayer.Builder(getApplication()).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
             volume = track.volume
             prepare()
-            seekTo(_state.value.positionMs)
-            playWhenReady = player.isPlaying
         }
+        syncAudio()
     }
 
-    fun removeMusic() {
-        musicPlayer?.release(); musicPlayer = null
-        _state.value = _state.value.copy(music = null)
+    fun selectAudio(id: Long) { _state.value = _state.value.copy(selectedAudioId = id) }
+
+    fun removeAudio(id: Long) {
+        audioPlayers.remove(id)?.release()
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.filterNot { it.id == id }, selectedAudioId = -1)
     }
 
-    fun setMusicVolume(v: Float) {
+    fun setAudioVolume(id: Long, v: Float) {
         val vol = v.coerceIn(0f, 1f)
-        _state.value = _state.value.copy(music = _state.value.music?.copy(volume = vol))
-        musicPlayer?.volume = vol
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.map { if (it.id == id) it.copy(volume = vol) else it })
+        audioPlayers[id]?.volume = vol
+    }
+
+    fun setAudioStart(id: Long, startMs: Long) {
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.map { if (it.id == id) it.copy(startMs = startMs.coerceIn(0, _state.value.totalMs)) else it })
+        syncAudio()
+    }
+
+    /** Shift an audio track's start by [deltaMs] (drag on the timeline lane). */
+    fun setAudioStartDelta(id: Long, deltaMs: Long) {
+        val track = _state.value.audioTracks.find { it.id == id } ?: return
+        setAudioStart(id, track.startMs + deltaMs)
     }
 
     fun setVideoVolume(v: Float) {
@@ -280,10 +311,20 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         player.volume = vol
     }
 
-    private fun syncMusic() {
-        val mp = musicPlayer ?: return
-        if (kotlin.math.abs(mp.currentPosition - _state.value.positionMs) > 120) mp.seekTo(_state.value.positionMs)
-        mp.playWhenReady = player.playWhenReady
+    /** Keep every audio track in sync with the playhead, respecting its start offset. */
+    private fun syncAudio() {
+        val pos = _state.value.positionMs
+        _state.value.audioTracks.forEach { track ->
+            val mp = audioPlayers[track.id] ?: return@forEach
+            val local = pos - track.startMs
+            val inRange = local >= 0 && (track.durationMs == 0L || local < track.durationMs)
+            if (inRange) {
+                if (kotlin.math.abs(mp.currentPosition - local) > 140) mp.seekTo(local)
+                mp.playWhenReady = player.playWhenReady
+            } else {
+                mp.playWhenReady = false
+            }
+        }
     }
 
     fun export() {
@@ -304,8 +345,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
                 _state.value = _state.value.copy(exporting = false, message = "Export failed: ${exception.message}")
             }
         }
-        musicPlayer?.pause()
-        transformer = VideoExporter.start(app, clips(), _state.value.overlays, _state.value.music, _state.value.videoVolume, out, listener)
+        audioPlayers.values.forEach { it.pause() }
+        transformer = VideoExporter.start(app, clips(), _state.value.overlays, _state.value.audioTracks, _state.value.videoVolume, out, listener)
         // Poll progress.
         viewModelScope.launch {
             val holder = ProgressHolder()
@@ -329,7 +370,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     override fun onCleared() {
         runCatching { transformer?.cancel() }
-        musicPlayer?.release()
+        audioPlayers.values.forEach { it.release() }
         player.release()
     }
 }

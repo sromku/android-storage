@@ -105,7 +105,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     ) { uri -> uri?.let { viewModel.addImageOverlay(it) } }
     val pickAudio = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
-    ) { uri -> uri?.let { viewModel.addMusic(it) } }
+    ) { uri -> uri?.let { viewModel.addAudio(it) } }
 
     LaunchedEffect(state.message) {
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
@@ -166,7 +166,12 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 }
 
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
-                Timeline(state, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected)
+                Timeline(
+                    state,
+                    onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected,
+                    onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
+                    onSelectAudio = viewModel::selectAudio, onShiftAudio = viewModel::setAudioStartDelta,
+                )
                 OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
                 AudioBar(state, viewModel, onPickAudio = { pickAudio.launch("audio/*") })
                 Spacer(Modifier.height(8.dp))
@@ -218,42 +223,99 @@ private fun Timeline(
     onSeek: (Long) -> Unit,
     onSelect: (Long) -> Unit,
     onTrim: (Long, Long) -> Unit,
+    onSelectOverlay: (Long) -> Unit,
+    onShiftOverlay: (Long, Long) -> Unit,
+    onSelectAudio: (Long) -> Unit,
+    onShiftAudio: (Long, Long) -> Unit,
 ) {
     val density = LocalDensity.current
     val pxPerMs = with(density) { PX_PER_SECOND.dp.toPx() } / 1000f
-    val trackHeight = 76.dp
+    val videoLane = 68.dp
+    val laneH = 30.dp
+    val overlayLane = if (state.overlays.isNotEmpty()) laneH + 4.dp else 0.dp
+    val audioLanes = laneH * state.audioTracks.size + (if (state.audioTracks.isNotEmpty()) 4.dp else 0.dp)
+    val totalHeight = videoLane + overlayLane + audioLanes
     val scroll = rememberScrollState()
     val sidePad = with(density) { (LocalConfiguration.current.screenWidthDp.dp.toPx() / 2f).toDp() }
+    val totalDp = with(density) { (state.totalMs * pxPerMs).toDp() }
 
-    // Playback drives the scroll so the playhead (fixed centre) sits over the current time.
     LaunchedEffect(state.positionMs, state.playing) {
         if (state.playing) scroll.scrollTo((state.positionMs * pxPerMs).toInt())
     }
-    // User scrubbing drives the playhead: when the user drags the timeline, seek to the centre time.
     LaunchedEffect(pxPerMs) {
         snapshotFlow { scroll.value to scroll.isScrollInProgress }.collect { (v, dragging) ->
             if (dragging && !state.playing) onSeek((v / pxPerMs).toLong())
         }
     }
 
-    Box(Modifier.fillMaxWidth().height(trackHeight)) {
-        Row(
-            Modifier.fillMaxWidth().height(trackHeight).horizontalScroll(scroll).padding(horizontal = sidePad),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            state.clips.forEach { clip ->
-                ClipView(
-                    clip = clip,
-                    widthPx = clip.durationMs * pxPerMs,
-                    selected = clip.id == state.selectedId,
-                    pxPerMs = pxPerMs,
-                    onSelect = { onSelect(clip.id) },
-                    onTrim = onTrim,
-                )
-                Spacer(Modifier.width(2.dp))
+    Box(Modifier.fillMaxWidth().height(totalHeight).padding(vertical = 2.dp)) {
+        Column(Modifier.fillMaxWidth().horizontalScroll(scroll).padding(horizontal = sidePad)) {
+            // Video lane.
+            Row(Modifier.height(videoLane), verticalAlignment = Alignment.CenterVertically) {
+                state.clips.forEach { clip ->
+                    ClipView(clip, clip.durationMs * pxPerMs, clip.id == state.selectedId, pxPerMs, onSelect = { onSelect(clip.id) }, onTrim = onTrim)
+                    Spacer(Modifier.width(1.dp))
+                }
+            }
+            // Overlay lane.
+            if (state.overlays.isNotEmpty()) {
+                Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(laneH).padding(top = 4.dp)) {
+                    state.overlays.forEach { ov ->
+                        val end = if (ov.endMs >= state.totalMs) state.totalMs else ov.endMs
+                        TrackPill(
+                            label = ov.text.ifBlank { "•" },
+                            startMs = ov.startMs, lengthMs = (end - ov.startMs).coerceAtLeast(200),
+                            pxPerMs = pxPerMs, selected = ov.id == state.selectedOverlayId,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            onSelect = { onSelectOverlay(ov.id) }, onShift = { d -> onShiftOverlay(ov.id, d) },
+                        )
+                    }
+                }
+            }
+            // Audio lanes.
+            state.audioTracks.forEachIndexed { i, track ->
+                Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(laneH).padding(top = if (i == 0) 4.dp else 2.dp)) {
+                    TrackPill(
+                        label = track.name,
+                        startMs = track.startMs, lengthMs = (if (track.durationMs > 0) track.durationMs else state.totalMs).coerceAtLeast(200),
+                        pxPerMs = pxPerMs, selected = track.id == state.selectedAudioId,
+                        color = MaterialTheme.colorScheme.primary,
+                        onSelect = { onSelectAudio(track.id) }, onShift = { d -> onShiftAudio(track.id, d) },
+                    )
+                }
             }
         }
-        Box(Modifier.align(Alignment.Center).width(2.dp).height(trackHeight).background(MaterialTheme.colorScheme.primary))
+        Box(Modifier.align(Alignment.TopCenter).width(2.dp).height(totalHeight).background(MaterialTheme.colorScheme.primary))
+    }
+}
+
+@Composable
+private fun TrackPill(
+    label: String,
+    startMs: Long,
+    lengthMs: Long,
+    pxPerMs: Float,
+    selected: Boolean,
+    color: Color,
+    onSelect: () -> Unit,
+    onShift: (Long) -> Unit,
+) {
+    val density = LocalDensity.current
+    Box(
+        Modifier
+            .offset { androidx.compose.ui.unit.IntOffset((startMs * pxPerMs).toInt(), 0) }
+            .width(with(density) { (lengthMs * pxPerMs).toDp() }.coerceAtLeast(28.dp))
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) color else color.copy(alpha = 0.4f))
+            .border(if (selected) 2.dp else 0.dp, Color.White, RoundedCornerShape(6.dp))
+            .clickable(onClick = onSelect)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { change, drag -> change.consume(); onSelect(); onShift((drag / pxPerMs).toLong()) }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
     }
 }
 
@@ -400,27 +462,40 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel,
         }
         val sel = state.overlays.find { it.id == state.selectedOverlayId }
         if (sel != null) {
+            // Editor header: title + Remove + Done (so you can dismiss/cancel the overlay editor).
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (sel.kind == OverlayKind.TEXT) stringResource(R.string.video_edit_text) else stringResource(R.string.video_edit_sticker),
+                    color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f),
+                )
+                androidx.compose.material3.TextButton(onClick = { viewModel.deleteOverlay(sel.id) }) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.video_remove), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 4.dp))
+                }
+                androidx.compose.material3.Button(onClick = { viewModel.selectOverlay(-1) }) { Text(stringResource(R.string.video_done)) }
+            }
             if (sel.kind == OverlayKind.TEXT) {
                 androidx.compose.material3.OutlinedTextField(
                     value = sel.text,
                     onValueChange = { viewModel.setOverlayText(sel.id, it) },
-                    label = { Text(stringResource(R.string.video_text_label)) },
+                    label = { Text(stringResource(R.string.video_text_label), color = Color.White.copy(alpha = 0.7f)) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Color.White.copy(alpha = 0.4f),
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 )
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     swatches.forEach { c ->
                         Box(
-                            Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
-                                .border(if (sel.color == c.toInt()) 2.dp else 1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                            Modifier.size(28.dp).clip(RoundedCornerShape(50)).background(Color(c))
+                                .border(if (sel.color == c.toInt()) 3.dp else 1.dp, if (sel.color == c.toInt()) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
                                 .clickable { viewModel.setOverlayColor(sel.id, c.toInt()) },
                         )
                     }
-                    androidx.compose.material3.FilterChip(
-                        selected = sel.background,
-                        onClick = { viewModel.toggleOverlayBackground(sel.id) },
-                        label = { Text(stringResource(R.string.video_tag)) },
-                    )
+                    StudioToggle(stringResource(R.string.video_tag), sel.background) { viewModel.toggleOverlayBackground(sel.id) }
                 }
             }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -439,28 +514,43 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel,
                     "${fmt(sel.startMs)} - ${if (sel.endMs >= state.totalMs) fmt(state.totalMs) else fmt(sel.endMs)}",
                     color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { viewModel.deleteOverlay(sel.id) }) { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White) }
             }
         }
+    }
+}
+
+/** A high-contrast pill toggle for the dark studio (M3 chips read too faint on black). */
+@Composable
+private fun StudioToggle(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50))
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(label, color = if (selected) Color.Black else Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onPickAudio: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        val music = state.music
-        if (music == null) {
-            androidx.compose.material3.OutlinedButton(onClick = onPickAudio) {
-                Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.video_add_music), modifier = Modifier.padding(start = 6.dp))
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.OutlinedButton(
+            onClick = onPickAudio,
+            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+        ) {
+            Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.video_add_music), modifier = Modifier.padding(start = 6.dp))
+        }
+        if (state.audioTracks.isNotEmpty()) {
+            val sel = state.audioTracks.find { it.id == state.selectedAudioId } ?: state.audioTracks.last()
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Text(music.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                IconButton(onClick = { viewModel.removeMusic() }) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = null, tint = Color.White) }
+                Text(sel.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                IconButton(onClick = { viewModel.removeAudio(sel.id) }) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = null, tint = Color.White) }
             }
-            VolumeSlider(stringResource(R.string.video_music_volume), music.volume) { viewModel.setMusicVolume(it) }
+            VolumeSlider(stringResource(R.string.video_music_volume), sel.volume) { viewModel.setAudioVolume(sel.id, it) }
             VolumeSlider(stringResource(R.string.video_video_volume), state.videoVolume) { viewModel.setVideoVolume(it) }
         }
     }
