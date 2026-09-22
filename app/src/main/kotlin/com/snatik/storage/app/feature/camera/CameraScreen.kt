@@ -1,8 +1,10 @@
 package com.snatik.storage.app.feature.camera
 
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,19 +48,48 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snatik.storage.app.R
 import com.snatik.storage.app.util.readableSize
 
+// Declared as a literal so it compiles on any SDK; the permission itself only exists on API 36+.
+private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
     val context = LocalContext.current
     val state by CameraSync.state.collectAsStateWithLifecycle()
 
+    // Android 16 (Local Network Protections) puts LAN traffic behind a runtime permission. Without it
+    // the FTP receiver's replies to the camera are silently dropped and no transfer ever connects, so
+    // we request it before starting. Older releases don't have the permission and don't need it.
+    val localNetDeniedMsg = stringResource(R.string.camera_local_network_denied)
+    val localNetPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) CameraSyncService.start(context)
+        else CameraSync.setError(localNetDeniedMsg)
+    }
+
+    fun ensureLocalNetworkThenStart() {
+        if (Build.VERSION.SDK_INT >= 36 &&
+            ContextCompat.checkSelfPermission(context, LOCAL_NETWORK_PERMISSION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            localNetPermission.launch(LOCAL_NETWORK_PERMISSION)
+        } else {
+            CameraSyncService.start(context)
+        }
+    }
+
     val notifPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { CameraSyncService.start(context) }
+    ) { ensureLocalNetworkThenStart() }
 
     fun startReceiving() {
-        if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        else CameraSyncService.start(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            ensureLocalNetworkThenStart()
+        }
     }
 
     Scaffold(

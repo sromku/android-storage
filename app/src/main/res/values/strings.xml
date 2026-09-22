@@ -1181,6 +1181,7 @@
     <string name="camera_channel">Camera sync</string>
     <string name="camera_notif_title">Camera sync active</string>
     <string name="camera_no_wifi">Connect to Wi-Fi (or the camera\'s network) first</string>
+    <string name="camera_local_network_denied">Allow local network access so the camera can reach this phone, then start again</string>
     <string name="camera_listening">Ready to receive</string>
     <string name="camera_instructions">On the camera, add an FTP transfer server with these details, then select photos and transfer.</string>
     <string name="camera_field_host">Host / IP</string>
