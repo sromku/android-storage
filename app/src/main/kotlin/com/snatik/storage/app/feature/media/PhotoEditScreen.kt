@@ -134,9 +134,29 @@ fun PhotoEditScreen(path: String, name: String, onBack: () -> Unit, onSaved: () 
                     CropCanvas(bmp, imgW, imgH, crop, ASPECTS[aspectIndex].ratio)
                 }
             }
+            // Live crop readout: current pixel dimensions and an estimated file size, updated as you edit.
+            val cropW = ((crop.r - crop.l) * imgW).toInt().coerceAtLeast(1)
+            val cropH = ((crop.b - crop.t) * imgH).toInt().coerceAtLeast(1)
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Surface(color = Color.White.copy(alpha = 0.10f), shape = RoundedCornerShape(50)) {
+                    Row(
+                        Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("$cropW × $cropH", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        Text("px", color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelMedium)
+                        Text("·", color = Color.White.copy(alpha = 0.4f))
+                        Text("~${PhotoEditor.estimateBytes(cropW, cropH, 95).readableSize()}", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
             // Aspect presets
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ASPECTS.forEachIndexed { i, a ->
@@ -144,6 +164,14 @@ fun PhotoEditScreen(path: String, name: String, onBack: () -> Unit, onSaved: () 
                         selected = aspectIndex == i,
                         onClick = { aspectIndex = i; applyAspect(a.ratio) },
                         label = { Text(stringResource(a.labelRes)) },
+                        shape = RoundedCornerShape(50),
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            labelColor = Color.White.copy(alpha = 0.9f),
+                            selectedContainerColor = Color.White,
+                            selectedLabelColor = Color.Black,
+                        ),
+                        border = null,
                     )
                 }
             }
