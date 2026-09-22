@@ -317,7 +317,8 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.ProcessMonitor> { route -> com.snatik.storage.app.feature.system.ProcessMonitorScreen(focus = route.focus, onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
             entry<Route.TimeMachine> { TimeMachineScreen(onBack = ::pop) }
             entry<Route.AppHistory> { AppHistoryScreen(onBack = ::pop, onOpenApp = { push(Route.AppDetail(it)) }) }
-            entry<Route.Settings> { com.snatik.storage.app.feature.settings.SettingsScreen(onBack = ::pop) }
+            entry<Route.Settings> { com.snatik.storage.app.feature.settings.SettingsScreen(onBack = ::pop, onOpenLicenses = { push(Route.Licenses) }) }
+            entry<Route.Licenses> { com.snatik.storage.app.feature.settings.LicensesScreen(onBack = ::pop) }
             entry<Route.CommandPalette> {
                 val open: (Route) -> Unit = { r -> pop(); push(r) }
                 val commands = listOf(

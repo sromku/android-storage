@@ -13,7 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +57,7 @@ import org.koin.compose.koinInject
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenLicenses: () -> Unit = {},
     prefs: ThemePreferences = koinInject(),
     netPrefs: com.snatik.storage.app.feature.network.NetworkPreferences = koinInject(),
     sink: com.snatik.storage.core.apps.ExternalSink = koinInject(),
@@ -115,7 +118,29 @@ fun SettingsScreen(
             SettingGroup(Icons.Default.CloudUpload, stringResource(R.string.settings_collector)) {
                 ExternalCollector(sink, snackbar)
             }
+            SettingGroup(Icons.Default.Info, stringResource(R.string.settings_about)) {
+                NavRow(
+                    stringResource(R.string.settings_licenses),
+                    stringResource(R.string.settings_licenses_sub),
+                    onClick = onOpenLicenses,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun NavRow(label: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 

@@ -210,6 +210,9 @@ sealed interface Route : NavKey {
     data object Settings : Route
 
     @Serializable
+    data object Licenses : Route
+
+    @Serializable
     data class Art(val packageName: String, val label: String, val debuggable: Boolean) : Route
 
     @Serializable
