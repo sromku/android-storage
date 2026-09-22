@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -186,6 +187,7 @@ fun ShareActionSheet(
     onDismiss: () -> Unit,
     onShareOriginal: () -> Unit,
     onShareStripped: () -> Unit,
+    onWifiShare: () -> Unit,
     onOpenWith: () -> Unit,
     onUseAs: () -> Unit,
 ) {
@@ -198,6 +200,7 @@ fun ShareActionSheet(
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 10.dp),
             )
             HorizontalDivider(Modifier.padding(bottom = 4.dp))
+            ActionRow(Icons.Default.Wifi, stringResource(R.string.wifi_share), subtitle = stringResource(R.string.wifi_share_sub_pager), onClick = onWifiShare)
             ActionRow(Icons.Default.Share, stringResource(R.string.share_original), onClick = onShareOriginal)
             if (!isVideo) ActionRow(Icons.Default.Shield, stringResource(R.string.share_stripped), subtitle = stringResource(R.string.share_stripped_sub), onClick = onShareStripped)
             ActionRow(Icons.AutoMirrored.Filled.OpenInNew, stringResource(R.string.open_with), onClick = onOpenWith)

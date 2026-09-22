@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +81,7 @@ fun TiledViewerScreen(path: String, onBack: () -> Unit, onEdit: (String) -> Unit
     }
     val context = androidx.compose.ui.platform.LocalContext.current
     var menu by remember { mutableStateOf(false) }
+    var showWifiShare by remember { mutableStateOf(false) }
     val editable = remember(path) { !isRawMedia(File(path).name, "") }
 
     androidx.compose.material3.Scaffold(
@@ -114,6 +116,11 @@ fun TiledViewerScreen(path: String, onBack: () -> Unit, onEdit: (String) -> Unit
                             )
                         }
                         androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.wifi_share)) },
+                            leadingIcon = { Icon(Icons.Default.Wifi, contentDescription = null) },
+                            onClick = { menu = false; showWifiShare = true },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
                             text = { Text(stringResource(R.string.action_share_send)) },
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                             onClick = { menu = false; com.snatik.storage.app.util.Intents.share(context, listOf(path)) },
@@ -133,6 +140,13 @@ fun TiledViewerScreen(path: String, onBack: () -> Unit, onEdit: (String) -> Unit
         if (src != null) {
             TiledCanvas(src, Modifier.fillMaxSize().padding(padding))
         }
+    }
+
+    if (showWifiShare) {
+        com.snatik.storage.app.feature.transfer.WifiShareSheet(
+            paths = listOf(path),
+            onDismiss = { showWifiShare = false },
+        )
     }
 }
 

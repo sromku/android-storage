@@ -109,6 +109,7 @@ fun MediaPagerScreen(
     var showActions by remember { mutableStateOf(false) }
     var showInspect by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
+    var showWifiShare by remember { mutableStateOf(false) }
     var showHistogram by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -191,8 +192,15 @@ fun MediaPagerScreen(
             onDismiss = { showShare = false },
             onShareOriginal = { showShare = false; Intents.share(context, listOf(current.path)) },
             onShareStripped = { showShare = false; shareStripped() },
+            onWifiShare = { showShare = false; showWifiShare = true },
             onOpenWith = { showShare = false; Intents.openWith(context, current.path) },
             onUseAs = { showShare = false; Intents.useAs(context, current.path) },
+        )
+    }
+    if (showWifiShare) {
+        com.snatik.storage.app.feature.transfer.WifiShareSheet(
+            paths = listOf(current.path),
+            onDismiss = { showWifiShare = false },
         )
     }
 

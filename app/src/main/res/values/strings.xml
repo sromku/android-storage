@@ -1134,6 +1134,14 @@
     <string name="renamed">Renamed</string>
     <string name="rename_failed">Could not rename</string>
     <string name="move_to_folder">Move to folder</string>
+    <string name="wifi_share">Share over Wi-Fi</string>
+    <string name="wifi_share_sub_pager">Send to an iPhone, Mac or any browser on your Wi-Fi</string>
+    <string name="wifi_share_title">Share over Wi-Fi</string>
+    <string name="wifi_share_sub">%1$d photo(s) ready. On the other device, open this link in any browser.</string>
+    <string name="wifi_share_denied">Allow local network access to share over Wi-Fi, then try again</string>
+    <string name="wifi_share_starting">Starting the local link…</string>
+    <string name="wifi_share_copy">Copy link</string>
+    <string name="wifi_share_hint">Keep both devices on the same Wi-Fi. The link stays live while the app is open.</string>
     <string name="group_timeline">Timeline</string>
     <string name="group_folders">Folders</string>
     <string name="filter_and_group">Filter and group</string>

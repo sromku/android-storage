@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -143,6 +144,7 @@ fun MediaGridScreen(
     var showMove by remember { mutableStateOf(false) }
     var showConvert by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showWifiShare by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
     val allItems = remember(state.sections) { state.sections.flatMap { it.items } }
     val selectedItems = remember(selection, allItems) { allItems.filter { it.id in selection } }
@@ -208,6 +210,13 @@ fun MediaGridScreen(
             onInsights = { appMenu = false; onInsights() },
         )
     }
+    if (showWifiShare) {
+        val paths = remember(selection) { selectedItems.map { it.path }.filter { it.isNotBlank() } }
+        com.snatik.storage.app.feature.transfer.WifiShareSheet(
+            paths = paths,
+            onDismiss = { showWifiShare = false; clearSelection() },
+        )
+    }
     if (showFilterSheet) {
         FilterSortSheet(
             filter = state.filter,
@@ -266,6 +275,7 @@ fun MediaGridScreen(
                     count = selection.size,
                     onClose = { clearSelection() },
                     onShare = { shareSelected(strip = false) },
+                    onWifiShare = { showWifiShare = true },
                     onShareStripped = { shareSelected(strip = true) },
                     onConvert = { showConvert = true },
                     onMove = { showMove = true },
@@ -543,6 +553,7 @@ private fun SelectionBar(
     count: Int,
     onClose: () -> Unit,
     onShare: () -> Unit,
+    onWifiShare: () -> Unit,
     onShareStripped: () -> Unit,
     onConvert: () -> Unit,
     onMove: () -> Unit,
@@ -559,6 +570,11 @@ private fun SelectionBar(
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_actions)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.wifi_share)) },
+                        leadingIcon = { Icon(Icons.Default.Wifi, contentDescription = null) },
+                        onClick = { menu = false; onWifiShare() },
+                    )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.share_stripped)) },
                         leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null) },

@@ -21,6 +21,7 @@ import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
+import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -88,6 +89,21 @@ class TransferServer(
     val code: String get() = _state.value.code
 
     fun regenerateCode() = _state.update { it.copy(code = newCode()) }
+
+    // Files the phone is currently serving out for a browser (iPhone, Mac, anything) to download,
+    // guarded by an unguessable token in the URL rather than the pairing code.
+    @Volatile private var sharedFiles: List<File> = emptyList()
+    @Volatile private var shareToken: String = ""
+
+    /** Publish [paths] for browser download and return the token; the URL is /s/{token}. */
+    fun shareOut(paths: List<String>): String {
+        shareToken = newToken()
+        sharedFiles = paths.map(::File).filter { it.isFile }
+        return shareToken
+    }
+
+    private fun sharedFor(token: String?): List<File>? =
+        if (shareToken.isNotEmpty() && token == shareToken) sharedFiles else null
 
     suspend fun start(port: Int = DEFAULT_PORT, bindAll: Boolean = true) = withContext(Dispatchers.IO) {
         stop()
@@ -183,6 +199,37 @@ class TransferServer(
                     call.respond(saved)
                 }
             }
+            // Share-out (phone serves selected files to any browser). Token-guarded, no pairing code.
+            get("/s/{token}") {
+                val files = sharedFor(call.parameters["token"]) ?: return@get call.respondText(SharePage.gone, ContentType.Text.Html, HttpStatusCode.NotFound)
+                call.respondText(SharePage.html(deviceName, call.parameters["token"]!!, files), ContentType.Text.Html)
+            }
+            get("/s/{token}/view/{i}") {
+                val files = sharedFor(call.parameters["token"]) ?: return@get call.respond(HttpStatusCode.NotFound)
+                val file = files.getOrNull(call.parameters["i"]?.toIntOrNull() ?: -1) ?: return@get call.respond(HttpStatusCode.NotFound)
+                call.respondFile(file)
+            }
+            get("/s/{token}/get/{i}") {
+                val files = sharedFor(call.parameters["token"]) ?: return@get call.respond(HttpStatusCode.NotFound)
+                val file = files.getOrNull(call.parameters["i"]?.toIntOrNull() ?: -1) ?: return@get call.respond(HttpStatusCode.NotFound)
+                call.response.header("Content-Disposition", "attachment; filename=\"${file.name}\"")
+                call.respondFile(file)
+            }
+            get("/s/{token}/all.zip") {
+                val files = sharedFor(call.parameters["token"]) ?: return@get call.respond(HttpStatusCode.NotFound)
+                call.response.header("Content-Disposition", "attachment; filename=\"$deviceName-photos.zip\"")
+                call.respondOutputStream(ContentType.Application.Zip) {
+                    java.util.zip.ZipOutputStream(this).use { zip ->
+                        files.forEach { f ->
+                            runCatching {
+                                zip.putNextEntry(java.util.zip.ZipEntry(f.name))
+                                f.inputStream().use { it.copyTo(zip) }
+                                zip.closeEntry()
+                            }
+                        }
+                    }
+                }
+            }
             extraRoutes(this@TransferServer)
         }
     }
@@ -216,6 +263,13 @@ class TransferServer(
         fun newCode(): String {
             val random = SecureRandom()
             return (1..6).map { ALPHABET[random.nextInt(ALPHABET.length)] }.joinToString("")
+        }
+
+        /** An unguessable URL token for a share-out session. */
+        fun newToken(): String {
+            val bytes = ByteArray(12)
+            SecureRandom().nextBytes(bytes)
+            return bytes.joinToString("") { "%02x".format(it) }
         }
 
         fun safeName(name: String?): String? {
