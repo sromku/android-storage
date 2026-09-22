@@ -129,6 +129,7 @@ val appModule = module {
     single { NetworkInspector(androidContext(), get()) }
     single { com.snatik.storage.core.apps.AsnDb(androidContext()) }
     single { com.snatik.storage.app.feature.network.NetworkPreferences(androidContext()) }
+    single { com.snatik.storage.app.feature.media.ViewerPreferences(androidContext()) }
     single { DeviceStatsRepository(androidContext(), get()) }
     single { AppOpsTimeline(androidContext(), get()) }
     single { com.snatik.storage.core.apps.AppOpsRecorderStore(androidContext()) }

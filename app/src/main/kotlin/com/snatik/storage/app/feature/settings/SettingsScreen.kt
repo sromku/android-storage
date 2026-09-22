@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,10 +61,12 @@ fun SettingsScreen(
     onOpenLicenses: () -> Unit = {},
     prefs: ThemePreferences = koinInject(),
     netPrefs: com.snatik.storage.app.feature.network.NetworkPreferences = koinInject(),
+    viewerPrefs: com.snatik.storage.app.feature.media.ViewerPreferences = koinInject(),
     sink: com.snatik.storage.core.apps.ExternalSink = koinInject(),
 ) {
     val settings by prefs.state.collectAsStateWithLifecycle()
     val resolveHosts by netPrefs.resolveHosts.collectAsStateWithLifecycle()
+    val openFullRes by viewerPrefs.openFullResolution.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     Scaffold(
         topBar = {
@@ -107,6 +110,13 @@ fun SettingsScreen(
                     }
                     if (!dynAvailable) Text(stringResource(R.string.color_dynamic_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            SettingGroup(Icons.Default.PhotoLibrary, stringResource(R.string.settings_photos)) {
+                SwitchRow(
+                    stringResource(R.string.settings_full_res),
+                    openFullRes,
+                    stringResource(R.string.settings_full_res_sub),
+                ) { viewerPrefs.setOpenFullResolution(it) }
             }
             SettingGroup(Icons.Default.Lan, stringResource(R.string.settings_network)) {
                 SwitchRow(
