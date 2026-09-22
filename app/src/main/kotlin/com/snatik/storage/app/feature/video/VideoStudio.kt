@@ -28,8 +28,12 @@ data class VideoClip(
     val uri: Uri,
     val startMs: Long,
     val endMs: Long,
+    val speed: Float = 1f,
 ) {
-    val durationMs: Long get() = (endMs - startMs).coerceAtLeast(0)
+    /** Length of the trimmed source. */
+    val sourceDurationMs: Long get() = (endMs - startMs).coerceAtLeast(0)
+    /** Length on the timeline (and in the output), after the speed change. */
+    val durationMs: Long get() = (sourceDurationMs / speed).toLong().coerceAtLeast(0)
 }
 
 /** Builds the edited MediaItem playlist (for preview) from the timeline clips. */
@@ -65,12 +69,21 @@ object VideoExporter {
             val clipEnd = globalMs + clip.durationMs
             globalMs = clipEnd
             val builder = EditedMediaItem.Builder(clip.toMediaItem())
+            val videoEffects = ArrayList<androidx.media3.common.Effect>()
+            val audioProcessors = ArrayList<androidx.media3.common.audio.AudioProcessor>()
+            if (clip.speed != 1f) {
+                // Speed first, so overlays that follow are gated in the sped (timeline) time.
+                videoEffects.add(androidx.media3.effect.SpeedChangeEffect(clip.speed))
+                val sonic = androidx.media3.common.audio.SonicAudioProcessor()
+                sonic.setSpeed(clip.speed)
+                audioProcessors.add(sonic)
+            }
             if (overlays.isNotEmpty()) {
                 val textureOverlays = overlaysForClip(overlays, clipStart, clipEnd, h, w)
-                if (textureOverlays.isNotEmpty()) {
-                    val effect = OverlayEffect(ImmutableList.copyOf(textureOverlays))
-                    builder.setEffects(Effects(emptyList(), listOf(effect)))
-                }
+                if (textureOverlays.isNotEmpty()) videoEffects.add(OverlayEffect(ImmutableList.copyOf(textureOverlays)))
+            }
+            if (videoEffects.isNotEmpty() || audioProcessors.isNotEmpty()) {
+                builder.setEffects(Effects(audioProcessors, videoEffects))
             }
             builder.build()
         }

@@ -158,6 +158,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 }
             }
 
+            SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
             Timeline(state, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected)
             OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
             Spacer(Modifier.height(8.dp))
@@ -174,6 +175,33 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
         }
     }
 }
+
+@Composable
+private fun SpeedRow(state: VideoStudioState, onSetSpeed: (Float) -> Unit) {
+    val current = state.clips.find { it.id == state.selectedId }?.speed ?: 1f
+    val options = listOf(0.25f, 0.5f, 1f, 2f, 4f)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.video_speed), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+        options.forEach { s ->
+            val sel = kotlin.math.abs(current - s) < 0.01f
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(if (sel) Color.White else Color.White.copy(alpha = 0.12f))
+                    .clickable { onSetSpeed(s) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            ) {
+                Text(speedLabel(s), color = if (sel) Color.Black else Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+private fun speedLabel(s: Float): String = if (s == s.toLong().toFloat()) "${s.toLong()}x" else "${s}x"
 
 @Composable
 private fun Timeline(
@@ -255,6 +283,18 @@ private fun ClipView(
                 .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
                 .padding(horizontal = 4.dp, vertical = 1.dp),
         )
+        if (clip.speed != 1f) {
+            Text(
+                speedLabel(clip.speed),
+                color = Color.Black,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopStart).padding(4.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            )
+        }
         if (selected) {
             TrimHandle(Alignment.CenterStart) { dxPx -> onTrim(clip.startMs + (dxPx / pxPerMs).toLong(), clip.endMs) }
             TrimHandle(Alignment.CenterEnd) { dxPx -> onTrim(clip.startMs, clip.endMs + (dxPx / pxPerMs).toLong()) }

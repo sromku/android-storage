@@ -69,7 +69,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { _state.value = _state.value.copy(playing = isPlaying) }
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) { applyCurrentSpeed() }
         })
+        applyCurrentSpeed()
         // Playhead ticker.
         viewModelScope.launch {
             while (true) {
@@ -85,8 +87,20 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     private fun prefix(index: Int): Long = clips().take(index).sumOf { it.durationMs }
 
     private fun globalPosition(): Long {
-        val idx = player.currentMediaItemIndex.coerceIn(0, (clips().size - 1).coerceAtLeast(0))
-        return (prefix(idx) + player.currentPosition).coerceIn(0, _state.value.totalMs)
+        val cs = clips()
+        if (cs.isEmpty()) return 0
+        val idx = player.currentMediaItemIndex.coerceIn(0, cs.lastIndex)
+        // player.currentPosition is source-clip time; divide by speed to get timeline time.
+        val local = (player.currentPosition / cs[idx].speed).toLong()
+        return (prefix(idx) + local).coerceIn(0, _state.value.totalMs)
+    }
+
+    /** Match the player's playback speed to the clip currently under the playhead. */
+    private fun applyCurrentSpeed() {
+        val cs = clips()
+        val idx = player.currentMediaItemIndex.coerceIn(0, cs.lastIndex.coerceAtLeast(0))
+        val speed = cs.getOrNull(idx)?.speed ?: 1f
+        runCatching { player.playbackParameters = androidx.media3.common.PlaybackParameters(speed) }
     }
 
     private fun rebuildPlaylist(seekToGlobalMs: Long) {
@@ -94,6 +108,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         player.setMediaItems(cs.map { it.toMediaItem() })
         player.prepare()
         seekToGlobal(seekToGlobalMs)
+        applyCurrentSpeed()
         _state.value = _state.value.copy(totalMs = cs.sumOf { it.durationMs })
     }
 
@@ -104,7 +119,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         var remaining = globalMs.coerceIn(0, _state.value.totalMs)
         var index = 0
         while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
-        player.seekTo(index, remaining.coerceIn(0, cs[index].durationMs))
+        val sourceLocal = (remaining * cs[index].speed).toLong().coerceIn(0, cs[index].sourceDurationMs)
+        player.seekTo(index, sourceLocal)
+        applyCurrentSpeed()
         _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs))
     }
 
@@ -119,7 +136,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         var index = 0
         while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
         val clip = cs[index]
-        val cutMs = clip.startMs + remaining
+        // remaining is timeline-local; convert to a source-time cut point.
+        val cutMs = clip.startMs + (remaining * clip.speed).toLong()
         if (cutMs <= clip.startMs + 40 || cutMs >= clip.endMs - 40) return // too close to an edge
         val left = clip.copy(id = nextId++, endMs = cutMs)
         val right = clip.copy(id = nextId++, startMs = cutMs)
@@ -127,6 +145,16 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         cs.add(index + 1, right)
         _state.value = _state.value.copy(clips = cs, selectedId = right.id)
         rebuildPlaylist(seekToGlobalMs = _state.value.positionMs)
+    }
+
+    /** Set the selected clip's playback speed (0.25x..4x); the timeline and output stretch/shrink. */
+    fun setClipSpeed(id: Long, speed: Float) {
+        val cs = clips().toMutableList()
+        val i = cs.indexOfFirst { it.id == id }
+        if (i < 0) return
+        cs[i] = cs[i].copy(speed = speed.coerceIn(0.25f, 4f))
+        _state.value = _state.value.copy(clips = cs)
+        rebuildPlaylist(seekToGlobalMs = prefix(i))
     }
 
     fun deleteSelected() {

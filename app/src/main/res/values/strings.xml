@@ -1160,6 +1160,7 @@
     <string name="video_size">Size</string>
     <string name="video_start_here">Start here</string>
     <string name="video_end_here">End here</string>
+    <string name="video_speed">Speed</string>
     <string name="edit_crop">Edit and crop</string>
     <string name="edit_crop_sub">Crop, resize and export a copy</string>
     <string name="edit_photo_title">Edit</string>
