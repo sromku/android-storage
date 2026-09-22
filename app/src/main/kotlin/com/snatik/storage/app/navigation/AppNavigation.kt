@@ -301,7 +301,7 @@ fun AppNavigation(navTarget: String? = null, onNavConsumed: () -> Unit = {}) {
             entry<Route.ProviderWatch> { route -> ProviderWatchScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }, initialWatchUri = route.watchUri, initialWatchLabel = route.watchLabel) }
             entry<Route.Clipboard> { ClipboardScreen(onBack = ::pop, onOpenQuery = { title, uri -> push(Route.ProviderQuery(uri, title)) }) }
             entry<Route.Insights> { InsightsScreen(onBack = ::pop, onOpenPath = ::openPath) }
-            entry<Route.Photos> { MediaGridScreen(onOpenMedia = { id -> push(Route.MediaPager(id)) }, onSwitchTab = ::switchTab, onFindDuplicates = { push(Route.Duplicates) }, onBrowseCloud = { push(Route.Cloud) }, onSyncCamera = { push(Route.Camera) }, onInsights = { push(Route.PhotoInsights) }) }
+            entry<Route.Photos> { MediaGridScreen(onOpenMedia = { id -> push(Route.MediaPager(id)) }, onSwitchTab = ::switchTab, onFindDuplicates = { push(Route.Duplicates) }, onBrowseCloud = { push(Route.Cloud) }, onSyncCamera = { push(Route.Camera) }, onInsights = { push(Route.PhotoInsights) }, onOpenFullRes = { path -> push(Route.TiledViewer(path)) }) }
             entry<Route.Duplicates> { com.snatik.storage.app.feature.media.DuplicatesScreen(onBack = ::pop) }
             entry<Route.Cloud> { com.snatik.storage.app.feature.cloud.CloudScreen(onBack = ::pop) }
             entry<Route.Camera> { com.snatik.storage.app.feature.camera.CameraScreen(onBack = ::pop, onBrowse = { push(Route.CameraBrowse) }, onUsb = { push(Route.CameraUsb) }) }

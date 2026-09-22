@@ -94,10 +94,8 @@ fun MediaPagerScreen(
     onEdit: (String) -> Unit = {},
     repo: MediaRepository = koinInject(),
     favorites: FavoritesStore = koinInject(),
-    viewerPrefs: ViewerPreferences = koinInject(),
 ) {
     val favIds by favorites.ids.collectAsStateWithLifecycle()
-    val openFullResDefault by viewerPrefs.openFullResolution.collectAsStateWithLifecycle()
     val items = remember { repo.pagerItems.ifEmpty { repo.cached } }
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -116,7 +114,6 @@ fun MediaPagerScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showMove by remember { mutableStateOf(false) }
-    var autoFullResFor by remember { mutableStateOf(-1L) }
     var histogram by remember { mutableStateOf<Histogram?>(null) }
     var analysis by remember { mutableStateOf(AnalysisMode.NONE) }
     var analysisBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -147,18 +144,6 @@ fun MediaPagerScreen(
                 if (path != null) onTiled(path) else Toast.makeText(context, R.string.full_resolution_failed, Toast.LENGTH_SHORT).show()
             }
         } else onTiled(target.path)
-    }
-
-    // "Open at full resolution" preference: jump straight into the tiled viewer for each large photo
-    // (once per photo, so backing out doesn't loop; swiping to the next opens it full-res too). RAW is
-    // left out - it has its own develop path and a heavier extraction step.
-    LaunchedEffect(current.id, openFullResDefault) {
-        if (openFullResDefault && autoFullResFor != current.id &&
-            supportsTiling(current) && !isRawMedia(current.name, current.mime)
-        ) {
-            autoFullResFor = current.id
-            onTiled(current.path)
-        }
     }
 
     fun shareStripped() {

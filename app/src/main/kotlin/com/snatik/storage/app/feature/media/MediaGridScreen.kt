@@ -120,10 +120,20 @@ fun MediaGridScreen(
     onBrowseCloud: () -> Unit,
     onSyncCamera: () -> Unit,
     onInsights: () -> Unit,
+    onOpenFullRes: (String) -> Unit = {},
     viewModel: MediaGridViewModel = koinViewModel(),
+    viewerPrefs: ViewerPreferences = org.koin.compose.koinInject(),
 ) {
     var appMenu by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val openFullRes by viewerPrefs.openFullResolution.collectAsStateWithLifecycle()
+
+    // With "open at full resolution" on, tapping a large photo jumps straight into the tiled viewer
+    // (no pager in between); everything else still opens the swipeable pager.
+    fun openItem(item: MediaItem) {
+        if (openFullRes && !item.isVideo && !isRawMedia(item.name, item.mime) && supportsTiling(item)) onOpenFullRes(item.path)
+        else onOpenMedia(item.id)
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -372,7 +382,7 @@ fun MediaGridScreen(
                                     item = item,
                                     selected = item.id in selection,
                                     selecting = selecting,
-                                    onClick = { if (selecting) toggle(item.id) else onOpenMedia(item.id) },
+                                    onClick = { if (selecting) toggle(item.id) else openItem(item) },
                                     onLongClick = { toggle(item.id) },
                                 )
                             }
