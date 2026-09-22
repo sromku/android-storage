@@ -1153,6 +1153,13 @@
     <string name="video_export">Export</string>
     <string name="video_split">Split</string>
     <string name="video_exporting">Exporting…</string>
+    <string name="video_add_text">Text</string>
+    <string name="video_add_sticker">Sticker</string>
+    <string name="video_text_label">Overlay text</string>
+    <string name="video_tag">Tag</string>
+    <string name="video_size">Size</string>
+    <string name="video_start_here">Start here</string>
+    <string name="video_end_here">End here</string>
     <string name="edit_crop">Edit and crop</string>
     <string name="edit_crop_sub">Crop, resize and export a copy</string>
     <string name="edit_photo_title">Edit</string>

@@ -13,22 +13,29 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import androidx.core.graphics.scale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class VideoStudioState(
     val clips: List<VideoClip> = emptyList(),
     val selectedId: Long = -1,
+    val overlays: List<VideoOverlay> = emptyList(),
+    val selectedOverlayId: Long = -1,
     val playing: Boolean = false,
     val positionMs: Long = 0,       // playhead on the global timeline
     val totalMs: Long = 0,
     val exporting: Boolean = false,
     val exportProgress: Int = 0,
     val message: String? = null,
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
 )
 
 @UnstableApi
@@ -44,13 +51,19 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     private var transformer: Transformer? = null
 
     init {
-        val durationMs = runCatching {
-            val r = MediaMetadataRetriever()
-            try { r.setDataSource(path); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
-            finally { r.release() }
-        }.getOrDefault(0L)
+        val r = MediaMetadataRetriever()
+        val durationMs: Long
+        var vw = 0; var vh = 0
+        try {
+            r.setDataSource(path)
+            durationMs = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
+            vw = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+            vh = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+            val rot = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+            if (rot == 90 || rot == 270) { val t = vw; vw = vh; vh = t } // display orientation
+        } finally { r.release() }
         val clip = VideoClip(id = nextId++, uri = uri, startMs = 0, endMs = durationMs)
-        _state.value = _state.value.copy(clips = listOf(clip), selectedId = clip.id, totalMs = durationMs)
+        _state.value = _state.value.copy(clips = listOf(clip), selectedId = clip.id, totalMs = durationMs, videoWidth = vw, videoHeight = vh)
         rebuildPlaylist(seekToGlobalMs = 0)
         player.playWhenReady = false
 
@@ -138,6 +151,63 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         rebuildPlaylist(seekToGlobalMs = prefix(i))
     }
 
+    // ---- Overlays ----
+
+    private var nextOverlayId = 1L
+
+    fun addTextOverlay() {
+        val ov = VideoOverlay(
+            id = nextOverlayId++, kind = OverlayKind.TEXT, text = "Text",
+            xNorm = 0.5f, yNorm = 0.3f, startMs = 0, endMs = _state.value.totalMs,
+        )
+        _state.value = _state.value.copy(overlays = _state.value.overlays + ov, selectedOverlayId = ov.id)
+    }
+
+    fun addImageOverlay(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val bmp = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                        val full = android.graphics.BitmapFactory.decodeStream(input) ?: return@runCatching null
+                        val cap = 720
+                        val longest = maxOf(full.width, full.height)
+                        if (longest > cap) {
+                            val s = cap.toFloat() / longest
+                            full.scale((full.width * s).toInt().coerceAtLeast(1), (full.height * s).toInt().coerceAtLeast(1))
+                        } else full
+                    }
+                }.getOrNull()
+            } ?: run { _state.value = _state.value.copy(message = "Could not load image"); return@launch }
+            val ov = VideoOverlay(
+                id = nextOverlayId++, kind = OverlayKind.IMAGE, imageUri = uri, bitmap = bmp,
+                xNorm = 0.5f, yNorm = 0.5f, sizeFraction = 0.3f, startMs = 0, endMs = _state.value.totalMs,
+            )
+            _state.value = _state.value.copy(overlays = _state.value.overlays + ov, selectedOverlayId = ov.id)
+        }
+    }
+
+    fun selectOverlay(id: Long) { _state.value = _state.value.copy(selectedOverlayId = id) }
+
+    private fun mutateOverlay(id: Long, f: (VideoOverlay) -> VideoOverlay) {
+        _state.value = _state.value.copy(overlays = _state.value.overlays.map { if (it.id == id) f(it) else it })
+    }
+
+    fun setOverlayPosition(id: Long, xNorm: Float, yNorm: Float) =
+        mutateOverlay(id) { it.copy(xNorm = xNorm.coerceIn(0f, 1f), yNorm = yNorm.coerceIn(0f, 1f)) }
+
+    fun setOverlayText(id: Long, text: String) = mutateOverlay(id) { it.copy(text = text) }
+    fun setOverlayColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(color = color) }
+    fun setOverlaySize(id: Long, sizeFraction: Float) = mutateOverlay(id) { it.copy(sizeFraction = sizeFraction) }
+    fun toggleOverlayBackground(id: Long) = mutateOverlay(id) { it.copy(background = !it.background) }
+
+    /** Set the selected overlay's visible window to start / end at the current playhead. */
+    fun setOverlayStartHere(id: Long) = mutateOverlay(id) { it.copy(startMs = _state.value.positionMs.coerceAtMost(it.endMs - 100)) }
+    fun setOverlayEndHere(id: Long) = mutateOverlay(id) { it.copy(endMs = _state.value.positionMs.coerceAtLeast(it.startMs + 100)) }
+
+    fun deleteOverlay(id: Long) {
+        _state.value = _state.value.copy(overlays = _state.value.overlays.filterNot { it.id == id }, selectedOverlayId = -1)
+    }
+
     fun export() {
         if (_state.value.exporting) return
         val app = getApplication<Application>()
@@ -156,7 +226,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
                 _state.value = _state.value.copy(exporting = false, message = "Export failed: ${exception.message}")
             }
         }
-        transformer = VideoExporter.start(app, clips(), out, listener)
+        transformer = VideoExporter.start(app, clips(), _state.value.overlays, out, listener)
         // Poll progress.
         viewModelScope.launch {
             val holder = ProgressHolder()

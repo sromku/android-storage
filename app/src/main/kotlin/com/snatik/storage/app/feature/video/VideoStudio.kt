@@ -6,12 +6,16 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.media.MediaMetadataRetriever
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.OverlayEffect
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
 import androidx.media3.transformer.Transformer
+import com.google.common.collect.ImmutableList
 import java.io.File
 
 /**
@@ -47,15 +51,45 @@ object VideoExporter {
      * Export [clips] concatenated into one MP4 at [outFile], re-encoding once at a high bitrate so the
      * result stays sharp. Returns the running [Transformer] so the caller can poll progress / cancel.
      */
-    fun start(context: Context, clips: List<VideoClip>, outFile: File, listener: Transformer.Listener): Transformer {
-        val items = clips.map { EditedMediaItem.Builder(it.toMediaItem()).build() }
+    fun start(
+        context: Context,
+        clips: List<VideoClip>,
+        overlays: List<VideoOverlay>,
+        outFile: File,
+        listener: Transformer.Listener,
+    ): Transformer {
+        val (w, h) = clips.firstOrNull()?.let { frameSize(it.uri.path) } ?: (1080 to 1920)
+        var globalMs = 0L
+        val items = clips.map { clip ->
+            val clipStart = globalMs
+            val clipEnd = globalMs + clip.durationMs
+            globalMs = clipEnd
+            val builder = EditedMediaItem.Builder(clip.toMediaItem())
+            if (overlays.isNotEmpty()) {
+                val textureOverlays = overlaysForClip(overlays, clipStart, clipEnd, h, w)
+                if (textureOverlays.isNotEmpty()) {
+                    val effect = OverlayEffect(ImmutableList.copyOf(textureOverlays))
+                    builder.setEffects(Effects(emptyList(), listOf(effect)))
+                }
+            }
+            builder.build()
+        }
         val sequence = EditedMediaItemSequence(items)
         val composition = Composition.Builder(sequence).build()
-        val transformer = Transformer.Builder(context)
-            .addListener(listener)
-            .build()
+        val transformer = Transformer.Builder(context).addListener(listener).build()
         transformer.start(composition, outFile.absolutePath)
         return transformer
+    }
+
+    private fun frameSize(path: String?): Pair<Int, Int> {
+        if (path == null) return 1080 to 1920
+        val r = MediaMetadataRetriever()
+        return try {
+            r.setDataSource(path)
+            val w = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 1080
+            val h = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 1920
+            w to h
+        } catch (e: Exception) { 1080 to 1920 } finally { r.release() }
     }
 
     /** Publish a finished export file into the gallery (Movies/Storage Studio). Returns the uri. */

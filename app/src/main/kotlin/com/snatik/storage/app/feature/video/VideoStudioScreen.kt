@@ -8,9 +8,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,11 +43,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +97,9 @@ fun VideoStudioRoute(path: String, onBack: () -> Unit) {
 fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri -> uri?.let { viewModel.addImageOverlay(it) } }
 
     LaunchedEffect(state.message) {
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
@@ -120,6 +133,11 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
+                OverlayLayer(
+                    state = state,
+                    onMove = viewModel::setOverlayPosition,
+                    onSelect = viewModel::selectOverlay,
+                )
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -141,6 +159,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
             }
 
             Timeline(state, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected)
+            OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
             Spacer(Modifier.height(8.dp))
         }
 
@@ -257,6 +276,123 @@ private fun BoxScope.TrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.width(2.dp).fillMaxHeight(0.4f).background(Color.White))
+    }
+}
+
+@Composable
+private fun OverlayLayer(
+    state: VideoStudioState,
+    onMove: (Long, Float, Float) -> Unit,
+    onSelect: (Long) -> Unit,
+) {
+    if (state.overlays.isEmpty() || state.videoWidth <= 0 || state.videoHeight <= 0) return
+    val density = LocalDensity.current
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val bw = constraints.maxWidth.toFloat(); val bh = constraints.maxHeight.toFloat()
+        val va = state.videoWidth.toFloat() / state.videoHeight
+        val ba = bw / bh
+        val vwPx = if (va > ba) bw else bh * va
+        val vhPx = if (va > ba) bw / va else bh
+        val left = (bw - vwPx) / 2f; val top = (bh - vhPx) / 2f
+        state.overlays.forEach { ov ->
+            val selected = ov.id == state.selectedOverlayId
+            if (!ov.activeAt(state.positionMs) && !selected) return@forEach
+            val cx = left + ov.xNorm * vwPx; val cy = top + ov.yNorm * vhPx
+            var sz by remember(ov.id) { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+            Box(
+                Modifier
+                    .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
+                    .onGloballyPositioned { sz = it.size }
+                    .then(if (selected) Modifier.border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp)).padding(2.dp) else Modifier)
+                    .pointerInput(ov.id, vwPx, vhPx) {
+                        detectDragGestures(
+                            onDragStart = { onSelect(ov.id) },
+                            onDrag = { ch, drag -> ch.consume(); onMove(ov.id, ov.xNorm + drag.x / vwPx, ov.yNorm + drag.y / vhPx) },
+                        )
+                    },
+            ) {
+                when (ov.kind) {
+                    OverlayKind.TEXT -> {
+                        val fontSizeSp = with(density) { (ov.sizeFraction * vhPx).toSp() }
+                        val bg = if (ov.background) Modifier.background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp) else Modifier
+                        Text(ov.text, color = Color(ov.color), fontWeight = FontWeight.Bold, fontSize = fontSizeSp, maxLines = 1, modifier = bg)
+                    }
+                    OverlayKind.IMAGE -> {
+                        val bmp = ov.bitmap
+                        if (bmp != null) {
+                            val wPx = ov.sizeFraction * vwPx
+                            val hPx = wPx * (bmp.height.toFloat() / bmp.width)
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.width(with(density) { wPx.toDp() }).height(with(density) { hPx.toDp() }),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onPickImage: () -> Unit) {
+    val swatches = listOf(0xFFFFFFFF, 0xFFFFEB3B, 0xFFFF5252, 0xFF69F0AE, 0xFF40C4FF, 0xFF000000)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedButton(onClick = { viewModel.addTextOverlay() }) {
+                Icon(androidx.compose.material.icons.Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.video_add_text), modifier = Modifier.padding(start = 6.dp))
+            }
+            androidx.compose.material3.OutlinedButton(onClick = onPickImage) {
+                Icon(androidx.compose.material.icons.Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.video_add_sticker), modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+        val sel = state.overlays.find { it.id == state.selectedOverlayId }
+        if (sel != null) {
+            if (sel.kind == OverlayKind.TEXT) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = sel.text,
+                    onValueChange = { viewModel.setOverlayText(sel.id, it) },
+                    label = { Text(stringResource(R.string.video_text_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    swatches.forEach { c ->
+                        Box(
+                            Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
+                                .border(if (sel.color == c.toInt()) 2.dp else 1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                                .clickable { viewModel.setOverlayColor(sel.id, c.toInt()) },
+                        )
+                    }
+                    androidx.compose.material3.FilterChip(
+                        selected = sel.background,
+                        onClick = { viewModel.toggleOverlayBackground(sel.id) },
+                        label = { Text(stringResource(R.string.video_tag)) },
+                    )
+                }
+            }
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.video_size), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                androidx.compose.material3.Slider(
+                    value = sel.sizeFraction,
+                    onValueChange = { viewModel.setOverlaySize(sel.id, it) },
+                    valueRange = 0.03f..0.35f,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayStartHere(sel.id) }) { Text(stringResource(R.string.video_start_here)) }
+                androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayEndHere(sel.id) }) { Text(stringResource(R.string.video_end_here)) }
+                Text(
+                    "${fmt(sel.startMs)} - ${if (sel.endMs >= state.totalMs) fmt(state.totalMs) else fmt(sel.endMs)}",
+                    color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { viewModel.deleteOverlay(sel.id) }) { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White) }
+            }
+        }
     }
 }
 
