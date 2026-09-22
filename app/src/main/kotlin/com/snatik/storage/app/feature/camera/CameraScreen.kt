@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -36,7 +38,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +67,10 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
     val context = LocalContext.current
     val state by CameraSync.state.collectAsStateWithLifecycle()
 
+    // Optional destination folder for received frames; null means the default Storage Studio/Camera.
+    var destDir by remember { mutableStateOf<java.io.File?>(null) }
+    var pickingDest by remember { mutableStateOf(false) }
+
     // Android 16 (Local Network Protections) puts LAN traffic behind a runtime permission. Without it
     // the FTP receiver's replies to the camera are silently dropped and no transfer ever connects, so
     // we request it before starting. Older releases don't have the permission and don't need it.
@@ -70,7 +78,7 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
     val localNetPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) CameraSyncService.start(context)
+        if (granted) CameraSyncService.start(context, destDir?.absolutePath)
         else CameraSync.setError(localNetDeniedMsg)
     }
 
@@ -80,7 +88,7 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
         ) {
             localNetPermission.launch(LOCAL_NETWORK_PERMISSION)
         } else {
-            CameraSyncService.start(context)
+            CameraSyncService.start(context, destDir?.absolutePath)
         }
     }
 
@@ -154,9 +162,27 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
                     }
                 }
             } else {
-                Idle(onStart = { startReceiving() }, onBrowse = onBrowse, onUsb = onUsb, error = state.error)
+                Idle(
+                    onStart = { startReceiving() },
+                    onBrowse = onBrowse,
+                    onUsb = onUsb,
+                    error = state.error,
+                    destLabel = destDir?.name ?: CameraSyncService.DEFAULT_DEST_LABEL,
+                    onPickDest = { pickingDest = true },
+                )
             }
         }
+    }
+
+    if (pickingDest) {
+        val saveHereFmt = stringResource(R.string.camera_save_here)
+        com.snatik.storage.app.ui.components.FolderPickerSheet(
+            title = stringResource(R.string.camera_dest_title),
+            confirmLabel = { name -> saveHereFmt.format(name) },
+            onDismiss = { pickingDest = false },
+            onPick = { folder -> destDir = folder; pickingDest = false },
+            start = destDir ?: android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES),
+        )
     }
 }
 
@@ -223,6 +249,7 @@ private fun ConnectionCard(state: CameraSyncState) {
             Field(stringResource(R.string.camera_field_mode), "FTP · Passive")
             Field(stringResource(R.string.camera_field_user), state.user)
             Field(stringResource(R.string.camera_field_pass), state.pass)
+            if (state.dest.isNotBlank()) Field(stringResource(R.string.camera_field_dest), state.dest)
         }
     }
 }
@@ -236,7 +263,14 @@ private fun Field(label: String, value: String) {
 }
 
 @Composable
-private fun Idle(onStart: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit, error: String?) {
+private fun Idle(
+    onStart: () -> Unit,
+    onBrowse: () -> Unit,
+    onUsb: () -> Unit,
+    error: String?,
+    destLabel: String,
+    onPickDest: () -> Unit,
+) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
@@ -247,10 +281,30 @@ private fun Idle(onStart: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit, e
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp, start = 24.dp, end = 24.dp),
             )
+            // Optional destination folder, chosen before starting.
+            androidx.compose.material3.Surface(
+                onClick = onPickDest,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.padding(top = 18.dp),
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Column {
+                        Text(stringResource(R.string.camera_dest_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(destLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                    }
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if (error != null) {
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
             }
-            Button(onClick = onStart, modifier = Modifier.padding(top = 22.dp)) {
+            Button(onClick = onStart, modifier = Modifier.padding(top = 16.dp)) {
                 Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.camera_start), modifier = Modifier.padding(start = 8.dp))
             }

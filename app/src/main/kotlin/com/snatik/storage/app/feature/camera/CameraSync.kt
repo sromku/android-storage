@@ -21,6 +21,7 @@ data class CameraSyncState(
     val port: Int = DEFAULT_PORT,
     val user: String = DEFAULT_USER,
     val pass: String = DEFAULT_PASS,
+    val dest: String = "",
     val files: List<ReceivedFile> = emptyList(),
     val totalBytes: Long = 0,
     val error: String? = null,
@@ -37,8 +38,8 @@ object CameraSync {
     private val _state = MutableStateFlow(CameraSyncState())
     val state: StateFlow<CameraSyncState> = _state.asStateFlow()
 
-    fun setRunning(running: Boolean, host: String, port: Int, user: String, pass: String) {
-        _state.update { it.copy(running = running, host = host, port = port, user = user, pass = pass, error = null) }
+    fun setRunning(running: Boolean, host: String, port: Int, user: String, pass: String, dest: String = "") {
+        _state.update { it.copy(running = running, host = host, port = port, user = user, pass = pass, dest = dest, error = null) }
     }
 
     fun setStopped() { _state.update { it.copy(running = false) } }

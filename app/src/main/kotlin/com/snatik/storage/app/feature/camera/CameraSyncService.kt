@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.snatik.storage.app.R
+import java.io.File
 import java.io.OutputStream
 import java.net.NetworkInterface
 
@@ -22,6 +23,7 @@ import java.net.NetworkInterface
 class CameraSyncService : Service() {
 
     private var server: FtpServer? = null
+    private var destDir: File? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -30,6 +32,7 @@ class CameraSyncService : Service() {
             stopEverything()
             return START_NOT_STICKY
         }
+        destDir = intent?.getStringExtra(EXTRA_DEST)?.takeIf { it.isNotBlank() }?.let { File(it) }
         start()
         return START_STICKY
     }
@@ -52,9 +55,9 @@ class CameraSyncService : Service() {
             user = user,
             pass = pass,
             advertiseHost = host,
-            sink = MediaStoreSink(this),
+            sink = MediaStoreSink(this, destDir),
         ).also { it.start() }
-        CameraSync.setRunning(true, host, port, user, pass)
+        CameraSync.setRunning(true, host, port, user, pass, dest = destDir?.name ?: DEFAULT_DEST_LABEL)
     }
 
     private fun stopEverything() {
@@ -106,17 +109,20 @@ class CameraSyncService : Service() {
         return null
     }
 
-    private class MediaStoreSink(private val context: Context) : StoreSink {
-        override fun begin(dir: String, name: String): StoredItem? = CameraMediaStore.begin(context, name)
+    private class MediaStoreSink(private val context: Context, private val destDir: File?) : StoreSink {
+        override fun begin(dir: String, name: String): StoredItem? = CameraMediaStore.begin(context, name, destDir)
     }
 
     companion object {
         const val ACTION_STOP = "com.snatik.storage.app.camera.STOP"
+        const val EXTRA_DEST = "dest_dir"
+        const val DEFAULT_DEST_LABEL = "Storage Studio/Camera"
         private const val CHANNEL = "camera_sync"
         private const val NOTIF_ID = 4711
 
-        fun start(context: Context) {
+        fun start(context: Context, destDir: String? = null) {
             val i = Intent(context, CameraSyncService::class.java)
+            if (!destDir.isNullOrBlank()) i.putExtra(EXTRA_DEST, destDir)
             context.startForegroundService(i)
         }
 
