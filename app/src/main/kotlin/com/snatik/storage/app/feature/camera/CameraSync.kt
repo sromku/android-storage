@@ -5,7 +5,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-data class ReceivedFile(val name: String, val size: Long, val at: Long = System.currentTimeMillis())
+data class ReceivedFile(
+    val name: String,
+    val size: Long,
+    val at: Long = System.currentTimeMillis(),
+    /** Content uri of the stored item, for a live thumbnail. */
+    val uri: String? = null,
+    /** Absolute path of the stored file, used to preview RAW frames via their embedded JPEG. */
+    val path: String? = null,
+)
 
 data class CameraSyncState(
     val running: Boolean = false,
@@ -35,8 +43,13 @@ object CameraSync {
 
     fun setStopped() { _state.update { it.copy(running = false) } }
 
-    fun addFile(name: String, size: Long) {
-        _state.update { it.copy(files = (listOf(ReceivedFile(name, size)) + it.files).take(200), totalBytes = it.totalBytes + size) }
+    fun addFile(name: String, size: Long, uri: String? = null, path: String? = null) {
+        _state.update {
+            it.copy(
+                files = (listOf(ReceivedFile(name, size, uri = uri, path = path)) + it.files).take(200),
+                totalBytes = it.totalBytes + size,
+            )
+        }
     }
 
     fun setError(message: String?) { _state.update { it.copy(error = message) } }

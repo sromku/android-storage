@@ -18,6 +18,7 @@ object CameraMediaStore {
         val video = name.substringAfterLast('.', "").lowercase() in VIDEO_EXTS
         val collection = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val subDir = "${if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES}/Storage Studio/Camera"
+        val absPath = File(Environment.getExternalStorageDirectory(), "$subDir/$name").absolutePath
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             if (Build.VERSION.SDK_INT >= 29) {
@@ -37,7 +38,7 @@ object CameraMediaStore {
                 if (Build.VERSION.SDK_INT >= 29) {
                     resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
                 }
-                CameraSync.addFile(name, bytes)
+                CameraSync.addFile(name, bytes, uri = uri.toString(), path = absPath)
             }
             override fun abort() {
                 runCatching { out.close() }

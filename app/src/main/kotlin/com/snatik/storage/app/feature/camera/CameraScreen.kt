@@ -36,16 +36,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.snatik.storage.app.R
+import com.snatik.storage.app.feature.media.RawImageModel
+import com.snatik.storage.app.feature.media.isRawMedia
 import com.snatik.storage.app.util.readableSize
 
 // Declared as a literal so it compiles on any SDK; the permission itself only exists on API 36+.
@@ -129,14 +135,20 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
                     }
                 }
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                    items(state.files) { f ->
+                    items(state.files, key = { it.name + it.at }) { f ->
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text(f.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            ReceivedThumbnail(f)
+                            Text(
+                                f.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis,
+                                modifier = Modifier.weight(1f),
+                            )
                             Text(f.size.readableSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -144,6 +156,50 @@ fun CameraScreen(onBack: () -> Unit, onBrowse: () -> Unit, onUsb: () -> Unit) {
             } else {
                 Idle(onStart = { startReceiving() }, onBrowse = onBrowse, onUsb = onUsb, error = state.error)
             }
+        }
+    }
+}
+
+/** A live 48dp thumbnail of a received frame, with a check badge; RAW previews via its embedded JPEG. */
+@Composable
+private fun ReceivedThumbnail(f: ReceivedFile) {
+    val model = remember(f.uri, f.path) {
+        when {
+            f.path != null && isRawMedia(f.name, "") -> RawImageModel(f.path)
+            else -> f.uri
+        }
+    }
+    val raw = remember(f.name) { isRawMedia(f.name, "") }
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Base layer: an icon (RAW tag, or a camera glyph) shown while decoding or when a file has no
+        // quick preview. A decoded JPEG paints over it; RAW frames keep the tag.
+        if (raw) {
+            Text("RAW", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        }
+        AsyncImage(
+            model = model,
+            contentDescription = f.name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(2.dp)
+                .size(16.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
         }
     }
 }
