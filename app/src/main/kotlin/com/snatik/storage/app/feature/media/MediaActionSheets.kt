@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ManageSearch
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
@@ -102,6 +103,7 @@ fun PagerActionSheet(
     onDetails: () -> Unit,
     onDevelop: () -> Unit,
     onEdit: () -> Unit,
+    onEditVideo: () -> Unit,
     onFullRes: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
@@ -114,6 +116,7 @@ fun PagerActionSheet(
             HorizontalDivider(Modifier.padding(bottom = 4.dp))
 
             if (item.isVideo) {
+                ActionRow(Icons.Default.Movie, stringResource(R.string.edit_video), subtitle = stringResource(R.string.edit_video_sub), onClick = onEditVideo)
                 ActionRow(Icons.Default.Info, stringResource(R.string.details), onClick = onDetails)
             } else {
                 ActionRow(

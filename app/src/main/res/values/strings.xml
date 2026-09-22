@@ -1147,6 +1147,12 @@
     <string name="filter_and_group">Filter and group</string>
     <string name="filter_show">Show</string>
     <string name="filter_group_by">Group by</string>
+    <string name="edit_video">Video studio</string>
+    <string name="edit_video_sub">Cut, merge, speed and export</string>
+    <string name="video_studio_title">Video studio</string>
+    <string name="video_export">Export</string>
+    <string name="video_split">Split</string>
+    <string name="video_exporting">Exporting…</string>
     <string name="edit_crop">Edit and crop</string>
     <string name="edit_crop_sub">Crop, resize and export a copy</string>
     <string name="edit_photo_title">Edit</string>

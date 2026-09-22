@@ -92,6 +92,7 @@ fun MediaPagerScreen(
     onTiled: (String) -> Unit,
     onDevelop: (String) -> Unit = {},
     onEdit: (String) -> Unit = {},
+    onEditVideo: (String) -> Unit = {},
     repo: MediaRepository = koinInject(),
     favorites: FavoritesStore = koinInject(),
 ) {
@@ -167,6 +168,7 @@ fun MediaPagerScreen(
             onDetails = { showActions = false; showInfo = true },
             onDevelop = { showActions = false; onDevelop(current.path) },
             onEdit = { showActions = false; onEdit(current.path) },
+            onEditVideo = { showActions = false; onEditVideo(current.path) },
             onFullRes = { showActions = false; openFullRes() },
             onRename = { showActions = false; showRename = true },
             onMove = { showActions = false; showMove = true },

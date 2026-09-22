@@ -216,6 +216,9 @@ sealed interface Route : NavKey {
     data class PhotoEdit(val path: String) : Route
 
     @Serializable
+    data class VideoStudio(val path: String) : Route
+
+    @Serializable
     data class Art(val packageName: String, val label: String, val debuggable: Boolean) : Route
 
     @Serializable
