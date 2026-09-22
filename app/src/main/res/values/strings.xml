@@ -1152,6 +1152,7 @@
     <string name="video_studio_title">Video studio</string>
     <string name="video_export">Export</string>
     <string name="video_split">Split</string>
+    <string name="video_insert">Insert clip</string>
     <string name="video_exporting">Exporting…</string>
     <string name="video_add_text">Text</string>
     <string name="video_add_sticker">Sticker</string>

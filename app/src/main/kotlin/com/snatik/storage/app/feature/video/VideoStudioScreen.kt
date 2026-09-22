@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
@@ -106,6 +107,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     val pickAudio = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
     ) { uri -> uri?.let { viewModel.addAudio(it) } }
+    val pickVideo = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri -> uri?.let { viewModel.insertClipAtPlayhead(it) } }
 
     LaunchedEffect(state.message) {
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
@@ -157,6 +161,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                         style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
                         modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = { pickVideo.launch("video/*") }) {
+                        Icon(androidx.compose.material.icons.Icons.Default.LibraryAdd, contentDescription = stringResource(R.string.video_insert), tint = Color.White)
+                    }
                     IconButton(onClick = { viewModel.splitAtPlayhead() }) {
                         Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
                     }

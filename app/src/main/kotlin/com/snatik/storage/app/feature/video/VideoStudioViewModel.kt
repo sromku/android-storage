@@ -155,6 +155,37 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         rebuildPlaylist(seekToGlobalMs = _state.value.positionMs)
     }
 
+    /** Insert another video at the playhead, splitting the current clip so an ad drops into the middle. */
+    fun insertClipAtPlayhead(insertUri: android.net.Uri) {
+        val durationMs = runCatching {
+            val r = MediaMetadataRetriever()
+            try { r.setDataSource(getApplication(), insertUri); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
+            finally { r.release() }
+        }.getOrDefault(0L)
+        if (durationMs <= 0) { _state.value = _state.value.copy(message = "Could not read that video"); return }
+        val newClip = VideoClip(id = nextId++, uri = insertUri, startMs = 0, endMs = durationMs)
+
+        val cs = clips().toMutableList()
+        if (cs.isEmpty()) { _state.value = _state.value.copy(clips = listOf(newClip), selectedId = newClip.id); rebuildPlaylist(0); return }
+        var remaining = _state.value.positionMs
+        var index = 0
+        while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
+        val clip = cs[index]
+        val cutSource = clip.startMs + (remaining * clip.speed).toLong()
+        val insertBefore = _state.value.positionMs
+        when {
+            cutSource <= clip.startMs + 40 -> cs.add(index, newClip)
+            cutSource >= clip.endMs - 40 -> cs.add(index + 1, newClip)
+            else -> {
+                cs[index] = clip.copy(id = nextId++, endMs = cutSource)
+                cs.add(index + 1, newClip)
+                cs.add(index + 2, clip.copy(id = nextId++, startMs = cutSource))
+            }
+        }
+        _state.value = _state.value.copy(clips = cs, selectedId = newClip.id)
+        rebuildPlaylist(seekToGlobalMs = insertBefore)
+    }
+
     /** Set the selected clip's playback speed (0.25x..4x); the timeline and output stretch/shrink. */
     fun setClipSpeed(id: Long, speed: Float) {
         val cs = clips().toMutableList()
