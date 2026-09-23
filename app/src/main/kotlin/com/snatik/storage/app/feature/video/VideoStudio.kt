@@ -37,8 +37,9 @@ data class VideoClip(
 }
 
 /**
- * A background music/sound track mixed under the video. [startMs] is where it begins on the timeline
- * (drag to shift), [durationMs] its source length, [volume] 0..1.
+ * A background music/sound track mixed under the video. [startMs] is where its (trimmed) left edge sits
+ * on the timeline (drag to shift), [durationMs] the full source length, [clipStartMs]..[clipEndMs] the
+ * trimmed in/out points within the source (cut the track like a video clip), [volume] 0..1.
  */
 data class AudioTrack(
     val id: Long,
@@ -47,7 +48,14 @@ data class AudioTrack(
     val volume: Float = 0.8f,
     val startMs: Long = 0,
     val durationMs: Long = 0,
-)
+    val clipStartMs: Long = 0,
+    val clipEndMs: Long = 0,
+) {
+    /** Source out-point (falls back to the full length when never trimmed). */
+    val outMs: Long get() = if (clipEndMs > 0) clipEndMs else durationMs
+    /** Audible length placed on the timeline, after trimming. */
+    val playMs: Long get() = (outMs - clipStartMs).coerceAtLeast(0)
+}
 
 /** Builds the edited MediaItem playlist (for preview) from the timeline clips. */
 fun VideoClip.toMediaItem(): MediaItem =
@@ -110,12 +118,16 @@ object VideoExporter {
         if (totalMs > 0) {
             audioTracks.forEach { track ->
                 val start = track.startMs.coerceIn(0, totalMs)
-                val playMs = (totalMs - start).coerceAtLeast(0)
+                // Play the trimmed slice [clipStartMs, clipEndMs], but never past the end of the video.
+                val playMs = minOf(track.playMs, totalMs - start).coerceAtLeast(0)
                 if (playMs <= 0) return@forEach
                 val audioItem = MediaItem.Builder()
                     .setUri(track.uri)
                     .setClippingConfiguration(
-                        MediaItem.ClippingConfiguration.Builder().setStartPositionMs(0).setEndPositionMs(playMs).build(),
+                        MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(track.clipStartMs)
+                            .setEndPositionMs(track.clipStartMs + playMs)
+                            .build(),
                     )
                     .build()
                 val ab = EditedMediaItem.Builder(audioItem).setRemoveVideo(true)

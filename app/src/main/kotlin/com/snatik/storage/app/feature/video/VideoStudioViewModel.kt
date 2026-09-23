@@ -416,7 +416,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
             try { r.setDataSource(getApplication(), uri); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
             finally { r.release() }
         }.getOrDefault(0L)
-        val track = AudioTrack(id = nextAudioId++, uri = uri, name = name, startMs = _state.value.positionMs, durationMs = durationMs)
+        val track = AudioTrack(id = nextAudioId++, uri = uri, name = name, startMs = _state.value.positionMs, durationMs = durationMs, clipStartMs = 0, clipEndMs = durationMs)
         _state.value = _state.value.copy(audioTracks = _state.value.audioTracks + track, selectedAudioId = track.id)
         audioPlayers[track.id] = ExoPlayer.Builder(getApplication()).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
@@ -450,6 +450,29 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         setAudioStart(id, track.startMs + deltaMs)
     }
 
+    /** Cut the audio's in-point (drag its left edge): reveal a later part and keep the right edge fixed. */
+    fun trimAudioStart(id: Long, deltaMs: Long) {
+        _state.value = _state.value.copy(
+            audioTracks = _state.value.audioTracks.map { t ->
+                if (t.id != id) t else {
+                    val newIn = (t.clipStartMs + deltaMs).coerceIn(0, t.outMs - 100)
+                    t.copy(clipStartMs = newIn, startMs = (t.startMs + (newIn - t.clipStartMs)).coerceAtLeast(0))
+                }
+            },
+        )
+        syncAudio()
+    }
+
+    /** Cut the audio's out-point (drag its right edge). */
+    fun trimAudioEnd(id: Long, deltaMs: Long) {
+        _state.value = _state.value.copy(
+            audioTracks = _state.value.audioTracks.map { t ->
+                if (t.id != id) t else t.copy(clipEndMs = (t.outMs + deltaMs).coerceIn(t.clipStartMs + 100, t.durationMs))
+            },
+        )
+        syncAudio()
+    }
+
     fun setVideoVolume(v: Float) {
         val vol = v.coerceIn(0f, 1f)
         _state.value = _state.value.copy(videoVolume = vol)
@@ -461,12 +484,13 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         val pos = _state.value.positionMs
         _state.value.audioTracks.forEach { track ->
             val mp = audioPlayers[track.id] ?: return@forEach
-            val local = pos - track.startMs
-            // The video is the master clock: no track plays before its start, past its own length, or
-            // past the end of the video.
-            val inRange = local >= 0 && pos < _state.value.totalMs && (track.durationMs == 0L || local < track.durationMs)
+            val local = pos - track.startMs // position within the track's placed (trimmed) span
+            // The video is the master clock: no track plays before its start, past its trimmed length,
+            // or past the end of the video.
+            val inRange = local >= 0 && pos < _state.value.totalMs && local < track.playMs
             if (inRange) {
-                if (kotlin.math.abs(mp.currentPosition - local) > 140) mp.seekTo(local)
+                val sourcePos = track.clipStartMs + local // map to the source, honouring the in-point
+                if (kotlin.math.abs(mp.currentPosition - sourcePos) > 140) mp.seekTo(sourcePos)
                 mp.playWhenReady = player.playWhenReady
             } else {
                 mp.playWhenReady = false

@@ -62,6 +62,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -226,6 +227,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
                     onTrimOverlayStart = viewModel::trimOverlayStart, onTrimOverlayEnd = viewModel::trimOverlayEnd,
                     onSelectAudio = viewModel::selectAudio, onShiftAudio = viewModel::setAudioStartDelta,
+                    onTrimAudioStart = viewModel::trimAudioStart, onTrimAudioEnd = viewModel::trimAudioEnd,
                 )
                 OverlayBar(state, viewModel)
                 AudioBar(state, viewModel)
@@ -350,14 +352,18 @@ private fun Timeline(
     onTrimOverlayEnd: (Long, Long) -> Unit,
     onSelectAudio: (Long) -> Unit,
     onShiftAudio: (Long, Long) -> Unit,
+    onTrimAudioStart: (Long, Long) -> Unit,
+    onTrimAudioEnd: (Long, Long) -> Unit,
 ) {
     val liveState by androidx.compose.runtime.rememberUpdatedState(state)
+    val context = LocalContext.current
     val density = LocalDensity.current
     val pxPerMs = with(density) { PX_PER_SECOND.dp.toPx() } / 1000f
     val videoLane = 68.dp
     val laneH = 30.dp
+    val audioLaneH = 48.dp // taller, so the waveform reads like a pro editor
     val overlayLane = if (state.overlays.isNotEmpty()) laneH + 4.dp else 0.dp
-    val audioLanes = laneH * state.audioTracks.size + (if (state.audioTracks.isNotEmpty()) 4.dp else 0.dp)
+    val audioLanes = if (state.audioTracks.isNotEmpty()) (audioLaneH + 4.dp) * state.audioTracks.size else 0.dp
     val totalHeight = videoLane + overlayLane + audioLanes
     val scroll = rememberScrollState()
     val sidePad = with(density) { (LocalConfiguration.current.screenWidthDp.dp.toPx() / 2f).toDp() }
@@ -407,15 +413,22 @@ private fun Timeline(
                     }
                 }
             }
-            // Audio lanes.
+            // Audio lanes (with a decoded waveform, trimmable like a clip).
             state.audioTracks.forEachIndexed { i, track ->
-                Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(laneH).padding(top = if (i == 0) 4.dp else 2.dp)) {
+                val wave by produceState<FloatArray?>(initialValue = cachedWaveform(track.uri), track.uri) {
+                    value = withContext(Dispatchers.IO) { extractWaveform(context, track.uri) }
+                }
+                Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(audioLaneH).padding(top = 4.dp)) {
                     TrackPill(
                         label = track.name,
-                        startMs = track.startMs, lengthMs = (if (track.durationMs > 0) track.durationMs else state.totalMs).coerceAtLeast(200),
+                        startMs = track.startMs, lengthMs = track.playMs.coerceAtLeast(200),
                         pxPerMs = pxPerMs, selected = track.id == state.selectedAudioId,
                         color = MaterialTheme.colorScheme.primary,
                         onSelect = { onSelectAudio(track.id) }, onShift = { d -> onShiftAudio(track.id, d) },
+                        onTrimStart = { d -> onTrimAudioStart(track.id, d) }, onTrimEnd = { d -> onTrimAudioEnd(track.id, d) },
+                        waveform = wave,
+                        waveStartFrac = if (track.durationMs > 0) track.clipStartMs.toFloat() / track.durationMs else 0f,
+                        waveEndFrac = if (track.durationMs > 0) track.outMs.toFloat() / track.durationMs else 1f,
                     )
                 }
             }
@@ -436,6 +449,9 @@ private fun TrackPill(
     onShift: (Long) -> Unit,
     onTrimStart: ((Long) -> Unit)? = null,
     onTrimEnd: ((Long) -> Unit)? = null,
+    waveform: FloatArray? = null,
+    waveStartFrac: Float = 0f,
+    waveEndFrac: Float = 1f,
 ) {
     val density = LocalDensity.current
     val widthDp = with(density) { (lengthMs * pxPerMs).toDp() }.coerceAtLeast(28.dp)
@@ -446,6 +462,25 @@ private fun TrackPill(
             .fillMaxHeight()
             .clip(RoundedCornerShape(6.dp))
             .background(if (selected) color else color.copy(alpha = 0.4f))
+            .then(
+                if (waveform != null) Modifier.drawBehind {
+                    val wf = waveform
+                    if (wf.isNotEmpty()) {
+                        val h = size.height; val w = size.width
+                        val barW = 2.dp.toPx(); val stride = barW + 1.5.dp.toPx()
+                        val n = (w / stride).toInt().coerceAtLeast(1)
+                        val col = Color.White.copy(alpha = if (selected) 0.9f else 0.6f)
+                        for (bi in 0 until n) {
+                            val frac = bi.toFloat() / n
+                            val src = waveStartFrac + frac * (waveEndFrac - waveStartFrac)
+                            val amp = wf[(src * (wf.size - 1)).toInt().coerceIn(0, wf.size - 1)].coerceIn(0.04f, 1f)
+                            val barH = amp * h * 0.82f
+                            val x = bi * stride + barW / 2f
+                            drawLine(col, androidx.compose.ui.geometry.Offset(x, (h - barH) / 2f), androidx.compose.ui.geometry.Offset(x, (h + barH) / 2f), strokeWidth = barW)
+                        }
+                    }
+                } else Modifier,
+            )
             .border(if (selected) 2.dp else 0.dp, Color.White, RoundedCornerShape(6.dp))
             .clickable(onClick = onSelect)
             .pointerInput(Unit) {
