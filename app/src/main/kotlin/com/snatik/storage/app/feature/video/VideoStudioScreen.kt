@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LibraryAdd
@@ -115,6 +116,8 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
     }
 
+    var showAddSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         containerColor = Color.Black,
         topBar = {
@@ -122,6 +125,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 title = { Text(stringResource(R.string.video_studio_title), color = Color.White) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) } },
                 actions = {
+                    IconButton(onClick = { showAddSheet = true }) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = stringResource(R.string.video_add), tint = Color.White)
+                    }
                     TextButton(onClick = { viewModel.export() }, enabled = !state.exporting) {
                         Text(stringResource(R.string.video_export), color = if (state.exporting) Color.Gray else MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
@@ -176,14 +182,25 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
                 Timeline(
                     state,
-                    onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected,
+                    onScrub = viewModel::scrubTo, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
+                    onTrimOverlayStart = viewModel::trimOverlayStart, onTrimOverlayEnd = viewModel::trimOverlayEnd,
                     onSelectAudio = viewModel::selectAudio, onShiftAudio = viewModel::setAudioStartDelta,
                 )
-                OverlayBar(state, viewModel, onPickImage = { pickImage.launch("image/*") })
-                AudioBar(state, viewModel, onPickAudio = { pickAudio.launch("audio/*") })
+                OverlayBar(state, viewModel)
+                AudioBar(state, viewModel)
                 Spacer(Modifier.height(8.dp))
             }
+        }
+
+        if (showAddSheet) {
+            AddSheet(
+                onDismiss = { showAddSheet = false },
+                onAddText = { viewModel.addTextOverlay(); showAddSheet = false },
+                onAddSticker = { showAddSheet = false; pickImage.launch("image/*") },
+                onAddMusic = { showAddSheet = false; pickAudio.launch("audio/*") },
+                onAddVideo = { showAddSheet = false; pickVideo.launch("video/*") },
+            )
         }
 
         if (state.exporting) {
@@ -194,6 +211,45 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     TextButton(onClick = { viewModel.cancelExport() }, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.cancel), color = Color.White) }
                 }
             }
+        }
+    }
+}
+
+/** Bottom sheet listing everything that can be layered onto the video, opened from the top-bar +. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddSheet(
+    onDismiss: () -> Unit,
+    onAddText: () -> Unit,
+    onAddSticker: () -> Unit,
+    onAddMusic: () -> Unit,
+    onAddVideo: () -> Unit,
+) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF1B1B1B)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text(
+                stringResource(R.string.video_add_to_video),
+                color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            AddRow(androidx.compose.material.icons.Icons.Default.TextFields, stringResource(R.string.video_add_text), stringResource(R.string.video_add_text_desc), onAddText)
+            AddRow(androidx.compose.material.icons.Icons.Default.AddPhotoAlternate, stringResource(R.string.video_add_sticker), stringResource(R.string.video_add_sticker_desc), onAddSticker)
+            AddRow(androidx.compose.material.icons.Icons.Default.MusicNote, stringResource(R.string.video_add_music), stringResource(R.string.video_add_music_desc), onAddMusic)
+            AddRow(androidx.compose.material.icons.Icons.Default.LibraryAdd, stringResource(R.string.video_insert), stringResource(R.string.video_insert_desc), onAddVideo)
+        }
+    }
+}
+
+@Composable
+private fun AddRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Column(Modifier.padding(start = 16.dp)) {
+            Text(title, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -228,11 +284,14 @@ private fun speedLabel(s: Float): String = if (s == s.toLong().toFloat()) "${s.t
 @Composable
 private fun Timeline(
     state: VideoStudioState,
+    onScrub: (Long) -> Unit,
     onSeek: (Long) -> Unit,
     onSelect: (Long) -> Unit,
     onTrim: (Long, Long) -> Unit,
     onSelectOverlay: (Long) -> Unit,
     onShiftOverlay: (Long, Long) -> Unit,
+    onTrimOverlayStart: (Long, Long) -> Unit,
+    onTrimOverlayEnd: (Long, Long) -> Unit,
     onSelectAudio: (Long) -> Unit,
     onShiftAudio: (Long, Long) -> Unit,
 ) {
@@ -251,8 +310,14 @@ private fun Timeline(
         if (state.playing) scroll.scrollTo((state.positionMs * pxPerMs).toInt())
     }
     LaunchedEffect(pxPerMs) {
-        snapshotFlow { scroll.value to scroll.isScrollInProgress }.collect { (v, dragging) ->
-            if (dragging && !state.playing) onSeek((v / pxPerMs).toLong())
+        var wasScrubbing = false
+        snapshotFlow { Triple(scroll.value, scroll.isScrollInProgress, state.playing) }.collect { (v, dragging, playing) ->
+            if (playing) { wasScrubbing = false; return@collect }
+            val ms = (v / pxPerMs).toLong()
+            when {
+                dragging -> { onScrub(ms); wasScrubbing = true }   // fast keyframe seek so the preview tracks the finger
+                wasScrubbing -> { onSeek(ms); wasScrubbing = false } // exact seek once the finger lifts
+            }
         }
     }
 
@@ -276,6 +341,7 @@ private fun Timeline(
                             pxPerMs = pxPerMs, selected = ov.id == state.selectedOverlayId,
                             color = MaterialTheme.colorScheme.tertiary,
                             onSelect = { onSelectOverlay(ov.id) }, onShift = { d -> onShiftOverlay(ov.id, d) },
+                            onTrimStart = { d -> onTrimOverlayStart(ov.id, d) }, onTrimEnd = { d -> onTrimOverlayEnd(ov.id, d) },
                         )
                     }
                 }
@@ -307,23 +373,49 @@ private fun TrackPill(
     color: Color,
     onSelect: () -> Unit,
     onShift: (Long) -> Unit,
+    onTrimStart: ((Long) -> Unit)? = null,
+    onTrimEnd: ((Long) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
+    val widthDp = with(density) { (lengthMs * pxPerMs).toDp() }.coerceAtLeast(28.dp)
     Box(
         Modifier
             .offset { androidx.compose.ui.unit.IntOffset((startMs * pxPerMs).toInt(), 0) }
-            .width(with(density) { (lengthMs * pxPerMs).toDp() }.coerceAtLeast(28.dp))
+            .width(widthDp)
             .fillMaxHeight()
             .clip(RoundedCornerShape(6.dp))
             .background(if (selected) color else color.copy(alpha = 0.4f))
             .border(if (selected) 2.dp else 0.dp, Color.White, RoundedCornerShape(6.dp))
             .clickable(onClick = onSelect)
             .pointerInput(Unit) {
+                // Drag the body to move the whole window along the timeline.
                 detectHorizontalDragGestures { change, drag -> change.consume(); onSelect(); onShift((drag / pxPerMs).toLong()) }
             },
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 14.dp))
+        // When selected, drag either edge to crop the window's start / end (like a clip's trim handles).
+        if (selected && onTrimStart != null && onTrimEnd != null) {
+            PillTrimHandle(Alignment.CenterStart) { dxPx -> onSelect(); onTrimStart((dxPx / pxPerMs).toLong()) }
+            PillTrimHandle(Alignment.CenterEnd) { dxPx -> onSelect(); onTrimEnd((dxPx / pxPerMs).toLong()) }
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.PillTrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
+    Box(
+        Modifier
+            .align(align)
+            .fillMaxHeight()
+            .width(12.dp)
+            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { change, dragAmount -> change.consume(); onDrag(dragAmount) }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(2.dp).fillMaxHeight(0.5f).background(Color.Black.copy(alpha = 0.5f)))
     }
 }
 
@@ -429,15 +521,24 @@ private fun OverlayLayer(
             if (!ov.activeAt(state.positionMs) && !selected) return@forEach
             val cx = left + ov.xNorm * vwPx; val cy = top + ov.yNorm * vhPx
             var sz by remember(ov.id) { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+            val currentOverlay by androidx.compose.runtime.rememberUpdatedState(ov)
             Box(
                 Modifier
                     .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
                     .onGloballyPositioned { sz = it.size }
                     .then(if (selected) Modifier.border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp)).padding(2.dp) else Modifier)
                     .pointerInput(ov.id, vwPx, vhPx) {
+                        // Accumulate from the position at drag start; adding each delta to the live xNorm
+                        // (a stale composition capture) made the overlay jump back on every event.
+                        var x = 0f; var y = 0f
                         detectDragGestures(
-                            onDragStart = { onSelect(ov.id) },
-                            onDrag = { ch, drag -> ch.consume(); onMove(ov.id, ov.xNorm + drag.x / vwPx, ov.yNorm + drag.y / vhPx) },
+                            onDragStart = { onSelect(ov.id); x = currentOverlay.xNorm; y = currentOverlay.yNorm },
+                            onDrag = { ch, drag ->
+                                ch.consume()
+                                x = (x + drag.x / vwPx).coerceIn(0f, 1f)
+                                y = (y + drag.y / vhPx).coerceIn(0f, 1f)
+                                onMove(currentOverlay.id, x, y)
+                            },
                         )
                     },
             ) {
@@ -466,21 +567,11 @@ private fun OverlayLayer(
 }
 
 @Composable
-private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onPickImage: () -> Unit) {
+private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel) {
     val swatches = listOf(0xFFFFFFFF, 0xFFFFEB3B, 0xFFFF5252, 0xFF69F0AE, 0xFF40C4FF, 0xFF000000)
+    val sel = state.overlays.find { it.id == state.selectedOverlayId } ?: return
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.OutlinedButton(onClick = { viewModel.addTextOverlay() }) {
-                Icon(androidx.compose.material.icons.Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.video_add_text), modifier = Modifier.padding(start = 6.dp))
-            }
-            androidx.compose.material3.OutlinedButton(onClick = onPickImage) {
-                Icon(androidx.compose.material.icons.Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.video_add_sticker), modifier = Modifier.padding(start = 6.dp))
-            }
-        }
-        val sel = state.overlays.find { it.id == state.selectedOverlayId }
-        if (sel != null) {
+        run {
             // Editor header: title + Remove + Done (so you can dismiss/cancel the overlay editor).
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -552,17 +643,10 @@ private fun StudioToggle(label: String, selected: Boolean, onClick: () -> Unit) 
 }
 
 @Composable
-private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onPickAudio: () -> Unit) {
+private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel) {
+    if (state.audioTracks.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        androidx.compose.material3.OutlinedButton(
-            onClick = onPickAudio,
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-        ) {
-            Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.video_add_music), modifier = Modifier.padding(start = 6.dp))
-        }
-        if (state.audioTracks.isNotEmpty()) {
+        run {
             val sel = state.audioTracks.find { it.id == state.selectedAudioId } ?: state.audioTracks.last()
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))

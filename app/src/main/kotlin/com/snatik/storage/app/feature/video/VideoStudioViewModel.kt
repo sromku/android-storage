@@ -132,14 +132,22 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(totalMs = cs.sumOf { it.durationMs })
     }
 
-    /** Map a global timeline ms to (clip index, local ms) and seek the player there. */
-    fun seekToGlobal(globalMs: Long) {
+    /** Fast scrub while dragging: snap to the nearest keyframe so the preview updates continuously. */
+    fun scrubTo(globalMs: Long) = seekInternal(globalMs, fast = true)
+
+    /** Map a global timeline ms to (clip index, local ms) and seek the player there (frame-accurate). */
+    fun seekToGlobal(globalMs: Long) = seekInternal(globalMs, fast = false)
+
+    private fun seekInternal(globalMs: Long, fast: Boolean) {
         val cs = clips()
         if (cs.isEmpty()) return
         var remaining = globalMs.coerceIn(0, _state.value.totalMs)
         var index = 0
         while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
         val sourceLocal = (remaining * cs[index].speed).toLong().coerceIn(0, cs[index].sourceDurationMs)
+        // CLOSEST_SYNC is cheap (jump to a keyframe, decode one frame) so rapid drag seeks aren't coalesced;
+        // EXACT lands the true frame once the finger lifts.
+        runCatching { player.setSeekParameters(if (fast) androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC else androidx.media3.exoplayer.SeekParameters.EXACT) }
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
         // The clip under the playhead is always the selected one, so split/delete/speed act where you are.
@@ -297,6 +305,18 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     fun deleteOverlay(id: Long) {
         _state.value = _state.value.copy(overlays = _state.value.overlays.filterNot { it.id == id }, selectedOverlayId = -1)
+    }
+
+    /** Crop the overlay's window start by [deltaMs] (drag the pill's left edge on the timeline). */
+    fun trimOverlayStart(id: Long, deltaMs: Long) = mutateOverlay(id) {
+        val end = if (it.endMs >= _state.value.totalMs) _state.value.totalMs else it.endMs
+        it.copy(startMs = (it.startMs + deltaMs).coerceIn(0, end - 100))
+    }
+
+    /** Crop the overlay's window end by [deltaMs] (drag the pill's right edge on the timeline). */
+    fun trimOverlayEnd(id: Long, deltaMs: Long) = mutateOverlay(id) {
+        val end = if (it.endMs >= _state.value.totalMs) _state.value.totalMs else it.endMs
+        it.copy(endMs = (end + deltaMs).coerceIn(it.startMs + 100, _state.value.totalMs))
     }
 
     /** Shift an overlay's whole time window by [deltaMs] (drag on the timeline lane). */

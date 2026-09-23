@@ -1169,6 +1169,12 @@
     <string name="video_edit_sticker">Sticker</string>
     <string name="video_remove">Remove</string>
     <string name="video_done">Done</string>
+    <string name="video_add">Add</string>
+    <string name="video_add_to_video">Add to video</string>
+    <string name="video_add_text_desc">A caption, title or price tag</string>
+    <string name="video_add_sticker_desc">A photo or sticker overlay</string>
+    <string name="video_add_music_desc">A song or sound on its own track</string>
+    <string name="video_insert_desc">Drop another video clip at the playhead</string>
     <string name="edit_crop">Edit and crop</string>
     <string name="edit_crop_sub">Crop, resize and export a copy</string>
     <string name="edit_photo_title">Edit</string>
