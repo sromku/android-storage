@@ -601,8 +601,8 @@ private fun ClipView(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.TopStart).padding(4.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                    .background(Color(0xFFFFC400), RoundedCornerShape(4.dp)) // bright amber, reads over any thumbnail
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
             )
         }
         if (selected) {
