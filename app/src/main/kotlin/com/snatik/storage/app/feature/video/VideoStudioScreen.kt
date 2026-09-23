@@ -81,6 +81,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.snatik.storage.app.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val PX_PER_SECOND = 90 // timeline scale (dp per second of source)
@@ -119,6 +120,14 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     // Low-res cached frame painted over the player while scrubbing, so the preview is instant.
     var scrubBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Pending "drop the proxy" job, cancelled if scrubbing resumes before the player catches up.
+    val clearProxyJob = remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    // Once playing, the player drives the preview; drop any lingering proxy frame.
+    LaunchedEffect(state.playing) {
+        if (state.playing) { clearProxyJob.value?.cancel(); scrubBitmap = null }
+    }
 
     Scaffold(
         containerColor = Color.Black,
@@ -194,8 +203,26 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
                 Timeline(
                     state,
-                    onScrubPos = viewModel::setScrubPosition, onScrubFrame = { scrubBitmap = it },
-                    onSeek = viewModel::seekToGlobal, onSelect = viewModel::select,
+                    onScrubPos = viewModel::setScrubPosition,
+                    onScrubFrame = { bmp ->
+                        // A new proxy frame arrived: cancel any pending hand-off and show it.
+                        clearProxyJob.value?.cancel()
+                        if (bmp != null) scrubBitmap = bmp
+                    },
+                    onScrubEnd = { ms ->
+                        // Seek the real player, but keep the proxy up until the player has reached the
+                        // target, so the preview upgrades in place instead of flashing the old frame.
+                        viewModel.seekToGlobal(ms)
+                        clearProxyJob.value?.cancel()
+                        clearProxyJob.value = scope.launch {
+                            kotlinx.coroutines.withTimeoutOrNull(600) {
+                                while (kotlin.math.abs(viewModel.currentGlobalPosition() - ms) > 60) kotlinx.coroutines.delay(16)
+                            }
+                            kotlinx.coroutines.delay(40) // let the player paint the seeked frame before dropping the proxy
+                            scrubBitmap = null
+                        }
+                    },
+                    onSelect = viewModel::select,
                     onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
                     onTrimOverlayStart = viewModel::trimOverlayStart, onTrimOverlayEnd = viewModel::trimOverlayEnd,
@@ -320,7 +347,7 @@ private fun Timeline(
     state: VideoStudioState,
     onScrubPos: (Long) -> Unit,
     onScrubFrame: (Bitmap?) -> Unit,
-    onSeek: (Long) -> Unit,
+    onScrubEnd: (Long) -> Unit,
     onSelect: (Long) -> Unit,
     onTrimStart: (Long, Long) -> Unit,
     onTrimEnd: (Long, Long) -> Unit,
@@ -354,7 +381,7 @@ private fun Timeline(
             val ms = (v / pxPerMs).toLong()
             when {
                 dragging -> { onScrubPos(ms); onScrubFrame(scrubFrame(liveState, ms)); wasScrubbing = true } // instant cached frame
-                wasScrubbing -> { onSeek(ms); onScrubFrame(null); wasScrubbing = false } // exact player seek once the finger lifts
+                wasScrubbing -> { onScrubEnd(ms); wasScrubbing = false } // hand off to the real player once the finger lifts
             }
         }
     }

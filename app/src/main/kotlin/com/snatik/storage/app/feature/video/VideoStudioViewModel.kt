@@ -115,6 +115,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         return (prefix(idx) + local).coerceIn(0, _state.value.totalMs)
     }
 
+    /** The player's live position on the global timeline (for waiting out a seek before dropping the proxy). */
+    fun currentGlobalPosition(): Long = globalPosition()
+
     /** Match the player's playback speed to the clip currently under the playhead. */
     private fun applyCurrentSpeed() {
         val cs = clips()
