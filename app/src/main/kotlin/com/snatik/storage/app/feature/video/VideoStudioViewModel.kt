@@ -444,6 +444,12 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     fun setOverlayColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(color = color) }
     fun setOverlaySize(id: Long, sizeFraction: Float) = mutateOverlay(id) { it.copy(sizeFraction = sizeFraction) }
     fun toggleOverlayBackground(id: Long) = mutateOverlay(id) { it.copy(background = !it.background) }
+    fun setOverlayBold(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(bold = on) }
+    fun setOverlayItalic(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(italic = on) }
+    fun setOverlayOutline(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(outline = on) }
+    fun setOverlayOutlineColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(outline = true, outlineColor = color) }
+    fun setOverlayBgColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(background = true, bgColor = color) }
+    fun setOverlayRotation(id: Long, degrees: Float) = mutateOverlay(id) { it.copy(rotationDegrees = degrees) }
 
     /** Set the selected overlay's visible window to start / end at the current playhead. */
     fun setOverlayStartHere(id: Long) = mutateOverlay(id) { it.copy(startMs = _state.value.positionMs.coerceAtMost(it.endMs - 100)) }

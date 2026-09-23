@@ -1177,6 +1177,13 @@
     <string name="video_add_music_desc">A song or sound on its own track</string>
     <string name="video_insert_desc">Drop another video clip at the playhead</string>
     <string name="video_hide">Hide</string>
+    <string name="video_bold">Bold</string>
+    <string name="video_italic">Italic</string>
+    <string name="video_outline">Border</string>
+    <string name="video_text_color">Text</string>
+    <string name="video_border_color">Border</string>
+    <string name="video_fill_color">Fill</string>
+    <string name="video_rotate">Rotate</string>
     <string name="video_delete_music_q">Delete this music track?</string>
     <string name="video_delete_clip_q">Delete this clip?</string>
     <string name="video_pick_music">Pick music</string>

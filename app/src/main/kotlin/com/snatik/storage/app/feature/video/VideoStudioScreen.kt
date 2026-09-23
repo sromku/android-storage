@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -666,6 +667,7 @@ private fun OverlayLayer(
                 Modifier
                     .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
                     .onGloballyPositioned { sz = it.size }
+                    .rotate(ov.rotationDegrees)
                     .then(if (selected) Modifier.border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp)).padding(2.dp) else Modifier)
                     .pointerInput(ov.id, vwPx, vhPx) {
                         // Accumulate from the position at drag start; adding each delta to the live xNorm
@@ -684,9 +686,16 @@ private fun OverlayLayer(
             ) {
                 when (ov.kind) {
                     OverlayKind.TEXT -> {
-                        val fontSizeSp = with(density) { (ov.sizeFraction * vhPx).toSp() }
-                        val bg = if (ov.background) Modifier.background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp) else Modifier
-                        Text(ov.text, color = Color(ov.color), fontWeight = FontWeight.Bold, fontSize = fontSizeSp, maxLines = 1, modifier = bg)
+                        // Same renderer as the export, so the preview is WYSIWYG (fill, outline, tag, styles).
+                        val textBmp = remember(ov.text, ov.color, ov.bold, ov.italic, ov.outline, ov.outlineColor, ov.background, ov.bgColor, ov.sizeFraction, vhPx) {
+                            renderTextOverlayBitmap(ov, vhPx.toInt())
+                        }
+                        if (textBmp != null) {
+                            Image(
+                                bitmap = textBmp.asImageBitmap(), contentDescription = null,
+                                modifier = Modifier.width(with(density) { textBmp.width.toDp() }).height(with(density) { textBmp.height.toDp() }),
+                            )
+                        }
                     }
                     OverlayKind.IMAGE -> {
                         val bmp = ov.bitmap
@@ -737,25 +746,35 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 )
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    swatches.forEach { c ->
-                        Box(
-                            Modifier.size(28.dp).clip(RoundedCornerShape(50)).background(Color(c))
-                                .border(if (sel.color == c.toInt()) 3.dp else 1.dp, if (sel.color == c.toInt()) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
-                                .clickable { viewModel.setOverlayColor(sel.id, c.toInt()) },
-                        )
-                    }
+                // Style toggles: bold / italic / outline / tag background.
+                Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    StudioToggle(stringResource(R.string.video_bold), sel.bold) { viewModel.setOverlayBold(sel.id, !sel.bold) }
+                    StudioToggle(stringResource(R.string.video_italic), sel.italic) { viewModel.setOverlayItalic(sel.id, !sel.italic) }
+                    StudioToggle(stringResource(R.string.video_outline), sel.outline) { viewModel.setOverlayOutline(sel.id, !sel.outline) }
                     StudioToggle(stringResource(R.string.video_tag), sel.background) { viewModel.toggleOverlayBackground(sel.id) }
                 }
+                SwatchRow(stringResource(R.string.video_text_color), swatches, sel.color) { viewModel.setOverlayColor(sel.id, it) }
+                if (sel.outline) SwatchRow(stringResource(R.string.video_border_color), swatches, sel.outlineColor) { viewModel.setOverlayOutlineColor(sel.id, it) }
+                if (sel.background) SwatchRow(stringResource(R.string.video_fill_color), swatches, sel.bgColor) { viewModel.setOverlayBgColor(sel.id, it) }
             }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.video_size), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.video_size), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(64.dp))
                 androidx.compose.material3.Slider(
                     value = sel.sizeFraction,
                     onValueChange = { viewModel.setOverlaySize(sel.id, it) },
                     valueRange = 0.03f..0.35f,
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                 )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.video_rotate), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(64.dp))
+                androidx.compose.material3.Slider(
+                    value = sel.rotationDegrees,
+                    onValueChange = { viewModel.setOverlayRotation(sel.id, it) },
+                    valueRange = -180f..180f,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+                Text("${sel.rotationDegrees.toInt()}°", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayStartHere(sel.id) }) { Text(stringResource(R.string.video_start_here)) }
@@ -779,6 +798,21 @@ private fun StudioToggle(label: String, selected: Boolean, onClick: () -> Unit) 
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         Text(label, color = if (selected) Color.Black else Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** A labelled row of color swatches (text fill, border, or tag fill). */
+@Composable
+private fun SwatchRow(label: String, swatches: List<Long>, selected: Int, onPick: (Int) -> Unit) {
+    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(52.dp))
+        swatches.forEach { c ->
+            Box(
+                Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
+                    .border(if (selected == c.toInt()) 3.dp else 1.dp, if (selected == c.toInt()) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                    .clickable { onPick(c.toInt()) },
+            )
+        }
     }
 }
 
