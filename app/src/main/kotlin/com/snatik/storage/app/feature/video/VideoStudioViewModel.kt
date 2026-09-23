@@ -182,6 +182,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     }
 
     private fun rebuildPlaylist(seekToGlobalMs: Long) {
+        endScrubbingMode() // scrubbing mode can't handle a playlist change (setMediaItems) - it throws
         segments = buildSegments()
         player.setMediaItems(segments.map { it.toMediaItem() })
         player.prepare()
