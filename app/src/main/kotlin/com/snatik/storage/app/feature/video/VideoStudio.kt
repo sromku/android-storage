@@ -29,6 +29,9 @@ data class VideoClip(
     val startMs: Long,
     val endMs: Long,
     val speed: Float = 1f,
+    // The clip's extent at creation/split, restored by double-tapping a trim handle.
+    val origStartMs: Long = startMs,
+    val origEndMs: Long = endMs,
 ) {
     /** Length of the trimmed source. */
     val sourceDurationMs: Long get() = (endMs - startMs).coerceAtLeast(0)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -196,7 +197,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     onScrubPos = viewModel::scrubSeek, // seek the real player as you drag: frame-accurate, smooth like playback
                     onScrubEnd = { ms -> viewModel.seekToGlobal(ms) },
                     onSelect = viewModel::select,
-                    onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim,
+                    onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim, onResetClip = viewModel::resetClipTrim,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
                     onTrimOverlayStart = viewModel::trimOverlayStart, onTrimOverlayEnd = viewModel::trimOverlayEnd,
                     onSelectAudio = viewModel::selectAudio, onShiftAudio = viewModel::setAudioStartDelta,
@@ -327,6 +328,7 @@ private fun Timeline(
     onTrimStart: (Long, Long) -> Unit,
     onTrimEnd: (Long, Long) -> Unit,
     onTrimCommit: () -> Unit,
+    onResetClip: (Long) -> Unit,
     onSelectOverlay: (Long) -> Unit,
     onShiftOverlay: (Long, Long) -> Unit,
     onTrimOverlayStart: (Long, Long) -> Unit,
@@ -386,6 +388,7 @@ private fun Timeline(
                         clip, clip.durationMs * pxPerMs, clip.id == state.selectedId && !state.activeAudio, pxPerMs,
                         onSelect = { onSelect(clip.id) },
                         onTrimStart = { d -> onTrimStart(clip.id, d) }, onTrimEnd = { d -> onTrimEnd(clip.id, d) }, onTrimCommit = onTrimCommit,
+                        onReset = { onResetClip(clip.id) },
                     )
                     Spacer(Modifier.width(1.dp))
                 }
@@ -527,6 +530,7 @@ private fun ClipView(
     onTrimStart: (Long) -> Unit,
     onTrimEnd: (Long) -> Unit,
     onTrimCommit: () -> Unit,
+    onReset: () -> Unit,
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -604,14 +608,14 @@ private fun ClipView(
         if (selected) {
             // Each drag delta is applied to the clip's live in/out point (accumulates correctly); the
             // player is rebuilt once when the drag ends.
-            TrimHandle(Alignment.CenterStart, onDragEnd = onTrimCommit) { dxPx -> onTrimStart((dxPx / pxPerMs).toLong()) }
-            TrimHandle(Alignment.CenterEnd, onDragEnd = onTrimCommit) { dxPx -> onTrimEnd((dxPx / pxPerMs).toLong()) }
+            TrimHandle(Alignment.CenterStart, onDragEnd = onTrimCommit, onDoubleTap = onReset) { dxPx -> onTrimStart((dxPx / pxPerMs).toLong()) }
+            TrimHandle(Alignment.CenterEnd, onDragEnd = onTrimCommit, onDoubleTap = onReset) { dxPx -> onTrimEnd((dxPx / pxPerMs).toLong()) }
         }
     }
 }
 
 @Composable
-private fun BoxScope.TrimHandle(align: Alignment, onDragEnd: () -> Unit = {}, onDrag: (Float) -> Unit) {
+private fun BoxScope.TrimHandle(align: Alignment, onDragEnd: () -> Unit = {}, onDoubleTap: () -> Unit = {}, onDrag: (Float) -> Unit) {
     Box(
         Modifier
             .align(align)
@@ -624,6 +628,10 @@ private fun BoxScope.TrimHandle(align: Alignment, onDragEnd: () -> Unit = {}, on
                     onDragCancel = onDragEnd,
                     onHorizontalDrag = { change, dragAmount -> change.consume(); onDrag(dragAmount) },
                 )
+            }
+            .pointerInput(Unit) {
+                // Double-tap a handle to restore the clip to its full (original) length.
+                detectTapGestures(onDoubleTap = { onDoubleTap() })
             },
         contentAlignment = Alignment.Center,
     ) {

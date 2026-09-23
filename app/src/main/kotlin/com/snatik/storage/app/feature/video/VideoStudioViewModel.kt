@@ -268,8 +268,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         // remaining is timeline-local; convert to a source-time cut point.
         val cutMs = clip.startMs + (remaining * clip.speed).toLong()
         if (cutMs <= clip.startMs + 40 || cutMs >= clip.endMs - 40) return // too close to an edge
-        val left = clip.copy(id = nextId++, endMs = cutMs)
-        val right = clip.copy(id = nextId++, startMs = cutMs)
+        val left = clip.copy(id = nextId++, endMs = cutMs, origStartMs = clip.startMs, origEndMs = cutMs)
+        val right = clip.copy(id = nextId++, startMs = cutMs, origStartMs = cutMs, origEndMs = clip.endMs)
         cs[index] = left
         cs.add(index + 1, right)
         _state.value = _state.value.copy(clips = cs, selectedId = right.id)
@@ -298,9 +298,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
             cutSource <= clip.startMs + 40 -> cs.add(index, newClip)
             cutSource >= clip.endMs - 40 -> cs.add(index + 1, newClip)
             else -> {
-                cs[index] = clip.copy(id = nextId++, endMs = cutSource)
+                cs[index] = clip.copy(id = nextId++, endMs = cutSource, origStartMs = clip.startMs, origEndMs = cutSource)
                 cs.add(index + 1, newClip)
-                cs.add(index + 2, clip.copy(id = nextId++, startMs = cutSource))
+                cs.add(index + 2, clip.copy(id = nextId++, startMs = cutSource, origStartMs = cutSource, origEndMs = clip.endMs))
             }
         }
         _state.value = _state.value.copy(clips = cs, selectedId = newClip.id)
@@ -380,6 +380,18 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     /** Apply the trimmed ranges to the player once the trim drag ends. */
     fun commitTrim() {
         val i = clips().indexOfFirst { it.id == _state.value.selectedId }.coerceAtLeast(0)
+        rebuildPlaylist(seekToGlobalMs = prefix(i))
+    }
+
+    /** Double-tap a trim handle: restore the clip to its original (pre-trim) extent. */
+    fun resetClipTrim(id: Long) {
+        val cs = clips().toMutableList()
+        val i = cs.indexOfFirst { it.id == id }
+        if (i < 0) return
+        val c = cs[i]
+        if (c.startMs == c.origStartMs && c.endMs == c.origEndMs) return // already full
+        cs[i] = c.copy(startMs = c.origStartMs, endMs = c.origEndMs)
+        _state.value = _state.value.copy(clips = cs)
         rebuildPlaylist(seekToGlobalMs = prefix(i))
     }
 
