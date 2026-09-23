@@ -45,10 +45,11 @@ data class VideoStudioState(
 @UnstableApi
 class VideoStudioViewModel(application: Application, private val path: String) : AndroidViewModel(application) {
 
-    // Contiguous clips are merged into one item (see buildSegments), so cuts you don't delete already
-    // play through seamlessly. Playlist preloading is left off: with a multi-item playlist it triggers
-    // an IllegalStateException in evaluateMediaItemTransitionReason on media3 1.8.
-    val player: ExoPlayer = ExoPlayer.Builder(application).build()
+    val player: ExoPlayer = ExoPlayer.Builder(application).build().apply {
+        // Preload the next item so a boundary between clips of different speeds (which stay separate
+        // items) plays through without a stall. Safe now that scrubbing mode is only used single-item.
+        runCatching { setPreloadConfiguration(ExoPlayer.PreloadConfiguration(3_000_000L)) }
+    }
 
 
     private val _state = MutableStateFlow(VideoStudioState())
