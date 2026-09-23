@@ -64,7 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -87,6 +87,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val PX_PER_SECOND = 90 // timeline scale (dp per second of source)
+
+// A bright accent for studio controls - the app primary blue reads too dark on black.
+private val StudioAccent = androidx.compose.ui.graphics.Color(0xFF39C7FF)
 
 /** Which kind of media the in-app file explorer is picking. */
 private enum class FilePickKind { AUDIO, VIDEO }
@@ -245,7 +248,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
         if (state.exporting) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(progress = { state.exportProgress / 100f }, color = MaterialTheme.colorScheme.primary)
+                    CircularProgressIndicator(progress = { state.exportProgress / 100f }, color = StudioAccent)
                     Text("${stringResource(R.string.video_exporting)}  ${state.exportProgress}%", color = Color.White, modifier = Modifier.padding(top = 16.dp))
                     TextButton(onClick = { viewModel.cancelExport() }, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.cancel), color = Color.White) }
                 }
@@ -285,7 +288,7 @@ private fun AddRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = StudioAccent, modifier = Modifier.size(24.dp))
         Column(Modifier.padding(start = 16.dp)) {
             Text(title, color = Color.White, style = MaterialTheme.typography.bodyLarge)
             Text(subtitle, color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
@@ -422,7 +425,7 @@ private fun Timeline(
                             label = track.name,
                             startMs = track.startMs, lengthMs = track.playMs.coerceAtLeast(200),
                             pxPerMs = pxPerMs, selected = track.id == state.selectedAudioId && state.activeAudio,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = StudioAccent,
                             onSelect = { onSelectAudio(track.id) }, onShift = { d -> onShiftAudio(track.id, d) },
                             onTrimStart = { d -> onTrimAudioStart(track.id, d) }, onTrimEnd = { d -> onTrimAudioEnd(track.id, d) },
                             waveform = wave,
@@ -434,7 +437,7 @@ private fun Timeline(
                 }
             }
         }
-        Box(Modifier.align(Alignment.TopCenter).width(2.dp).height(totalHeight).background(MaterialTheme.colorScheme.primary))
+        Box(Modifier.align(Alignment.TopCenter).width(2.dp).height(totalHeight).background(StudioAccent))
     }
 }
 
@@ -573,7 +576,7 @@ private fun ClipView(
             .fillMaxHeight()
             .clip(RoundedCornerShape(8.dp))
             .background(Color(0xFF1E1E1E))
-            .border(width = if (selected) 2.dp else 0.dp, color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, shape = RoundedCornerShape(8.dp))
+            .border(width = if (selected) 2.dp else 0.dp, color = if (selected) StudioAccent else Color.Transparent, shape = RoundedCornerShape(8.dp))
             .clickable(onClick = onSelect),
     ) {
         Row(Modifier.fillMaxSize()) {
@@ -624,7 +627,7 @@ private fun BoxScope.TrimHandle(align: Alignment, onDragEnd: () -> Unit = {}, on
             .align(align)
             .fillMaxHeight()
             .width(18.dp)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+            .background(StudioAccent.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = onDragEnd,
@@ -660,14 +663,21 @@ private fun OverlayLayer(
         state.overlays.forEach { ov ->
             val selected = ov.id == state.selectedOverlayId
             if (!ov.activeAt(state.positionMs) && !selected) return@forEach
-            val cx = left + ov.xNorm * vwPx; val cy = top + ov.yNorm * vhPx
+            // Animate the overlay (fade/slide/pop/spin) based on the playhead within its window.
+            val resolvedEnd = if (ov.endMs >= state.totalMs) state.totalMs else ov.endMs
+            val anim = overlayAnim(ov, state.positionMs, resolvedEnd)
+            val cx = left + (ov.xNorm + anim.dxNorm) * vwPx; val cy = top + (ov.yNorm + anim.dyNorm) * vhPx
             var sz by remember(ov.id) { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
             val currentOverlay by androidx.compose.runtime.rememberUpdatedState(ov)
             Box(
                 Modifier
                     .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
                     .onGloballyPositioned { sz = it.size }
-                    .rotate(ov.rotationDegrees)
+                    .graphicsLayer(
+                        alpha = if (selected) anim.alpha.coerceAtLeast(0.25f) else anim.alpha,
+                        scaleX = anim.scale, scaleY = anim.scale,
+                        rotationZ = ov.rotationDegrees + anim.rotation,
+                    )
                     .then(if (selected) Modifier.border(1.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp)).padding(2.dp) else Modifier)
                     .pointerInput(ov.id, vwPx, vhPx) {
                         // Accumulate from the position at drag start; adding each delta to the live xNorm
@@ -741,11 +751,25 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                     singleLine = true,
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Color.White.copy(alpha = 0.4f),
-                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = StudioAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.4f),
+                        cursorColor = StudioAccent,
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 )
+                // Font picker (each chip shown in its own typeface).
+                Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TEXT_FONTS.forEach { (name, family) ->
+                        val on = sel.font == family
+                        Box(
+                            Modifier.clip(RoundedCornerShape(50))
+                                .background(if (on) StudioAccent else Color.White.copy(alpha = 0.12f))
+                                .clickable { viewModel.setOverlayFont(sel.id, family) }
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                        ) {
+                            Text(name, color = if (on) Color.Black else Color.White, fontFamily = composeFontFamily(family), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
                 // Style toggles: bold / italic / outline / tag background.
                 Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StudioToggle(stringResource(R.string.video_bold), sel.bold) { viewModel.setOverlayBold(sel.id, !sel.bold) }
@@ -763,6 +787,7 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                     value = sel.sizeFraction,
                     onValueChange = { viewModel.setOverlaySize(sel.id, it) },
                     valueRange = 0.03f..0.35f,
+                    colors = studioSliderColors(),
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                 )
             }
@@ -772,10 +797,14 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                     value = sel.rotationDegrees,
                     onValueChange = { viewModel.setOverlayRotation(sel.id, it) },
                     valueRange = -180f..180f,
+                    colors = studioSliderColors(),
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                 )
                 Text("${sel.rotationDegrees.toInt()}°", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
             }
+            // Entrance / exit animations, each with a duration.
+            AnimRow(stringResource(R.string.video_anim_in), sel.animIn, sel.animInMs, { viewModel.setOverlayAnimIn(sel.id, it) }, { viewModel.setOverlayAnimInMs(sel.id, it) })
+            AnimRow(stringResource(R.string.video_anim_out), sel.animOut, sel.animOutMs, { viewModel.setOverlayAnimOut(sel.id, it) }, { viewModel.setOverlayAnimOutMs(sel.id, it) })
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayStartHere(sel.id) }) { Text(stringResource(R.string.video_start_here)) }
                 androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayEndHere(sel.id) }) { Text(stringResource(R.string.video_end_here)) }
@@ -793,13 +822,51 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
 private fun StudioToggle(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.clip(RoundedCornerShape(50))
-            .background(if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f))
+            .background(if (selected) StudioAccent else Color.White.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         Text(label, color = if (selected) Color.Black else Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
     }
 }
+
+/** Best-effort Compose font family for a font chip label (preview/export use the exact Android family). */
+private fun composeFontFamily(family: String): FontFamily = when (family) {
+    "serif" -> FontFamily.Serif
+    "monospace" -> FontFamily.Monospace
+    "cursive" -> FontFamily.Cursive
+    else -> FontFamily.SansSerif
+}
+
+/** An animation preset picker (In or Out) with a duration slider shown once a preset is chosen. */
+@Composable
+private fun AnimRow(label: String, selected: TextAnim, durationMs: Long, onPick: (TextAnim) -> Unit, onDuration: (Long) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp))
+            TEXT_ANIMS.forEach { (name, a) -> StudioToggle(name, selected == a) { onPick(a) } }
+        }
+        if (selected != TextAnim.NONE) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.video_anim_duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(64.dp))
+                androidx.compose.material3.Slider(
+                    value = durationMs / 1000f, onValueChange = { onDuration((it * 1000).toLong()) },
+                    valueRange = 0.1f..3f, colors = studioSliderColors(),
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+                Text("%.1fs".format(durationMs / 1000f), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
+            }
+        }
+    }
+}
+
+/** Bright, high-contrast slider colors for the dark studio (M3's default primary reads too dark). */
+@Composable
+private fun studioSliderColors() = androidx.compose.material3.SliderDefaults.colors(
+    thumbColor = StudioAccent,
+    activeTrackColor = StudioAccent,
+    inactiveTrackColor = Color.White.copy(alpha = 0.22f),
+)
 
 /** A labelled row of color swatches (text fill, border, or tag fill). */
 @Composable
@@ -809,7 +876,7 @@ private fun SwatchRow(label: String, swatches: List<Long>, selected: Int, onPick
         swatches.forEach { c ->
             Box(
                 Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
-                    .border(if (selected == c.toInt()) 3.dp else 1.dp, if (selected == c.toInt()) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                    .border(if (selected == c.toInt()) 3.dp else 1.dp, if (selected == c.toInt()) StudioAccent else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
                     .clickable { onPick(c.toInt()) },
             )
         }
@@ -822,7 +889,7 @@ private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel, o
     val sel = state.audioTracks.find { it.id == state.selectedAudioId }?.takeIf { state.activeAudio } ?: return
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = StudioAccent, modifier = Modifier.size(18.dp))
             Text(sel.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
             IconButton(onClick = onRequestDelete) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = MaterialTheme.colorScheme.error) }
             IconButton(onClick = onHide) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = stringResource(R.string.video_hide), tint = Color.White) }
@@ -855,7 +922,7 @@ private fun ConfirmDeleteSheet(title: String, onDismiss: () -> Unit, onConfirm: 
 private fun VolumeSlider(label: String, value: Float, onChange: (Float) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(96.dp))
-        androidx.compose.material3.Slider(value = value, onValueChange = onChange, valueRange = 0f..1f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+        androidx.compose.material3.Slider(value = value, onValueChange = onChange, valueRange = 0f..1f, colors = studioSliderColors(), modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
         Text("${(value * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
     }
 }

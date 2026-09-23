@@ -107,7 +107,7 @@ object VideoExporter {
             }
             if (videoVolume != 1f) volumeProcessor(videoVolume)?.let { audioProcessors.add(it) }
             if (overlays.isNotEmpty()) {
-                val textureOverlays = overlaysForClip(overlays, clipStart, clipEnd, h, w)
+                val textureOverlays = overlaysForClip(overlays, clipStart, clipEnd, totalMs, h, w)
                 if (textureOverlays.isNotEmpty()) videoEffects.add(OverlayEffect(ImmutableList.copyOf(textureOverlays)))
             }
             if (videoEffects.isNotEmpty() || audioProcessors.isNotEmpty()) {

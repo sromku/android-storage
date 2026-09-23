@@ -1184,6 +1184,9 @@
     <string name="video_border_color">Border</string>
     <string name="video_fill_color">Fill</string>
     <string name="video_rotate">Rotate</string>
+    <string name="video_anim_in">In</string>
+    <string name="video_anim_out">Out</string>
+    <string name="video_anim_duration">Speed</string>
     <string name="video_delete_music_q">Delete this music track?</string>
     <string name="video_delete_clip_q">Delete this clip?</string>
     <string name="video_pick_music">Pick music</string>

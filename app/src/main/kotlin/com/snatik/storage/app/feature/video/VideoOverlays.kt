@@ -13,6 +13,57 @@ import androidx.media3.effect.StaticOverlaySettings
 
 enum class OverlayKind { TEXT, IMAGE }
 
+/** Entrance/exit animations for an overlay. */
+enum class TextAnim { NONE, FADE, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, POP, SPIN }
+
+/** Selectable animations: display name to enum. */
+val TEXT_ANIMS: List<Pair<String, TextAnim>> = listOf(
+    "None" to TextAnim.NONE, "Fade" to TextAnim.FADE,
+    "Up" to TextAnim.SLIDE_UP, "Down" to TextAnim.SLIDE_DOWN,
+    "Left" to TextAnim.SLIDE_LEFT, "Right" to TextAnim.SLIDE_RIGHT,
+    "Pop" to TextAnim.POP, "Spin" to TextAnim.SPIN,
+)
+
+/** alpha 0..1, scale, dx/dy as a fraction of the frame, extra rotation degrees. */
+data class AnimTransform(val alpha: Float, val scale: Float, val dxNorm: Float, val dyNorm: Float, val rotation: Float)
+private val ANIM_IDENTITY = AnimTransform(1f, 1f, 0f, 0f, 0f)
+
+private fun easeOut(t: Float): Float { val c = t.coerceIn(0f, 1f); return 1f - (1f - c) * (1f - c) }
+
+private fun transformFor(anim: TextAnim, progress: Float, isOut: Boolean): AnimTransform {
+    if (anim == TextAnim.NONE) return ANIM_IDENTITY
+    val p = easeOut(progress) // p: 0 = hidden/entering, 1 = fully shown
+    val hx = when (anim) { TextAnim.SLIDE_LEFT -> if (isOut) -0.6f else 0.6f; TextAnim.SLIDE_RIGHT -> if (isOut) 0.6f else -0.6f; else -> 0f }
+    val hy = when (anim) { TextAnim.SLIDE_UP -> if (isOut) -0.45f else 0.45f; TextAnim.SLIDE_DOWN -> if (isOut) 0.45f else -0.45f; else -> 0f }
+    val scale = when (anim) { TextAnim.POP -> 0.2f + 0.8f * p; TextAnim.SPIN -> 0.5f + 0.5f * p; else -> 1f }
+    val rot = when (anim) { TextAnim.SPIN -> (1f - p) * (if (isOut) 120f else -120f); else -> 0f }
+    return AnimTransform(p, scale, (1f - p) * hx, (1f - p) * hy, rot)
+}
+
+/** The overlay's animation transform at [globalMs] within its [start]..[end] window. */
+fun overlayAnim(overlay: VideoOverlay, globalMs: Long, end: Long): AnimTransform {
+    val start = overlay.startMs
+    if (globalMs < start || globalMs >= end) return ANIM_IDENTITY
+    val inMs = overlay.animInMs.coerceAtLeast(1)
+    val outMs = overlay.animOutMs.coerceAtLeast(1)
+    return when {
+        overlay.animIn != TextAnim.NONE && globalMs < start + inMs -> transformFor(overlay.animIn, (globalMs - start).toFloat() / inMs, false)
+        overlay.animOut != TextAnim.NONE && globalMs >= end - outMs -> transformFor(overlay.animOut, (end - globalMs).toFloat() / outMs, true)
+        else -> ANIM_IDENTITY
+    }
+}
+
+/** Selectable fonts for text overlays: display name to Android family name. */
+val TEXT_FONTS: List<Pair<String, String>> = listOf(
+    "Sans" to "sans-serif",
+    "Serif" to "serif",
+    "Mono" to "monospace",
+    "Condensed" to "sans-serif-condensed",
+    "Black" to "sans-serif-black",
+    "Light" to "sans-serif-light",
+    "Cursive" to "cursive",
+)
+
 /**
  * A text/sticker/image overlay placed on the output at a normalized centre ([xNorm], [yNorm], y from
  * top) for a time window ([startMs]..[endMs] on the global timeline). Text is rendered to a bitmap so
@@ -31,11 +82,16 @@ data class VideoOverlay(
     val color: Int = Color.WHITE,
     val background: Boolean = false,
     val bgColor: Int = 0xCC000000.toInt(),
+    val font: String = "sans-serif", // Android family name, see TEXT_FONTS
     val bold: Boolean = true,
     val italic: Boolean = false,
     val outline: Boolean = false,
     val outlineColor: Int = Color.BLACK,
     val rotationDegrees: Float = 0f,
+    val animIn: TextAnim = TextAnim.NONE,
+    val animOut: TextAnim = TextAnim.NONE,
+    val animInMs: Long = 400,
+    val animOutMs: Long = 400,
     val startMs: Long = 0,
     val endMs: Long = Long.MAX_VALUE,
 ) {
@@ -56,9 +112,10 @@ fun renderTextOverlayBitmap(overlay: VideoOverlay, frameHeightPx: Int): Bitmap? 
         overlay.italic -> Typeface.ITALIC
         else -> Typeface.NORMAL
     }
+    val base = runCatching { Typeface.create(overlay.font.ifBlank { "sans-serif" }, Typeface.NORMAL) }.getOrDefault(Typeface.DEFAULT)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.textSize = textSize
-        typeface = Typeface.create(Typeface.DEFAULT, style)
+        typeface = Typeface.create(base, style) // apply bold/italic on top of the chosen family
     }
     val strokeW = if (overlay.outline) textSize * 0.10f else 0f
     val fm = paint.fontMetrics
@@ -88,28 +145,36 @@ fun renderTextOverlayBitmap(overlay: VideoOverlay, frameHeightPx: Int): Bitmap? 
 }
 
 @UnstableApi
-private fun settingsFor(overlay: VideoOverlay): OverlaySettings {
-    // Normalized top-left (0..1) centre -> NDC (-1..1, y up), overlay anchored at its own centre.
-    val ndcX = overlay.xNorm * 2f - 1f
-    val ndcY = 1f - overlay.yNorm * 2f
+private fun settingsFor(overlay: VideoOverlay, t: AnimTransform): OverlaySettings {
+    // Normalized top-left (0..1) centre -> NDC (-1..1, y up), plus the animation offset.
+    val ndcX = (overlay.xNorm + t.dxNorm) * 2f - 1f
+    val ndcY = 1f - (overlay.yNorm + t.dyNorm) * 2f
     return StaticOverlaySettings.Builder()
         .setBackgroundFrameAnchor(ndcX, ndcY)
         .setOverlayFrameAnchor(0f, 0f)
-        .setRotationDegrees(overlay.rotationDegrees) // matches the preview's clockwise rotation
+        .setScale(t.scale, t.scale)
+        .setAlphaScale(t.alpha.coerceIn(0f, 1f))
+        .setRotationDegrees(overlay.rotationDegrees + t.rotation) // matches the preview's clockwise rotation
         .build()
 }
 
+/** A bitmap overlay whose settings animate over time (fade/slide/pop/spin in and out). */
 @UnstableApi
 private class TimedBitmap(
     private val bitmap: Bitmap,
-    private val settings: OverlaySettings,
+    private val overlay: VideoOverlay,
+    private val clipStartGlobalMs: Long,
+    private val windowEndMs: Long,
     private val startUs: Long,
     private val endUs: Long,
 ) : BitmapOverlay() {
     private val blank = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     override fun getBitmap(presentationTimeUs: Long): Bitmap =
         if (presentationTimeUs in startUs until endUs) bitmap else blank
-    override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings = settings
+    override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+        val globalMs = clipStartGlobalMs + presentationTimeUs / 1000
+        return settingsFor(overlay, overlayAnim(overlay, globalMs, windowEndMs))
+    }
 }
 
 /**
@@ -121,23 +186,24 @@ fun overlaysForClip(
     overlays: List<VideoOverlay>,
     clipStartGlobalMs: Long,
     clipEndGlobalMs: Long,
+    videoTotalMs: Long,
     frameHeightPx: Int,
     frameWidthPx: Int,
 ): List<androidx.media3.effect.TextureOverlay> = overlays.mapNotNull { ov ->
+    val windowEnd = if (ov.endMs == Long.MAX_VALUE) videoTotalMs else ov.endMs // for the out-animation
     val s = maxOf(ov.startMs, clipStartGlobalMs)
-    val e = minOf(if (ov.endMs == Long.MAX_VALUE) clipEndGlobalMs else ov.endMs, clipEndGlobalMs)
+    val e = minOf(windowEnd, clipEndGlobalMs)
     if (e <= s) return@mapNotNull null
     val startUs = (s - clipStartGlobalMs) * 1000
     val endUs = (e - clipStartGlobalMs) * 1000
-    val settings = settingsFor(ov)
     when (ov.kind) {
         OverlayKind.TEXT -> {
             val bmp = renderTextOverlayBitmap(ov, frameHeightPx) ?: return@mapNotNull null
-            TimedBitmap(bmp, settings, startUs, endUs)
+            TimedBitmap(bmp, ov, clipStartGlobalMs, windowEnd, startUs, endUs)
         }
         OverlayKind.IMAGE -> {
             val bmp = ov.bitmap ?: return@mapNotNull null
-            TimedBitmap(bmp, settings, startUs, endUs)
+            TimedBitmap(bmp, ov, clipStartGlobalMs, windowEnd, startUs, endUs)
         }
     }
 }
