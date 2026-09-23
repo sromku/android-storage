@@ -207,7 +207,14 @@ class VideoStudioViewModel(application: Application, private val path: String) :
      * seeks) and seek only the video player, so the preview tracks the finger smoothly, like playback. */
     fun scrubSeek(globalMs: Long) {
         if (segments.isEmpty()) return
-        if (!scrubbing) { scrubbing = true; runCatching { player.setScrubbingModeEnabled(true) } }
+        // Scrubbing mode only works with a single media item - with cuts, a scrub that crosses a clip
+        // boundary crashes ExoPlayer 1.8 (evaluateMediaItemTransitionReason). Use it only when there's
+        // one segment; otherwise fall back to plain seeks.
+        if (segments.size == 1) {
+            if (!scrubbing) { scrubbing = true; runCatching { player.setScrubbingModeEnabled(true) } }
+        } else {
+            endScrubbingMode()
+        }
         val clamped = globalMs.coerceIn(0, _state.value.totalMs)
         val index = segments.indexOfLast { it.globalStartMs <= clamped }.coerceIn(0, segments.lastIndex)
         val seg = segments[index]
