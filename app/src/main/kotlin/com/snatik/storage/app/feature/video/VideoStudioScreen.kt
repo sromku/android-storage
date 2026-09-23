@@ -119,10 +119,17 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     // Which kind of file the in-app explorer is picking (null = closed).
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     var confirmDelete by remember { mutableStateOf(false) } // gate deletes behind a confirm sheet
-    // While paused, the preview is the cached frame at the playhead: instant, always correct, and it
-    // updates on scrub/split/delete. The player drives the preview only during playback (a paused
-    // ExoPlayer doesn't reliably render a seeked frame, which showed stale frames after scrubbing).
-    val previewFrame = if (state.playing) null else scrubFrame(state, state.positionMs)
+    // The exact frame at the playhead, decoded once the playhead settles (a paused ExoPlayer doesn't
+    // reliably render a seeked frame). While dragging we fall back to the nearest cached thumbnail so
+    // the preview is instant; when you stop, it refines to the true frame at that position.
+    var exactFrame by remember { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(state.positionMs, state.playing, state.clips) {
+        exactFrame = null
+        if (state.playing) return@LaunchedEffect
+        kotlinx.coroutines.delay(90) // wait for the playhead to stop moving, then decode the real frame
+        exactFrame = withContext(Dispatchers.IO) { decodeExactFrame(context, state, state.positionMs) }
+    }
+    val previewFrame = if (state.playing) null else (exactFrame ?: scrubFrame(state, state.positionMs))
 
     Scaffold(
         containerColor = Color.Black,
@@ -865,6 +872,27 @@ private fun scrubFrame(state: VideoStudioState, globalMs: Long): Bitmap? {
         frameCache.get("${clip.uri}|${(target - step * FRAME_GRID_MS).coerceAtLeast(0)}")?.let { return it }
     }
     return null
+}
+
+/** Decode the true frame at a global timeline position (OPTION_CLOSEST, higher-res) for the resting preview. */
+private fun decodeExactFrame(context: android.content.Context, state: VideoStudioState, globalMs: Long): Bitmap? {
+    val cs = state.clips
+    if (cs.isEmpty()) return null
+    var remaining = globalMs.coerceIn(0, state.totalMs)
+    var i = 0
+    while (i < cs.lastIndex && remaining > cs[i].durationMs) { remaining -= cs[i].durationMs; i++ }
+    val clip = cs[i]
+    val sourceMs = clip.startMs + (remaining * clip.speed).toLong()
+    val r = MediaMetadataRetriever()
+    return try {
+        r.setDataSource(context, clip.uri)
+        // OPTION_CLOSEST returns the actual frame nearest the time, not the nearest keyframe.
+        r.getScaledFrameAtTime(sourceMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST, 640, 640)
+    } catch (e: Exception) {
+        null
+    } finally {
+        r.release()
+    }
 }
 
 /**
