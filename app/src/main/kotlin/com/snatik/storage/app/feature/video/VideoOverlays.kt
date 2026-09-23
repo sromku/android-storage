@@ -10,8 +10,9 @@ import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.OverlaySettings
 import androidx.media3.effect.BitmapOverlay
-import androidx.media3.effect.OverlaySettings
+import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 
 enum class OverlayKind { TEXT, IMAGE }
@@ -43,7 +44,7 @@ private fun settingsFor(overlay: VideoOverlay): OverlaySettings {
     // Normalized top-left (0..1) centre -> NDC (-1..1, y up), overlay anchored at its own centre.
     val ndcX = overlay.xNorm * 2f - 1f
     val ndcY = 1f - overlay.yNorm * 2f
-    return OverlaySettings.Builder()
+    return StaticOverlaySettings.Builder()
         .setBackgroundFrameAnchor(ndcX, ndcY)
         .setOverlayFrameAnchor(0f, 0f)
         .build()

@@ -119,17 +119,6 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     // Which kind of file the in-app explorer is picking (null = closed).
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     var confirmDelete by remember { mutableStateOf(false) } // gate deletes behind a confirm sheet
-    // The exact frame at the playhead, decoded once the playhead settles (a paused ExoPlayer doesn't
-    // reliably render a seeked frame). While dragging we fall back to the nearest cached thumbnail so
-    // the preview is instant; when you stop, it refines to the true frame at that position.
-    var exactFrame by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(state.positionMs, state.playing, state.clips) {
-        exactFrame = null
-        if (state.playing) return@LaunchedEffect
-        kotlinx.coroutines.delay(90) // wait for the playhead to stop moving, then decode the real frame
-        exactFrame = withContext(Dispatchers.IO) { decodeExactFrame(context, state, state.positionMs) }
-    }
-    val previewFrame = if (state.playing) null else (exactFrame ?: scrubFrame(state, state.positionMs))
 
     Scaffold(
         containerColor = Color.Black,
@@ -170,9 +159,6 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
-                previewFrame?.let { bmp ->
-                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                }
                 OverlayLayer(
                     state = state,
                     onMove = viewModel::setOverlayPosition,
@@ -207,8 +193,8 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
                 Timeline(
                     state,
-                    onScrubPos = viewModel::setScrubPosition,
-                    onScrubEnd = { ms -> viewModel.seekToGlobal(ms) }, // move the real player so playback resumes here
+                    onScrubPos = viewModel::scrubSeek, // seek the real player as you drag: frame-accurate, smooth like playback
+                    onScrubEnd = { ms -> viewModel.seekToGlobal(ms) },
                     onSelect = viewModel::select,
                     onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
@@ -380,12 +366,13 @@ private fun Timeline(
     }
     LaunchedEffect(pxPerMs) {
         var wasScrubbing = false
-        snapshotFlow { Triple(scroll.value, scroll.isScrollInProgress, liveState.playing) }.collect { (v, dragging, playing) ->
-            if (playing) { wasScrubbing = false; return@collect }
+        var lastV = scroll.value
+        snapshotFlow { Triple(scroll.value, scroll.isScrollInProgress, liveState.playing) }.collect { (v, scrolling, playing) ->
+            if (playing) { wasScrubbing = false; lastV = v; return@collect }
             val ms = (v / pxPerMs).toLong()
             when {
-                dragging -> { onScrubPos(ms); wasScrubbing = true } // positionMs drives the cached preview frame
-                wasScrubbing -> { onScrubEnd(ms); wasScrubbing = false } // seek the real player for playback
+                v != lastV -> { lastV = v; onScrubPos(ms); wasScrubbing = true } // scroll moved: scrub the player
+                wasScrubbing && !scrolling -> { onScrubEnd(ms); wasScrubbing = false } // settled: exact seek for playback
             }
         }
     }

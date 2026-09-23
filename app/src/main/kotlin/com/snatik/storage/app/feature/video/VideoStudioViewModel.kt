@@ -58,6 +58,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     private val uri: Uri = Uri.fromFile(File(path))
     private var nextId = 1L
     private var transformer: Transformer? = null
+    // Declared before init(): a property initializer here runs AFTER the init block, so if this lived
+    // below init it would wipe the value that init's rebuildPlaylist() sets, leaving segments empty.
+    private var segments: List<PlaySegment> = emptyList()
 
     init {
         val r = MediaMetadataRetriever()
@@ -119,8 +122,6 @@ class VideoStudioViewModel(application: Application, private val path: String) :
                     .setStartPositionMs(startMs).setEndPositionMs(endMs).build(),
             ).build()
     }
-
-    private var segments: List<PlaySegment> = emptyList()
 
     private fun buildSegments(): List<PlaySegment> {
         val cs = clips()
@@ -200,9 +201,29 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(positionMs = clamped, selectedId = clipIdAt(clamped))
     }
 
+    private var scrubbing = false
+
+    /** Lightweight seek while dragging: turn on ExoPlayer scrubbing mode (optimizes rapid frame-accurate
+     * seeks) and seek only the video player, so the preview tracks the finger smoothly, like playback. */
+    fun scrubSeek(globalMs: Long) {
+        if (segments.isEmpty()) return
+        if (!scrubbing) { scrubbing = true; runCatching { player.setScrubbingModeEnabled(true) } }
+        val clamped = globalMs.coerceIn(0, _state.value.totalMs)
+        val index = segments.indexOfLast { it.globalStartMs <= clamped }.coerceIn(0, segments.lastIndex)
+        val seg = segments[index]
+        val sourceLocal = ((clamped - seg.globalStartMs) * seg.speed).toLong().coerceIn(0, seg.endMs - seg.startMs)
+        player.seekTo(index, sourceLocal)
+        _state.value = _state.value.copy(positionMs = clamped, selectedId = clipIdAt(clamped))
+    }
+
+    private fun endScrubbingMode() {
+        if (scrubbing) { scrubbing = false; runCatching { player.setScrubbingModeEnabled(false) } }
+    }
+
     /** Map a global timeline ms to (segment index, local ms) and seek the player there (frame-accurate). */
     fun seekToGlobal(globalMs: Long) {
         if (segments.isEmpty()) return
+        endScrubbingMode() // leaving a drag: back to normal playback seeks
         val clamped = globalMs.coerceIn(0, _state.value.totalMs)
         val index = segments.indexOfLast { it.globalStartMs <= clamped }.coerceIn(0, segments.lastIndex)
         val seg = segments[index]
@@ -215,6 +236,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     }
 
     fun playPause() {
+        endScrubbingMode()
         if (player.isPlaying) player.pause() else { if (player.playbackState == Player.STATE_ENDED) seekToGlobal(0); player.play() }
         syncAudio()
     }
