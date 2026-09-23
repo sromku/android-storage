@@ -48,7 +48,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.runtime.Composable
@@ -246,19 +245,12 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
 
         filePicker?.let { kind ->
             val audio = kind == FilePickKind.AUDIO
-            com.snatik.storage.app.ui.components.FilePickerSheet(
+            com.snatik.storage.app.ui.components.MediaPickerSheet(
+                kind = if (audio) com.snatik.storage.app.ui.components.MediaPickKind.AUDIO else com.snatik.storage.app.ui.components.MediaPickKind.VIDEO,
                 title = stringResource(if (audio) R.string.video_pick_music else R.string.video_pick_clip),
-                fileIcon = if (audio) androidx.compose.material.icons.Icons.Default.MusicNote else androidx.compose.material.icons.Icons.Default.Movie,
-                accept = { f ->
-                    val n = f.name.lowercase()
-                    val exts = if (audio) listOf(".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac", ".opus", ".mid")
-                    else listOf(".mp4", ".mov", ".mkv", ".webm", ".3gp", ".avi", ".m4v")
-                    exts.any { n.endsWith(it) }
-                },
                 onDismiss = { filePicker = null },
-                onPick = { f ->
+                onPick = { uri ->
                     filePicker = null
-                    val uri = android.net.Uri.fromFile(f)
                     if (audio) viewModel.addAudio(uri) else viewModel.insertClipAtPlayhead(uri)
                 },
             )

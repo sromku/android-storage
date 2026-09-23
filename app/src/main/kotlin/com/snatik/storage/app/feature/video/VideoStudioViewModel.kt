@@ -95,6 +95,42 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     private fun clips() = _state.value.clips
 
+    /**
+     * The player's playlist, where contiguous clips of the same source at the same speed are merged into
+     * one item. Splitting a clip you don't delete then plays through as a single uninterrupted source, so
+     * there's no decoder re-init (and no pause) at the cut. Only real jumps - a deleted section or a
+     * speed change - stay as separate items.
+     */
+    private data class PlaySegment(val uri: Uri, val startMs: Long, val endMs: Long, val speed: Float, val globalStartMs: Long) {
+        fun toMediaItem(): androidx.media3.common.MediaItem = androidx.media3.common.MediaItem.Builder()
+            .setUri(uri)
+            .setClippingConfiguration(
+                androidx.media3.common.MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(startMs).setEndPositionMs(endMs).build(),
+            ).build()
+    }
+
+    private var segments: List<PlaySegment> = emptyList()
+
+    private fun buildSegments(): List<PlaySegment> {
+        val cs = clips()
+        val segs = ArrayList<PlaySegment>()
+        var globalMs = 0L
+        var i = 0
+        while (i < cs.size) {
+            val first = cs[i]
+            var end = first.endMs
+            var j = i + 1
+            while (j < cs.size && cs[j].uri == cs[j - 1].uri && cs[j].speed == first.speed && cs[j].startMs == cs[j - 1].endMs) {
+                end = cs[j].endMs; j++
+            }
+            segs.add(PlaySegment(first.uri, first.startMs, end, first.speed, globalMs))
+            globalMs += ((end - first.startMs) / first.speed).toLong()
+            i = j
+        }
+        return segs
+    }
+
     /** Sum of clip durations before [index]. */
     private fun prefix(index: Int): Long = clips().take(index).sumOf { it.durationMs }
 
@@ -111,12 +147,12 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     private fun clipIdAt(globalMs: Long): Long = clips().getOrNull(clipIndexAt(globalMs))?.id ?: _state.value.selectedId
 
     private fun globalPosition(): Long {
-        val cs = clips()
-        if (cs.isEmpty()) return 0
-        val idx = player.currentMediaItemIndex.coerceIn(0, cs.lastIndex)
+        if (segments.isEmpty()) return 0
+        val idx = player.currentMediaItemIndex.coerceIn(0, segments.lastIndex)
+        val seg = segments[idx]
         // player.currentPosition is source-clip time; divide by speed to get timeline time.
-        val local = (player.currentPosition / cs[idx].speed).toLong()
-        return (prefix(idx) + local).coerceIn(0, _state.value.totalMs)
+        val local = (player.currentPosition / seg.speed).toLong()
+        return (seg.globalStartMs + local).coerceIn(0, _state.value.totalMs)
     }
 
     /** The player's live position on the global timeline (for waiting out a seek before dropping the proxy). */
@@ -124,9 +160,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     /** Match the player's playback speed to the clip currently under the playhead. */
     private fun applyCurrentSpeed() {
-        val cs = clips()
-        val idx = player.currentMediaItemIndex.coerceIn(0, cs.lastIndex.coerceAtLeast(0))
-        val speed = cs.getOrNull(idx)?.speed ?: 1f
+        if (segments.isEmpty()) return
+        val idx = player.currentMediaItemIndex.coerceIn(0, segments.lastIndex)
+        val speed = segments[idx].speed
         // Only touch playback params when the speed actually changes; resetting it on every clip
         // transition caused a visible hitch between same-speed cuts.
         if (kotlin.math.abs(player.playbackParameters.speed - speed) > 0.001f) {
@@ -135,12 +171,12 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     }
 
     private fun rebuildPlaylist(seekToGlobalMs: Long) {
-        val cs = clips()
-        player.setMediaItems(cs.map { it.toMediaItem() })
+        segments = buildSegments()
+        player.setMediaItems(segments.map { it.toMediaItem() })
         player.prepare()
         seekToGlobal(seekToGlobalMs)
         applyCurrentSpeed()
-        _state.value = _state.value.copy(totalMs = cs.sumOf { it.durationMs })
+        _state.value = _state.value.copy(totalMs = clips().sumOf { it.durationMs })
     }
 
     /**
@@ -154,18 +190,17 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(positionMs = clamped, selectedId = clipIdAt(clamped))
     }
 
-    /** Map a global timeline ms to (clip index, local ms) and seek the player there (frame-accurate). */
+    /** Map a global timeline ms to (segment index, local ms) and seek the player there (frame-accurate). */
     fun seekToGlobal(globalMs: Long) {
-        val cs = clips()
-        if (cs.isEmpty()) return
-        var remaining = globalMs.coerceIn(0, _state.value.totalMs)
-        var index = 0
-        while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
-        val sourceLocal = (remaining * cs[index].speed).toLong().coerceIn(0, cs[index].sourceDurationMs)
+        if (segments.isEmpty()) return
+        val clamped = globalMs.coerceIn(0, _state.value.totalMs)
+        val index = segments.indexOfLast { it.globalStartMs <= clamped }.coerceIn(0, segments.lastIndex)
+        val seg = segments[index]
+        val sourceLocal = ((clamped - seg.globalStartMs) * seg.speed).toLong().coerceIn(0, seg.endMs - seg.startMs)
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
         // The clip under the playhead is always the selected one, so split/delete/speed act where you are.
-        _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs), selectedId = cs[index].id)
+        _state.value = _state.value.copy(positionMs = clamped, selectedId = clipIdAt(clamped))
         syncAudio()
     }
 
