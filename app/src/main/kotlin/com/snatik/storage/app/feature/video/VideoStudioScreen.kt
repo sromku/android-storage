@@ -118,17 +118,11 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     var showAddSheet by remember { mutableStateOf(false) }
     // Which kind of file the in-app explorer is picking (null = closed).
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
-    // Low-res cached frame painted over the player while scrubbing, so the preview is instant.
-    var scrubBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var confirmDelete by remember { mutableStateOf(false) } // gate deletes behind a confirm sheet
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // Pending "drop the proxy" job, cancelled if scrubbing resumes before the player catches up.
-    val clearProxyJob = remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-    // Once playing, the player drives the preview; drop any lingering proxy frame.
-    LaunchedEffect(state.playing) {
-        if (state.playing) { clearProxyJob.value?.cancel(); scrubBitmap = null }
-    }
+    // While paused, the preview is the cached frame at the playhead: instant, always correct, and it
+    // updates on scrub/split/delete. The player drives the preview only during playback (a paused
+    // ExoPlayer doesn't reliably render a seeked frame, which showed stale frames after scrubbing).
+    val previewFrame = if (state.playing) null else scrubFrame(state, state.positionMs)
 
     Scaffold(
         containerColor = Color.Black,
@@ -169,7 +163,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
-                scrubBitmap?.let { bmp ->
+                previewFrame?.let { bmp ->
                     Image(bitmap = bmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 }
                 OverlayLayer(
@@ -207,24 +201,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 Timeline(
                     state,
                     onScrubPos = viewModel::setScrubPosition,
-                    onScrubFrame = { bmp ->
-                        // A new proxy frame arrived: cancel any pending hand-off and show it.
-                        clearProxyJob.value?.cancel()
-                        if (bmp != null) scrubBitmap = bmp
-                    },
-                    onScrubEnd = { ms ->
-                        // Seek the real player, but keep the proxy up until the player has reached the
-                        // target, so the preview upgrades in place instead of flashing the old frame.
-                        viewModel.seekToGlobal(ms)
-                        clearProxyJob.value?.cancel()
-                        clearProxyJob.value = scope.launch {
-                            kotlinx.coroutines.withTimeoutOrNull(600) {
-                                while (kotlin.math.abs(viewModel.currentGlobalPosition() - ms) > 60) kotlinx.coroutines.delay(16)
-                            }
-                            kotlinx.coroutines.delay(40) // let the player paint the seeked frame before dropping the proxy
-                            scrubBitmap = null
-                        }
-                    },
+                    onScrubEnd = { ms -> viewModel.seekToGlobal(ms) }, // move the real player so playback resumes here
                     onSelect = viewModel::select,
                     onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
@@ -352,7 +329,6 @@ private fun speedLabel(s: Float): String = if (s == s.toLong().toFloat()) "${s.t
 private fun Timeline(
     state: VideoStudioState,
     onScrubPos: (Long) -> Unit,
-    onScrubFrame: (Bitmap?) -> Unit,
     onScrubEnd: (Long) -> Unit,
     onSelect: (Long) -> Unit,
     onTrimStart: (Long, Long) -> Unit,
@@ -401,8 +377,8 @@ private fun Timeline(
             if (playing) { wasScrubbing = false; return@collect }
             val ms = (v / pxPerMs).toLong()
             when {
-                dragging -> { onScrubPos(ms); onScrubFrame(scrubFrame(liveState, ms)); wasScrubbing = true } // instant cached frame
-                wasScrubbing -> { onScrubEnd(ms); wasScrubbing = false } // hand off to the real player once the finger lifts
+                dragging -> { onScrubPos(ms); wasScrubbing = true } // positionMs drives the cached preview frame
+                wasScrubbing -> { onScrubEnd(ms); wasScrubbing = false } // seek the real player for playback
             }
         }
     }
@@ -440,6 +416,7 @@ private fun Timeline(
             audioRows.forEach { rowTracks ->
                 Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(audioLaneH).padding(top = 4.dp)) {
                     rowTracks.forEach { track ->
+                        androidx.compose.runtime.key(track.id) {
                         val wave by produceState<FloatArray?>(initialValue = cachedWaveform(track.uri), track.uri) {
                             value = withContext(Dispatchers.IO) { extractWaveform(context, track.uri) }
                         }
@@ -454,6 +431,7 @@ private fun Timeline(
                             waveStartFrac = if (track.durationMs > 0) track.clipStartMs.toFloat() / track.durationMs else 0f,
                             waveEndFrac = if (track.durationMs > 0) track.outMs.toFloat() / track.durationMs else 1f,
                         )
+                        }
                     }
                 }
             }
@@ -480,6 +458,10 @@ private fun TrackPill(
 ) {
     val density = LocalDensity.current
     val widthDp = with(density) { (lengthMs * pxPerMs).toDp() }.coerceAtLeast(28.dp)
+    // pointerInput(Unit) captures its lambdas once; keep the latest so a reordered pill (audio rows
+    // re-sort by start) drags the track you actually pressed, not a stale one.
+    val curSelect by androidx.compose.runtime.rememberUpdatedState(onSelect)
+    val curShift by androidx.compose.runtime.rememberUpdatedState(onShift)
     Box(
         Modifier
             .offset { androidx.compose.ui.unit.IntOffset((startMs * pxPerMs).toInt(), 0) }
@@ -510,21 +492,22 @@ private fun TrackPill(
             .clickable(onClick = onSelect)
             .pointerInput(Unit) {
                 // Drag the body to move the whole window along the timeline.
-                detectHorizontalDragGestures { change, drag -> change.consume(); onSelect(); onShift((drag / pxPerMs).toLong()) }
+                detectHorizontalDragGestures { change, drag -> change.consume(); curSelect(); curShift((drag / pxPerMs).toLong()) }
             },
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 14.dp))
         // When selected, drag either edge to crop the window's start / end (like a clip's trim handles).
         if (selected && onTrimStart != null && onTrimEnd != null) {
-            PillTrimHandle(Alignment.CenterStart) { dxPx -> onSelect(); onTrimStart((dxPx / pxPerMs).toLong()) }
-            PillTrimHandle(Alignment.CenterEnd) { dxPx -> onSelect(); onTrimEnd((dxPx / pxPerMs).toLong()) }
+            PillTrimHandle(Alignment.CenterStart) { dxPx -> curSelect(); onTrimStart((dxPx / pxPerMs).toLong()) }
+            PillTrimHandle(Alignment.CenterEnd) { dxPx -> curSelect(); onTrimEnd((dxPx / pxPerMs).toLong()) }
         }
     }
 }
 
 @Composable
 private fun BoxScope.PillTrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
+    val curDrag by androidx.compose.runtime.rememberUpdatedState(onDrag)
     Box(
         Modifier
             .align(align)
@@ -532,7 +515,7 @@ private fun BoxScope.PillTrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
             .width(12.dp)
             .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
             .pointerInput(Unit) {
-                detectHorizontalDragGestures { change, dragAmount -> change.consume(); onDrag(dragAmount) }
+                detectHorizontalDragGestures { change, dragAmount -> change.consume(); curDrag(dragAmount) }
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -844,7 +827,7 @@ private fun fmt(ms: Long): String {
     return "%d:%02d.%d".format(totalS / 60, totalS % 60, (ms % 1000) / 100)
 }
 
-private const val FRAME_GRID_MS = 500L // snap sample times to a fixed absolute grid, so any split/trim reuses frames
+private const val FRAME_GRID_MS = 250L // snap sample times to a fixed absolute grid, so any split/trim reuses frames
 // Decoded thumbnails, keyed by "uri|gridMs" on absolute source time (not clip bounds), so a clip and
 // its split halves hit the same entries; these also back the instant scrub preview. Budgeted by bytes.
 private val frameCache = object : android.util.LruCache<String, Bitmap>(48 * 1024 * 1024) {
@@ -873,7 +856,15 @@ private fun scrubFrame(state: VideoStudioState, globalMs: Long): Bitmap? {
     while (i < cs.lastIndex && remaining > cs[i].durationMs) { remaining -= cs[i].durationMs; i++ }
     val clip = cs[i]
     val sourceMs = clip.startMs + (remaining * clip.speed).toLong()
-    return frameCache.get("${clip.uri}|${snapMs(sourceMs)}")
+    val target = snapMs(sourceMs)
+    frameCache.get("${clip.uri}|$target")?.let { return it }
+    // Not decoded yet at this exact grid point: show the nearest cached frame so the preview tracks
+    // the finger instead of freezing on the pre-scrub frame while the background warm catches up.
+    for (step in 1..24) {
+        frameCache.get("${clip.uri}|${target + step * FRAME_GRID_MS}")?.let { return it }
+        frameCache.get("${clip.uri}|${(target - step * FRAME_GRID_MS).coerceAtLeast(0)}")?.let { return it }
+    }
+    return null
 }
 
 /**
