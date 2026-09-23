@@ -463,6 +463,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     fun selectAudio(id: Long) { _state.value = _state.value.copy(selectedAudioId = id, activeAudio = true) }
 
+    /** Hide the music editor without deleting the track (deselect). */
+    fun clearAudioSelection() { _state.value = _state.value.copy(selectedAudioId = -1, activeAudio = false) }
+
     fun removeAudio(id: Long) {
         audioPlayers.remove(id)?.release()
         _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.filterNot { it.id == id }, selectedAudioId = -1, activeAudio = false)

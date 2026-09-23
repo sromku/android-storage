@@ -120,6 +120,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     // Low-res cached frame painted over the player while scrubbing, so the preview is instant.
     var scrubBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) } // gate deletes behind a confirm sheet
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Pending "drop the proxy" job, cancelled if scrubbing resumes before the player catches up.
     val clearProxyJob = remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -178,29 +179,30 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 )
             }
 
-            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { viewModel.playPause() }) {
-                        Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                    }
-                    Text(
-                        "${fmt(state.positionMs)} / ${fmt(state.totalMs)}",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { filePicker = FilePickKind.VIDEO }) {
-                        Icon(androidx.compose.material.icons.Icons.Default.LibraryAdd, contentDescription = stringResource(R.string.video_insert), tint = Color.White)
-                    }
-                    IconButton(onClick = { viewModel.splitAtPlayhead() }) {
-                        Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
-                    }
-                    val canDelete = state.activeAudio || state.clips.size > 1
-                    IconButton(onClick = { viewModel.deleteSelected() }, enabled = canDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (canDelete) Color.White else Color.DarkGray)
-                    }
+            // Fixed transport bar: play/pause + tools stay put no matter how much you add below.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { viewModel.playPause() }) {
+                    Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                 }
+                Text(
+                    "${fmt(state.positionMs)} / ${fmt(state.totalMs)}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { filePicker = FilePickKind.VIDEO }) {
+                    Icon(androidx.compose.material.icons.Icons.Default.LibraryAdd, contentDescription = stringResource(R.string.video_insert), tint = Color.White)
+                }
+                IconButton(onClick = { viewModel.splitAtPlayhead() }) {
+                    Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
+                }
+                val canDelete = state.activeAudio || state.clips.size > 1
+                IconButton(onClick = { confirmDelete = true }, enabled = canDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (canDelete) Color.White else Color.DarkGray)
+                }
+            }
 
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
                 Timeline(
                     state,
@@ -231,9 +233,18 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     onTrimAudioStart = viewModel::trimAudioStart, onTrimAudioEnd = viewModel::trimAudioEnd,
                 )
                 OverlayBar(state, viewModel)
-                AudioBar(state, viewModel)
+                AudioBar(state, viewModel, onHide = { viewModel.clearAudioSelection() }, onRequestDelete = { confirmDelete = true })
                 Spacer(Modifier.height(8.dp))
             }
+        }
+
+        if (confirmDelete) {
+            val isAudio = state.activeAudio
+            ConfirmDeleteSheet(
+                title = stringResource(if (isAudio) R.string.video_delete_music_q else R.string.video_delete_clip_q),
+                onDismiss = { confirmDelete = false },
+                onConfirm = { confirmDelete = false; viewModel.deleteSelected() },
+            )
         }
 
         if (showAddSheet) {
@@ -785,18 +796,36 @@ private fun StudioToggle(label: String, selected: Boolean, onClick: () -> Unit) 
 }
 
 @Composable
-private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel) {
-    if (state.audioTracks.isEmpty()) return
+private fun AudioBar(state: VideoStudioState, viewModel: VideoStudioViewModel, onHide: () -> Unit, onRequestDelete: () -> Unit) {
+    // Only show the editor for the actively-selected track; tap a track on the timeline to open it.
+    val sel = state.audioTracks.find { it.id == state.selectedAudioId }?.takeIf { state.activeAudio } ?: return
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        run {
-            val sel = state.audioTracks.find { it.id == state.selectedAudioId } ?: state.audioTracks.last()
-            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Text(sel.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                IconButton(onClick = { viewModel.removeAudio(sel.id) }) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = null, tint = Color.White) }
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(androidx.compose.material.icons.Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Text(sel.name, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            IconButton(onClick = onRequestDelete) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = MaterialTheme.colorScheme.error) }
+            IconButton(onClick = onHide) { Icon(androidx.compose.material.icons.Icons.Default.Close, contentDescription = stringResource(R.string.video_hide), tint = Color.White) }
+        }
+        VolumeSlider(stringResource(R.string.video_music_volume), sel.volume) { viewModel.setAudioVolume(sel.id, it) }
+        VolumeSlider(stringResource(R.string.video_video_volume), state.videoVolume) { viewModel.setVideoVolume(it) }
+    }
+}
+
+/** A destructive-action confirm sheet (deletes are gated so a mis-tap can't remove a track or clip). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConfirmDeleteSheet(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF1B1B1B)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp).padding(bottom = 12.dp)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                androidx.compose.material3.OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.cancel)) }
+                androidx.compose.material3.Button(
+                    onClick = onConfirm,
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.delete)) }
             }
-            VolumeSlider(stringResource(R.string.video_music_volume), sel.volume) { viewModel.setAudioVolume(sel.id, it) }
-            VolumeSlider(stringResource(R.string.video_video_volume), state.videoVolume) { viewModel.setVideoVolume(it) }
         }
     }
 }

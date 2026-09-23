@@ -1176,6 +1176,9 @@
     <string name="video_add_sticker_desc">A photo or sticker overlay</string>
     <string name="video_add_music_desc">A song or sound on its own track</string>
     <string name="video_insert_desc">Drop another video clip at the playhead</string>
+    <string name="video_hide">Hide</string>
+    <string name="video_delete_music_q">Delete this music track?</string>
+    <string name="video_delete_clip_q">Delete this clip?</string>
     <string name="video_pick_music">Pick music</string>
     <string name="video_pick_clip">Pick a clip</string>
     <string name="no_files_here">No files here</string>
