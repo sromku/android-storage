@@ -138,6 +138,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                             useController = false
                             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                             setBackgroundColor(android.graphics.Color.BLACK)
+                            setKeepContentOnPlayerReset(true) // hold the last frame through split/rebuild instead of flashing black
                             player = viewModel.player
                         }
                     },
@@ -336,9 +337,14 @@ private fun ClipView(
     onTrim: (Long, Long) -> Unit,
 ) {
     val density = LocalDensity.current
+    val context = LocalContext.current
     val widthDp = with(density) { widthPx.toDp() }.coerceAtLeast(24.dp)
-    val thumb by produceState<Bitmap?>(initialValue = null, clip.uri, clip.startMs, clip.endMs) {
-        value = withContext(Dispatchers.IO) { frameAt(clip.uri, (clip.startMs + clip.endMs) / 2) }
+    // A real filmstrip: one thumbnail cell per ~54dp of clip width, each sampled across the source range,
+    // so you can read the motion as you scrub instead of one frame smeared over the whole clip.
+    val cells = (widthDp.value / 54f).toInt().coerceIn(1, 24)
+    val cellWidth = widthDp / cells
+    val frames by produceState(initialValue = emptyList<Bitmap?>(), clip.uri, clip.startMs, clip.endMs, cells) {
+        value = withContext(Dispatchers.IO) { loadFrames(context, clip.uri, clip.startMs, clip.endMs, cells) }
     }
     Box(
         Modifier
@@ -349,8 +355,14 @@ private fun ClipView(
             .border(width = if (selected) 2.dp else 0.dp, color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, shape = RoundedCornerShape(8.dp))
             .clickable(onClick = onSelect),
     ) {
-        thumb?.let {
-            Image(bitmap = it.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Row(Modifier.fillMaxSize()) {
+            repeat(cells) { i ->
+                Box(Modifier.width(cellWidth).fillMaxHeight().background(Color(0xFF1E1E1E))) {
+                    frames.getOrNull(i)?.let { bmp ->
+                        Image(bitmap = bmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    }
+                }
+            }
         }
         Text(
             fmt(clip.durationMs),
@@ -577,12 +589,19 @@ private fun fmt(ms: Long): String {
     return "%d:%02d.%d".format(totalS / 60, totalS % 60, (ms % 1000) / 100)
 }
 
-private fun frameAt(uri: Uri, atMs: Long): Bitmap? = runCatching {
+/** Decode [count] evenly-spaced thumbnails across a clip's source range for the timeline filmstrip. */
+private fun loadFrames(context: android.content.Context, uri: Uri, startMs: Long, endMs: Long, count: Int): List<Bitmap?> {
     val r = MediaMetadataRetriever()
-    try {
-        r.setDataSource(uri.path)
-        r.getScaledFrameAtTime(atMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 240, 240)
+    return try {
+        r.setDataSource(context, uri)
+        val span = (endMs - startMs).coerceAtLeast(1)
+        (0 until count).map { i ->
+            val t = startMs + span * (2 * i + 1) / (2 * count) // centre of the i-th cell
+            runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 200, 200) }.getOrNull()
+        }
+    } catch (e: Exception) {
+        List(count) { null }
     } finally {
         r.release()
     }
-}.getOrNull()
+}

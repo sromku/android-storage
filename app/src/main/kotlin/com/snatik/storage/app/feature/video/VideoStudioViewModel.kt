@@ -79,7 +79,11 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         // Playhead ticker.
         viewModelScope.launch {
             while (true) {
-                if (player.isPlaying) { _state.value = _state.value.copy(positionMs = globalPosition()); syncAudio() }
+                if (player.isPlaying) {
+                    val pos = globalPosition()
+                    _state.value = _state.value.copy(positionMs = pos, selectedId = clipIdAt(pos))
+                    syncAudio()
+                }
                 delay(33)
             }
         }
@@ -89,6 +93,18 @@ class VideoStudioViewModel(application: Application, private val path: String) :
 
     /** Sum of clip durations before [index]. */
     private fun prefix(index: Int): Long = clips().take(index).sumOf { it.durationMs }
+
+    /** Index of the clip that the global timeline [globalMs] falls in. */
+    private fun clipIndexAt(globalMs: Long): Int {
+        val cs = clips()
+        if (cs.isEmpty()) return 0
+        var remaining = globalMs.coerceIn(0, _state.value.totalMs)
+        var index = 0
+        while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
+        return index
+    }
+
+    private fun clipIdAt(globalMs: Long): Long = clips().getOrNull(clipIndexAt(globalMs))?.id ?: _state.value.selectedId
 
     private fun globalPosition(): Long {
         val cs = clips()
@@ -126,7 +142,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         val sourceLocal = (remaining * cs[index].speed).toLong().coerceIn(0, cs[index].sourceDurationMs)
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
-        _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs))
+        // The clip under the playhead is always the selected one, so split/delete/speed act where you are.
+        _state.value = _state.value.copy(positionMs = globalMs.coerceIn(0, _state.value.totalMs), selectedId = cs[index].id)
         syncAudio()
     }
 
@@ -134,7 +151,14 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         if (player.isPlaying) player.pause() else { if (player.playbackState == Player.STATE_ENDED) seekToGlobal(0); player.play() }
         syncAudio()
     }
-    fun select(id: Long) { _state.value = _state.value.copy(selectedId = id) }
+    /** Tapping a clip moves the playhead to its start and selects it (forced, so a boundary tap picks
+     * the tapped clip and not the one that ends there). */
+    fun select(id: Long) {
+        val i = clips().indexOfFirst { it.id == id }
+        if (i < 0) { _state.value = _state.value.copy(selectedId = id); return }
+        seekToGlobal(prefix(i))
+        _state.value = _state.value.copy(selectedId = id)
+    }
 
     /** Split the clip under the playhead into two, so the middle can be cut out or an ad inserted. */
     fun splitAtPlayhead() {
