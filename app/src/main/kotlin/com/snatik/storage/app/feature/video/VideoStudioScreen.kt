@@ -48,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.runtime.Composable
@@ -84,6 +85,9 @@ import kotlinx.coroutines.withContext
 
 private const val PX_PER_SECOND = 90 // timeline scale (dp per second of source)
 
+/** Which kind of media the in-app file explorer is picking. */
+private enum class FilePickKind { AUDIO, VIDEO }
+
 /** Route entry: builds the studio view model for [path]. */
 @UnstableApi
 @Composable
@@ -105,18 +109,14 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
     ) { uri -> uri?.let { viewModel.addImageOverlay(it) } }
-    val pickAudio = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
-    ) { uri -> uri?.let { viewModel.addAudio(it) } }
-    val pickVideo = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
-    ) { uri -> uri?.let { viewModel.insertClipAtPlayhead(it) } }
 
     LaunchedEffect(state.message) {
         state.message?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); viewModel.clearMessage() }
     }
 
     var showAddSheet by remember { mutableStateOf(false) }
+    // Which kind of file the in-app explorer is picking (null = closed).
+    var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     // Low-res cached frame painted over the player while scrubbing, so the preview is instant.
     var scrubBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -180,7 +180,7 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                         style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { pickVideo.launch("video/*") }) {
+                    IconButton(onClick = { filePicker = FilePickKind.VIDEO }) {
                         Icon(androidx.compose.material.icons.Icons.Default.LibraryAdd, contentDescription = stringResource(R.string.video_insert), tint = Color.White)
                     }
                     IconButton(onClick = { viewModel.splitAtPlayhead() }) {
@@ -212,8 +212,28 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 onDismiss = { showAddSheet = false },
                 onAddText = { viewModel.addTextOverlay(); showAddSheet = false },
                 onAddSticker = { showAddSheet = false; pickImage.launch("image/*") },
-                onAddMusic = { showAddSheet = false; pickAudio.launch("audio/*") },
-                onAddVideo = { showAddSheet = false; pickVideo.launch("video/*") },
+                onAddMusic = { showAddSheet = false; filePicker = FilePickKind.AUDIO },
+                onAddVideo = { showAddSheet = false; filePicker = FilePickKind.VIDEO },
+            )
+        }
+
+        filePicker?.let { kind ->
+            val audio = kind == FilePickKind.AUDIO
+            com.snatik.storage.app.ui.components.FilePickerSheet(
+                title = stringResource(if (audio) R.string.video_pick_music else R.string.video_pick_clip),
+                fileIcon = if (audio) androidx.compose.material.icons.Icons.Default.MusicNote else androidx.compose.material.icons.Icons.Default.Movie,
+                accept = { f ->
+                    val n = f.name.lowercase()
+                    val exts = if (audio) listOf(".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac", ".opus", ".mid")
+                    else listOf(".mp4", ".mov", ".mkv", ".webm", ".3gp", ".avi", ".m4v")
+                    exts.any { n.endsWith(it) }
+                },
+                onDismiss = { filePicker = null },
+                onPick = { f ->
+                    filePicker = null
+                    val uri = android.net.Uri.fromFile(f)
+                    if (audio) viewModel.addAudio(uri) else viewModel.insertClipAtPlayhead(uri)
+                },
             )
         }
 

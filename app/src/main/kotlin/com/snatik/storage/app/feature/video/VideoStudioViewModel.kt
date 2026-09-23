@@ -350,7 +350,8 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     private val audioPlayers = HashMap<Long, ExoPlayer>()
 
     fun addAudio(uri: android.net.Uri) {
-        val name = runCatching {
+        val name = if (uri.scheme == "file") File(uri.path ?: "").name
+        else runCatching {
             getApplication<Application>().contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
             }
