@@ -110,14 +110,17 @@ fun MediaViewerScreen(path: String, onBack: () -> Unit, viewModel: MediaViewMode
         val controller = window?.let { androidx.core.view.WindowInsetsControllerCompat(it, it.decorView) }
         if (fullscreen) {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            window?.let { androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, false) } // draw under the bars
             controller?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars()) // hide status + navigation bars
         } else {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            window?.let { androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, true) }
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
         onDispose {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            window?.let { androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, true) }
             controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }

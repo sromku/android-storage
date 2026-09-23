@@ -30,6 +30,7 @@ data class VideoStudioState(
     val selectedOverlayId: Long = -1,
     val audioTracks: List<AudioTrack> = emptyList(),
     val selectedAudioId: Long = -1,
+    val activeAudio: Boolean = false, // true => the selected music track is what cut/delete act on
     val videoVolume: Float = 1f,
     val playing: Boolean = false,
     val positionMs: Long = 0,       // playhead on the global timeline
@@ -221,13 +222,14 @@ class VideoStudioViewModel(application: Application, private val path: String) :
      * the tapped clip and not the one that ends there). */
     fun select(id: Long) {
         val i = clips().indexOfFirst { it.id == id }
-        if (i < 0) { _state.value = _state.value.copy(selectedId = id); return }
+        if (i < 0) { _state.value = _state.value.copy(selectedId = id, activeAudio = false); return }
         seekToGlobal(prefix(i))
-        _state.value = _state.value.copy(selectedId = id)
+        _state.value = _state.value.copy(selectedId = id, activeAudio = false) // focus the video track
     }
 
-    /** Split the clip under the playhead into two, so the middle can be cut out or an ad inserted. */
+    /** Split the selected music track, or the clip under the playhead, into two at the playhead. */
     fun splitAtPlayhead() {
+        if (_state.value.activeAudio && _state.value.selectedAudioId != -1L) { splitAudioAtPlayhead(); return }
         val cs = clips().toMutableList()
         if (cs.isEmpty()) return
         var remaining = _state.value.positionMs
@@ -287,12 +289,45 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     }
 
     fun deleteSelected() {
+        if (_state.value.activeAudio && _state.value.selectedAudioId != -1L) { removeAudio(_state.value.selectedAudioId); return }
         val cs = clips()
         if (cs.size <= 1) return // keep at least one clip
         val id = _state.value.selectedId
         val remaining = cs.filterNot { it.id == id }
         _state.value = _state.value.copy(clips = remaining, selectedId = remaining.first().id)
         rebuildPlaylist(seekToGlobalMs = 0)
+    }
+
+    /** Cut the selected music track in two at the playhead (each half keeps its own trim + player). */
+    private fun splitAudioAtPlayhead() {
+        val pos = _state.value.positionMs
+        val tracks = _state.value.audioTracks.toMutableList()
+        val i = tracks.indexOfFirst { it.id == _state.value.selectedAudioId }
+        if (i < 0) return
+        val t = tracks[i]
+        val trackEnd = t.startMs + t.playMs
+        if (pos <= t.startMs + 40 || pos >= trackEnd - 40) return // playhead not inside this track
+        val cutSource = t.clipStartMs + (pos - t.startMs) // source-time cut point
+        val left = t.copy(id = nextAudioId++, clipEndMs = cutSource)
+        val right = t.copy(id = nextAudioId++, startMs = pos, clipStartMs = cutSource)
+        tracks[i] = left
+        tracks.add(i + 1, right)
+        _state.value = _state.value.copy(audioTracks = tracks, selectedAudioId = right.id, activeAudio = true)
+        reconcileAudioPlayers()
+        syncAudio()
+    }
+
+    /** Create players for any new audio tracks and release players for removed ones. */
+    private fun reconcileAudioPlayers() {
+        val ids = _state.value.audioTracks.map { it.id }.toSet()
+        audioPlayers.keys.filter { it !in ids }.toList().forEach { audioPlayers.remove(it)?.release() }
+        _state.value.audioTracks.forEach { t ->
+            if (!audioPlayers.containsKey(t.id)) {
+                audioPlayers[t.id] = ExoPlayer.Builder(getApplication()).build().apply {
+                    setMediaItem(androidx.media3.common.MediaItem.fromUri(t.uri)); volume = t.volume; prepare()
+                }
+            }
+        }
     }
 
     /**
@@ -426,11 +461,11 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         syncAudio()
     }
 
-    fun selectAudio(id: Long) { _state.value = _state.value.copy(selectedAudioId = id) }
+    fun selectAudio(id: Long) { _state.value = _state.value.copy(selectedAudioId = id, activeAudio = true) }
 
     fun removeAudio(id: Long) {
         audioPlayers.remove(id)?.release()
-        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.filterNot { it.id == id }, selectedAudioId = -1)
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.filterNot { it.id == id }, selectedAudioId = -1, activeAudio = false)
     }
 
     fun setAudioVolume(id: Long, v: Float) {

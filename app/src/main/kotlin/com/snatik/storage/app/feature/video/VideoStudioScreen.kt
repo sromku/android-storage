@@ -195,8 +195,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     IconButton(onClick = { viewModel.splitAtPlayhead() }) {
                         Icon(Icons.Default.ContentCut, contentDescription = stringResource(R.string.video_split), tint = Color.White)
                     }
-                    IconButton(onClick = { viewModel.deleteSelected() }, enabled = state.clips.size > 1) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (state.clips.size > 1) Color.White else Color.DarkGray)
+                    val canDelete = state.activeAudio || state.clips.size > 1
+                    IconButton(onClick = { viewModel.deleteSelected() }, enabled = canDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = if (canDelete) Color.White else Color.DarkGray)
                     }
                 }
 
@@ -363,7 +364,18 @@ private fun Timeline(
     val laneH = 30.dp
     val audioLaneH = 48.dp // taller, so the waveform reads like a pro editor
     val overlayLane = if (state.overlays.isNotEmpty()) laneH + 4.dp else 0.dp
-    val audioLanes = if (state.audioTracks.isNotEmpty()) (audioLaneH + 4.dp) * state.audioTracks.size else 0.dp
+    // Pack non-overlapping audio pieces onto shared rows, so cutting one track keeps both halves on
+    // the same lane instead of stacking a new lane per piece.
+    val audioRows = remember(state.audioTracks) {
+        val rows = ArrayList<MutableList<AudioTrack>>()
+        state.audioTracks.sortedBy { it.startMs }.forEach { track ->
+            val end = track.startMs + track.playMs
+            val row = rows.firstOrNull { r -> r.none { o -> o.startMs < end && track.startMs < o.startMs + o.playMs } }
+            if (row != null) row.add(track) else rows.add(mutableListOf(track))
+        }
+        rows
+    }
+    val audioLanes = if (audioRows.isNotEmpty()) (audioLaneH + 4.dp) * audioRows.size else 0.dp
     val totalHeight = videoLane + overlayLane + audioLanes
     val scroll = rememberScrollState()
     val sidePad = with(density) { (LocalConfiguration.current.screenWidthDp.dp.toPx() / 2f).toDp() }
@@ -390,7 +402,7 @@ private fun Timeline(
             Row(Modifier.height(videoLane), verticalAlignment = Alignment.CenterVertically) {
                 state.clips.forEach { clip ->
                     ClipView(
-                        clip, clip.durationMs * pxPerMs, clip.id == state.selectedId, pxPerMs,
+                        clip, clip.durationMs * pxPerMs, clip.id == state.selectedId && !state.activeAudio, pxPerMs,
                         onSelect = { onSelect(clip.id) },
                         onTrimStart = { d -> onTrimStart(clip.id, d) }, onTrimEnd = { d -> onTrimEnd(clip.id, d) }, onTrimCommit = onTrimCommit,
                     )
@@ -413,23 +425,25 @@ private fun Timeline(
                     }
                 }
             }
-            // Audio lanes (with a decoded waveform, trimmable like a clip).
-            state.audioTracks.forEachIndexed { i, track ->
-                val wave by produceState<FloatArray?>(initialValue = cachedWaveform(track.uri), track.uri) {
-                    value = withContext(Dispatchers.IO) { extractWaveform(context, track.uri) }
-                }
+            // Audio lanes (waveform, trimmable like a clip); split pieces share a row when they fit.
+            audioRows.forEach { rowTracks ->
                 Box(Modifier.width(totalDp.coerceAtLeast(1.dp)).height(audioLaneH).padding(top = 4.dp)) {
-                    TrackPill(
-                        label = track.name,
-                        startMs = track.startMs, lengthMs = track.playMs.coerceAtLeast(200),
-                        pxPerMs = pxPerMs, selected = track.id == state.selectedAudioId,
-                        color = MaterialTheme.colorScheme.primary,
-                        onSelect = { onSelectAudio(track.id) }, onShift = { d -> onShiftAudio(track.id, d) },
-                        onTrimStart = { d -> onTrimAudioStart(track.id, d) }, onTrimEnd = { d -> onTrimAudioEnd(track.id, d) },
-                        waveform = wave,
-                        waveStartFrac = if (track.durationMs > 0) track.clipStartMs.toFloat() / track.durationMs else 0f,
-                        waveEndFrac = if (track.durationMs > 0) track.outMs.toFloat() / track.durationMs else 1f,
-                    )
+                    rowTracks.forEach { track ->
+                        val wave by produceState<FloatArray?>(initialValue = cachedWaveform(track.uri), track.uri) {
+                            value = withContext(Dispatchers.IO) { extractWaveform(context, track.uri) }
+                        }
+                        TrackPill(
+                            label = track.name,
+                            startMs = track.startMs, lengthMs = track.playMs.coerceAtLeast(200),
+                            pxPerMs = pxPerMs, selected = track.id == state.selectedAudioId && state.activeAudio,
+                            color = MaterialTheme.colorScheme.primary,
+                            onSelect = { onSelectAudio(track.id) }, onShift = { d -> onShiftAudio(track.id, d) },
+                            onTrimStart = { d -> onTrimAudioStart(track.id, d) }, onTrimEnd = { d -> onTrimAudioEnd(track.id, d) },
+                            waveform = wave,
+                            waveStartFrac = if (track.durationMs > 0) track.clipStartMs.toFloat() / track.durationMs else 0f,
+                            waveEndFrac = if (track.durationMs > 0) track.outMs.toFloat() / track.durationMs else 1f,
+                        )
+                    }
                 }
             }
         }
