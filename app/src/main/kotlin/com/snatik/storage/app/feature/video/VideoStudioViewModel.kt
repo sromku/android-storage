@@ -132,22 +132,25 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value = _state.value.copy(totalMs = cs.sumOf { it.durationMs })
     }
 
-    /** Fast scrub while dragging: snap to the nearest keyframe so the preview updates continuously. */
-    fun scrubTo(globalMs: Long) = seekInternal(globalMs, fast = true)
+    /**
+     * While dragging the timeline: only move the playhead and selection. The heavy ExoPlayer seek is
+     * skipped so scrubbing stays instant; the UI paints a cached low-res frame instead, and the real
+     * seek runs once on release ([seekToGlobal]).
+     */
+    fun setScrubPosition(globalMs: Long) {
+        if (clips().isEmpty()) return
+        val clamped = globalMs.coerceIn(0, _state.value.totalMs)
+        _state.value = _state.value.copy(positionMs = clamped, selectedId = clipIdAt(clamped))
+    }
 
     /** Map a global timeline ms to (clip index, local ms) and seek the player there (frame-accurate). */
-    fun seekToGlobal(globalMs: Long) = seekInternal(globalMs, fast = false)
-
-    private fun seekInternal(globalMs: Long, fast: Boolean) {
+    fun seekToGlobal(globalMs: Long) {
         val cs = clips()
         if (cs.isEmpty()) return
         var remaining = globalMs.coerceIn(0, _state.value.totalMs)
         var index = 0
         while (index < cs.lastIndex && remaining > cs[index].durationMs) { remaining -= cs[index].durationMs; index++ }
         val sourceLocal = (remaining * cs[index].speed).toLong().coerceIn(0, cs[index].sourceDurationMs)
-        // CLOSEST_SYNC is cheap (jump to a keyframe, decode one frame) so rapid drag seeks aren't coalesced;
-        // EXACT lands the true frame once the finger lifts.
-        runCatching { player.setSeekParameters(if (fast) androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC else androidx.media3.exoplayer.SeekParameters.EXACT) }
         player.seekTo(index, sourceLocal)
         applyCurrentSpeed()
         // The clip under the playhead is always the selected one, so split/delete/speed act where you are.
@@ -237,16 +240,27 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         rebuildPlaylist(seekToGlobalMs = 0)
     }
 
-    /** Trim the selected clip's in/out points (source ms). */
-    fun trimSelected(newStartMs: Long, newEndMs: Long) {
+    /**
+     * Trim a clip's in/out point live while dragging a handle. Only updates state (the filmstrip and
+     * lengths follow instantly); the player is rebuilt once on [commitTrim] when the finger lifts, so a
+     * drag no longer rebuilds the playlist on every pixel (which reset the player and made cuts jump).
+     */
+    fun trimStartDelta(id: Long, deltaMs: Long) = trimDelta(id, deltaMs, start = true)
+    fun trimEndDelta(id: Long, deltaMs: Long) = trimDelta(id, deltaMs, start = false)
+
+    private fun trimDelta(id: Long, deltaMs: Long, start: Boolean) {
         val cs = clips().toMutableList()
-        val i = cs.indexOfFirst { it.id == _state.value.selectedId }
+        val i = cs.indexOfFirst { it.id == id }
         if (i < 0) return
         val c = cs[i]
-        val s = newStartMs.coerceIn(0, newEndMs - 100)
-        val e = newEndMs.coerceAtLeast(s + 100)
-        cs[i] = c.copy(startMs = s, endMs = e)
-        _state.value = _state.value.copy(clips = cs)
+        cs[i] = if (start) c.copy(startMs = (c.startMs + deltaMs).coerceIn(0, c.endMs - 100))
+                else c.copy(endMs = (c.endMs + deltaMs).coerceAtLeast(c.startMs + 100))
+        _state.value = _state.value.copy(clips = cs, selectedId = id, totalMs = cs.sumOf { it.durationMs })
+    }
+
+    /** Apply the trimmed ranges to the player once the trim drag ends. */
+    fun commitTrim() {
+        val i = clips().indexOfFirst { it.id == _state.value.selectedId }.coerceAtLeast(0)
         rebuildPlaylist(seekToGlobalMs = prefix(i))
     }
 

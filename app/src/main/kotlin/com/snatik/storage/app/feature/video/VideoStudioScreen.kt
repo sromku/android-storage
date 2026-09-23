@@ -117,6 +117,8 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     }
 
     var showAddSheet by remember { mutableStateOf(false) }
+    // Low-res cached frame painted over the player while scrubbing, so the preview is instant.
+    var scrubBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     Scaffold(
         containerColor = Color.Black,
@@ -128,8 +130,15 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     IconButton(onClick = { showAddSheet = true }) {
                         Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = stringResource(R.string.video_add), tint = Color.White)
                     }
-                    TextButton(onClick = { viewModel.export() }, enabled = !state.exporting) {
-                        Text(stringResource(R.string.video_export), color = if (state.exporting) Color.Gray else MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Box(
+                        Modifier
+                            .padding(end = 10.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (state.exporting) Color.White.copy(alpha = 0.3f) else Color.White)
+                            .clickable(enabled = !state.exporting) { viewModel.export() }
+                            .padding(horizontal = 16.dp, vertical = 7.dp),
+                    ) {
+                        Text(stringResource(R.string.video_export), color = Color.Black, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
@@ -150,6 +159,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
+                scrubBitmap?.let { bmp ->
+                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                }
                 OverlayLayer(
                     state = state,
                     onMove = viewModel::setOverlayPosition,
@@ -182,7 +194,9 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 SpeedRow(state, onSetSpeed = { s -> viewModel.setClipSpeed(state.selectedId, s) })
                 Timeline(
                     state,
-                    onScrub = viewModel::scrubTo, onSeek = viewModel::seekToGlobal, onSelect = viewModel::select, onTrim = viewModel::trimSelected,
+                    onScrubPos = viewModel::setScrubPosition, onScrubFrame = { scrubBitmap = it },
+                    onSeek = viewModel::seekToGlobal, onSelect = viewModel::select,
+                    onTrimStart = viewModel::trimStartDelta, onTrimEnd = viewModel::trimEndDelta, onTrimCommit = viewModel::commitTrim,
                     onSelectOverlay = viewModel::selectOverlay, onShiftOverlay = viewModel::shiftOverlay,
                     onTrimOverlayStart = viewModel::trimOverlayStart, onTrimOverlayEnd = viewModel::trimOverlayEnd,
                     onSelectAudio = viewModel::selectAudio, onShiftAudio = viewModel::setAudioStartDelta,
@@ -284,10 +298,13 @@ private fun speedLabel(s: Float): String = if (s == s.toLong().toFloat()) "${s.t
 @Composable
 private fun Timeline(
     state: VideoStudioState,
-    onScrub: (Long) -> Unit,
+    onScrubPos: (Long) -> Unit,
+    onScrubFrame: (Bitmap?) -> Unit,
     onSeek: (Long) -> Unit,
     onSelect: (Long) -> Unit,
-    onTrim: (Long, Long) -> Unit,
+    onTrimStart: (Long, Long) -> Unit,
+    onTrimEnd: (Long, Long) -> Unit,
+    onTrimCommit: () -> Unit,
     onSelectOverlay: (Long) -> Unit,
     onShiftOverlay: (Long, Long) -> Unit,
     onTrimOverlayStart: (Long, Long) -> Unit,
@@ -295,6 +312,7 @@ private fun Timeline(
     onSelectAudio: (Long) -> Unit,
     onShiftAudio: (Long, Long) -> Unit,
 ) {
+    val liveState by androidx.compose.runtime.rememberUpdatedState(state)
     val density = LocalDensity.current
     val pxPerMs = with(density) { PX_PER_SECOND.dp.toPx() } / 1000f
     val videoLane = 68.dp
@@ -311,12 +329,12 @@ private fun Timeline(
     }
     LaunchedEffect(pxPerMs) {
         var wasScrubbing = false
-        snapshotFlow { Triple(scroll.value, scroll.isScrollInProgress, state.playing) }.collect { (v, dragging, playing) ->
+        snapshotFlow { Triple(scroll.value, scroll.isScrollInProgress, liveState.playing) }.collect { (v, dragging, playing) ->
             if (playing) { wasScrubbing = false; return@collect }
             val ms = (v / pxPerMs).toLong()
             when {
-                dragging -> { onScrub(ms); wasScrubbing = true }   // fast keyframe seek so the preview tracks the finger
-                wasScrubbing -> { onSeek(ms); wasScrubbing = false } // exact seek once the finger lifts
+                dragging -> { onScrubPos(ms); onScrubFrame(scrubFrame(liveState, ms)); wasScrubbing = true } // instant cached frame
+                wasScrubbing -> { onSeek(ms); onScrubFrame(null); wasScrubbing = false } // exact player seek once the finger lifts
             }
         }
     }
@@ -326,7 +344,11 @@ private fun Timeline(
             // Video lane.
             Row(Modifier.height(videoLane), verticalAlignment = Alignment.CenterVertically) {
                 state.clips.forEach { clip ->
-                    ClipView(clip, clip.durationMs * pxPerMs, clip.id == state.selectedId, pxPerMs, onSelect = { onSelect(clip.id) }, onTrim = onTrim)
+                    ClipView(
+                        clip, clip.durationMs * pxPerMs, clip.id == state.selectedId, pxPerMs,
+                        onSelect = { onSelect(clip.id) },
+                        onTrimStart = { d -> onTrimStart(clip.id, d) }, onTrimEnd = { d -> onTrimEnd(clip.id, d) }, onTrimCommit = onTrimCommit,
+                    )
                     Spacer(Modifier.width(1.dp))
                 }
             }
@@ -426,7 +448,9 @@ private fun ClipView(
     selected: Boolean,
     pxPerMs: Float,
     onSelect: () -> Unit,
-    onTrim: (Long, Long) -> Unit,
+    onTrimStart: (Long) -> Unit,
+    onTrimEnd: (Long) -> Unit,
+    onTrimCommit: () -> Unit,
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -478,14 +502,16 @@ private fun ClipView(
             )
         }
         if (selected) {
-            TrimHandle(Alignment.CenterStart) { dxPx -> onTrim(clip.startMs + (dxPx / pxPerMs).toLong(), clip.endMs) }
-            TrimHandle(Alignment.CenterEnd) { dxPx -> onTrim(clip.startMs, clip.endMs + (dxPx / pxPerMs).toLong()) }
+            // Each drag delta is applied to the clip's live in/out point (accumulates correctly); the
+            // player is rebuilt once when the drag ends.
+            TrimHandle(Alignment.CenterStart, onDragEnd = onTrimCommit) { dxPx -> onTrimStart((dxPx / pxPerMs).toLong()) }
+            TrimHandle(Alignment.CenterEnd, onDragEnd = onTrimCommit) { dxPx -> onTrimEnd((dxPx / pxPerMs).toLong()) }
         }
     }
 }
 
 @Composable
-private fun BoxScope.TrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
+private fun BoxScope.TrimHandle(align: Alignment, onDragEnd: () -> Unit = {}, onDrag: (Float) -> Unit) {
     Box(
         Modifier
             .align(align)
@@ -493,7 +519,11 @@ private fun BoxScope.TrimHandle(align: Alignment, onDrag: (Float) -> Unit) {
             .width(18.dp)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
             .pointerInput(Unit) {
-                detectHorizontalDragGestures { change, dragAmount -> change.consume(); onDrag(dragAmount) }
+                detectHorizontalDragGestures(
+                    onDragEnd = onDragEnd,
+                    onDragCancel = onDragEnd,
+                    onHorizontalDrag = { change, dragAmount -> change.consume(); onDrag(dragAmount) },
+                )
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -674,9 +704,11 @@ private fun fmt(ms: Long): String {
 }
 
 private const val FRAME_GRID_MS = 500L // snap sample times to a fixed absolute grid, so any split/trim reuses frames
-// Decoded timeline thumbnails, keyed by "uri|gridMs". Keyed on absolute source time (not clip bounds),
-// so a clip and its split halves all hit the same cache entries and the strip fills instantly.
-private val frameCache = android.util.LruCache<String, Bitmap>(160)
+// Decoded thumbnails, keyed by "uri|gridMs" on absolute source time (not clip bounds), so a clip and
+// its split halves hit the same entries; these also back the instant scrub preview. Budgeted by bytes.
+private val frameCache = object : android.util.LruCache<String, Bitmap>(48 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+}
 
 private fun snapMs(t: Long): Long = t / FRAME_GRID_MS * FRAME_GRID_MS
 
@@ -690,6 +722,18 @@ private fun frameTimes(startMs: Long, endMs: Long, count: Int): List<Long> {
  * shows the shared frames immediately instead of flashing dark cells. */
 private fun cachedFrames(uri: Uri, startMs: Long, endMs: Long, count: Int): List<Bitmap?> =
     frameTimes(startMs, endMs, count).map { t -> frameCache.get("$uri|$t") }
+
+/** The cached low-res frame nearest a global timeline position, for the instant scrub preview. */
+private fun scrubFrame(state: VideoStudioState, globalMs: Long): Bitmap? {
+    val cs = state.clips
+    if (cs.isEmpty()) return null
+    var remaining = globalMs.coerceIn(0, state.totalMs)
+    var i = 0
+    while (i < cs.lastIndex && remaining > cs[i].durationMs) { remaining -= cs[i].durationMs; i++ }
+    val clip = cs[i]
+    val sourceMs = clip.startMs + (remaining * clip.speed).toLong()
+    return frameCache.get("${clip.uri}|${snapMs(sourceMs)}")
+}
 
 /**
  * Warm the cache for a clip's whole source range on the fixed grid, then return the cell frames.
@@ -706,7 +750,7 @@ private fun loadFrames(context: android.content.Context, uri: Uri, startMs: Long
         try {
             r.setDataSource(context, uri)
             missing.forEach { t ->
-                runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 200, 200) }
+                runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 320) }
                     .getOrNull()?.let { frameCache.put("$uri|$t", it) }
             }
         } catch (e: Exception) {
