@@ -78,6 +78,15 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { _state.value = _state.value.copy(playing = isPlaying) }
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) { applyCurrentSpeed() }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    // Video finished: it's the master clock, so stop every audio track and park the
+                    // playhead at the end.
+                    player.playWhenReady = false
+                    audioPlayers.values.forEach { it.playWhenReady = false }
+                    _state.value = _state.value.copy(positionMs = _state.value.totalMs)
+                }
+            }
         })
         applyCurrentSpeed()
         // Playhead ticker.
@@ -453,7 +462,9 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         _state.value.audioTracks.forEach { track ->
             val mp = audioPlayers[track.id] ?: return@forEach
             val local = pos - track.startMs
-            val inRange = local >= 0 && (track.durationMs == 0L || local < track.durationMs)
+            // The video is the master clock: no track plays before its start, past its own length, or
+            // past the end of the video.
+            val inRange = local >= 0 && pos < _state.value.totalMs && (track.durationMs == 0L || local < track.durationMs)
             if (inRange) {
                 if (kotlin.math.abs(mp.currentPosition - local) > 140) mp.seekTo(local)
                 mp.playWhenReady = player.playWhenReady
