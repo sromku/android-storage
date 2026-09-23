@@ -584,12 +584,14 @@ private fun ClipView(
                 }
             }
         }
+        // When selected, the left trim handle (18dp) covers the left edge, so shift these clear of it.
+        val edgePad = if (selected) 24.dp else 4.dp
         Text(
             fmt(clip.durationMs),
             color = Color.White,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier
-                .align(Alignment.BottomStart).padding(4.dp)
+                .align(Alignment.BottomStart).padding(start = edgePad, bottom = 4.dp)
                 .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
                 .padding(horizontal = 4.dp, vertical = 1.dp),
         )
@@ -600,7 +602,7 @@ private fun ClipView(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .align(Alignment.TopStart).padding(4.dp)
+                    .align(Alignment.TopStart).padding(start = edgePad, top = 4.dp)
                     .background(Color(0xFFFFC400), RoundedCornerShape(4.dp)) // bright amber, reads over any thumbnail
                     .padding(horizontal = 5.dp, vertical = 1.dp),
             )
