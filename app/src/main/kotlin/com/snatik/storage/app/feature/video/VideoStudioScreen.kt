@@ -548,7 +548,31 @@ private fun ClipView(
     val cells = (widthDp.value / 54f).toInt().coerceIn(1, 24)
     val cellWidth = widthDp / cells
     val frames by produceState(initialValue = cachedFrames(clip.uri, clip.startMs, clip.endMs, cells), clip.uri, clip.startMs, clip.endMs, cells) {
-        value = withContext(Dispatchers.IO) { loadFrames(context, clip.uri, clip.startMs, clip.endMs, cells) }
+        // Decode cell frames one by one and publish after each, so the strip fills in left-to-right
+        // instead of staying black until every frame is ready.
+        val times = frameTimes(clip.startMs, clip.endMs, cells)
+        val acc = arrayOfNulls<Bitmap>(cells)
+        times.forEachIndexed { i, t -> acc[i] = frameCache.get("${clip.uri}|$t") }
+        value = acc.toList()
+        if (acc.any { it == null }) {
+            withContext(Dispatchers.IO) {
+                val r = MediaMetadataRetriever()
+                try {
+                    r.setDataSource(context, clip.uri)
+                    times.forEachIndexed { i, t ->
+                        if (acc[i] == null) {
+                            val bmp = runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 320) }.getOrNull()
+                            if (bmp != null) { frameCache.put("${clip.uri}|$t", bmp); acc[i] = bmp; value = acc.toList() }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // leave misses null
+                } finally {
+                    r.release()
+                }
+            }
+        }
+        launch(Dispatchers.IO) { warmRange(context, clip.uri, clip.startMs, clip.endMs) } // fill grid gaps for scrub/splits
     }
     Box(
         Modifier
@@ -824,28 +848,28 @@ private fun scrubFrame(state: VideoStudioState, globalMs: Long): Bitmap? {
 }
 
 /**
- * Warm the cache for a clip's whole source range on the fixed grid, then return the cell frames.
- * Because entries are keyed on absolute source time, decoding a clip once makes every later split or
- * trim of the same source an instant cache hit.
+ * Warm the whole source range on the fixed grid (runs after the cells, in the background). Because
+ * entries are keyed on absolute source time, this makes later splits/trims and the scrub proxy instant.
  */
-private fun loadFrames(context: android.content.Context, uri: Uri, startMs: Long, endMs: Long, count: Int): List<Bitmap?> {
+private fun warmRange(context: android.content.Context, uri: Uri, startMs: Long, endMs: Long) {
     val first = snapMs(startMs)
     val last = snapMs((endMs - 1).coerceAtLeast(startMs))
     val missing = generateSequence(first) { it + FRAME_GRID_MS }.takeWhile { it <= last }
         .filter { frameCache.get("$uri|$it") == null }.toList()
-    if (missing.isNotEmpty()) {
-        val r = MediaMetadataRetriever()
-        try {
-            r.setDataSource(context, uri)
-            missing.forEach { t ->
-                runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 320) }
-                    .getOrNull()?.let { frameCache.put("$uri|$t", it) }
-            }
-        } catch (e: Exception) {
-            // leave misses null; those cells stay neutral
-        } finally {
-            r.release()
+    if (missing.isNotEmpty()) decodeInto(context, uri, missing)
+}
+
+private fun decodeInto(context: android.content.Context, uri: Uri, times: List<Long>) {
+    val r = MediaMetadataRetriever()
+    try {
+        r.setDataSource(context, uri)
+        times.forEach { t ->
+            runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 320) }
+                .getOrNull()?.let { frameCache.put("$uri|$t", it) }
         }
+    } catch (e: Exception) {
+        // leave misses null; those cells stay neutral
+    } finally {
+        r.release()
     }
-    return cachedFrames(uri, startMs, endMs, count)
 }
