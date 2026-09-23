@@ -44,7 +44,11 @@ data class VideoStudioState(
 @UnstableApi
 class VideoStudioViewModel(application: Application, private val path: String) : AndroidViewModel(application) {
 
-    val player: ExoPlayer = ExoPlayer.Builder(application).build()
+    val player: ExoPlayer = ExoPlayer.Builder(application).build().apply {
+        // Preload the next clip while the current one plays, so cuts play through seamlessly instead
+        // of stalling at each boundary while the next clipped item buffers.
+        runCatching { setPreloadConfiguration(ExoPlayer.PreloadConfiguration(2_000_000L)) }
+    }
 
 
     private val _state = MutableStateFlow(VideoStudioState())
@@ -123,7 +127,11 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         val cs = clips()
         val idx = player.currentMediaItemIndex.coerceIn(0, cs.lastIndex.coerceAtLeast(0))
         val speed = cs.getOrNull(idx)?.speed ?: 1f
-        runCatching { player.playbackParameters = androidx.media3.common.PlaybackParameters(speed) }
+        // Only touch playback params when the speed actually changes; resetting it on every clip
+        // transition caused a visible hitch between same-speed cuts.
+        if (kotlin.math.abs(player.playbackParameters.speed - speed) > 0.001f) {
+            runCatching { player.playbackParameters = androidx.media3.common.PlaybackParameters(speed) }
+        }
     }
 
     private fun rebuildPlaylist(seekToGlobalMs: Long) {
