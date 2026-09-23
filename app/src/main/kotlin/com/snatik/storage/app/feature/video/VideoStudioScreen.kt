@@ -343,7 +343,7 @@ private fun ClipView(
     // so you can read the motion as you scrub instead of one frame smeared over the whole clip.
     val cells = (widthDp.value / 54f).toInt().coerceIn(1, 24)
     val cellWidth = widthDp / cells
-    val frames by produceState(initialValue = emptyList<Bitmap?>(), clip.uri, clip.startMs, clip.endMs, cells) {
+    val frames by produceState(initialValue = cachedFrames(clip.uri, clip.startMs, clip.endMs, cells), clip.uri, clip.startMs, clip.endMs, cells) {
         value = withContext(Dispatchers.IO) { loadFrames(context, clip.uri, clip.startMs, clip.endMs, cells) }
     }
     Box(
@@ -589,19 +589,47 @@ private fun fmt(ms: Long): String {
     return "%d:%02d.%d".format(totalS / 60, totalS % 60, (ms % 1000) / 100)
 }
 
-/** Decode [count] evenly-spaced thumbnails across a clip's source range for the timeline filmstrip. */
+private const val FRAME_GRID_MS = 500L // snap sample times to a fixed absolute grid, so any split/trim reuses frames
+// Decoded timeline thumbnails, keyed by "uri|gridMs". Keyed on absolute source time (not clip bounds),
+// so a clip and its split halves all hit the same cache entries and the strip fills instantly.
+private val frameCache = android.util.LruCache<String, Bitmap>(160)
+
+private fun snapMs(t: Long): Long = t / FRAME_GRID_MS * FRAME_GRID_MS
+
+/** The grid-snapped absolute source times sampled for a clip's filmstrip cells. */
+private fun frameTimes(startMs: Long, endMs: Long, count: Int): List<Long> {
+    val span = (endMs - startMs).coerceAtLeast(1)
+    return (0 until count).map { i -> snapMs(startMs + span * (2 * i + 1) / (2 * count)) }
+}
+
+/** Frames already in the cache for these cells (no decoding), used as the initial value so a re-split
+ * shows the shared frames immediately instead of flashing dark cells. */
+private fun cachedFrames(uri: Uri, startMs: Long, endMs: Long, count: Int): List<Bitmap?> =
+    frameTimes(startMs, endMs, count).map { t -> frameCache.get("$uri|$t") }
+
+/**
+ * Warm the cache for a clip's whole source range on the fixed grid, then return the cell frames.
+ * Because entries are keyed on absolute source time, decoding a clip once makes every later split or
+ * trim of the same source an instant cache hit.
+ */
 private fun loadFrames(context: android.content.Context, uri: Uri, startMs: Long, endMs: Long, count: Int): List<Bitmap?> {
-    val r = MediaMetadataRetriever()
-    return try {
-        r.setDataSource(context, uri)
-        val span = (endMs - startMs).coerceAtLeast(1)
-        (0 until count).map { i ->
-            val t = startMs + span * (2 * i + 1) / (2 * count) // centre of the i-th cell
-            runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 200, 200) }.getOrNull()
+    val first = snapMs(startMs)
+    val last = snapMs((endMs - 1).coerceAtLeast(startMs))
+    val missing = generateSequence(first) { it + FRAME_GRID_MS }.takeWhile { it <= last }
+        .filter { frameCache.get("$uri|$it") == null }.toList()
+    if (missing.isNotEmpty()) {
+        val r = MediaMetadataRetriever()
+        try {
+            r.setDataSource(context, uri)
+            missing.forEach { t ->
+                runCatching { r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 200, 200) }
+                    .getOrNull()?.let { frameCache.put("$uri|$t", it) }
+            }
+        } catch (e: Exception) {
+            // leave misses null; those cells stay neutral
+        } finally {
+            r.release()
         }
-    } catch (e: Exception) {
-        List(count) { null }
-    } finally {
-        r.release()
     }
+    return cachedFrames(uri, startMs, endMs, count)
 }
