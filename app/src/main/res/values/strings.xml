@@ -1170,6 +1170,7 @@
     <string name="video_remove">Remove</string>
     <string name="video_done">Done</string>
     <string name="video_add">Add</string>
+    <string name="video_fullscreen">Full screen</string>
     <string name="video_add_to_video">Add to video</string>
     <string name="video_add_text_desc">A caption, title or price tag</string>
     <string name="video_add_sticker_desc">A photo or sticker overlay</string>

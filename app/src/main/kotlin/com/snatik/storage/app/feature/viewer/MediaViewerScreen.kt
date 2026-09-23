@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -104,6 +105,9 @@ fun MediaViewerScreen(path: String, onBack: () -> Unit, viewModel: MediaViewMode
     val state by viewModel.state.collectAsStateWithLifecycle()
     var fullscreen by remember { mutableStateOf(false) }
 
+    // Back exits fullscreen first, then leaves the screen.
+    androidx.activity.compose.BackHandler(enabled = fullscreen) { fullscreen = false }
+
     // Drive orientation + immersive system bars from the fullscreen toggle; always restore on exit.
     DisposableEffect(fullscreen) {
         val window = activity?.window
@@ -132,6 +136,11 @@ fun MediaViewerScreen(path: String, onBack: () -> Unit, viewModel: MediaViewMode
                 TopAppBar(
                     title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White) },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) } },
+                    actions = {
+                        if (!isAudio) IconButton(onClick = { fullscreen = true }) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.video_fullscreen), tint = Color.White)
+                        }
+                    },
                     colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
                 )
             }
@@ -146,7 +155,7 @@ fun MediaViewerScreen(path: String, onBack: () -> Unit, viewModel: MediaViewMode
                     Text(stringResource(R.string.media_preparing), color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 }
                 is MediaState.Unplayable -> EmptyState(Icons.Default.Block, stringResource(R.string.media_unreadable), stringResource(R.string.media_unreadable_body))
-                is MediaState.Ready -> Player(s.playPath, isAudio, name, fullscreenEnabled = !isAudio, onFullscreenToggle = { fullscreen = it })
+                is MediaState.Ready -> Player(s.playPath, isAudio, name, fullscreen = fullscreen, fullscreenEnabled = !isAudio, onFullscreenToggle = { fullscreen = it })
             }
         }
     }
@@ -154,7 +163,7 @@ fun MediaViewerScreen(path: String, onBack: () -> Unit, viewModel: MediaViewMode
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-private fun Player(playPath: String, isAudio: Boolean, name: String, fullscreenEnabled: Boolean, onFullscreenToggle: (Boolean) -> Unit) {
+private fun Player(playPath: String, isAudio: Boolean, name: String, fullscreen: Boolean, fullscreenEnabled: Boolean, onFullscreenToggle: (Boolean) -> Unit) {
     val context = LocalContext.current
     val player = remember(playPath) {
         ExoPlayer.Builder(context).build().apply {
@@ -172,10 +181,11 @@ private fun Player(playPath: String, isAudio: Boolean, name: String, fullscreenE
                 setShowNextButton(false)
                 setShowPreviousButton(false)
                 setBackgroundColor(android.graphics.Color.BLACK)
-                // The built-in fullscreen button rotates the player to landscape and goes immersive.
+                // The built-in fullscreen button also toggles fullscreen (its icon is synced below).
                 if (fullscreenEnabled) setFullscreenButtonClickListener { isFull -> onFullscreenToggle(isFull) }
             }
         },
+        update = { view -> if (fullscreenEnabled) runCatching { view.setFullscreenButtonState(fullscreen) } },
         modifier = Modifier.fillMaxSize(),
     )
     if (isAudio) {
