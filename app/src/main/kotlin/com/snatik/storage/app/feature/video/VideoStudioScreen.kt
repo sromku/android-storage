@@ -700,7 +700,7 @@ private fun OverlayLayer(
                 when (ov.kind) {
                     OverlayKind.TEXT -> {
                         // Same renderer as the export, so the preview is WYSIWYG (fill, outline, tag, styles).
-                        val textBmp = remember(ov.text, ov.color, ov.bold, ov.italic, ov.outline, ov.outlineColor, ov.background, ov.bgColor, ov.sizeFraction, vhPx) {
+                        val textBmp = remember(ov.text, ov.font, ov.color, ov.bold, ov.italic, ov.outline, ov.outlineColor, ov.background, ov.bgColor, ov.sizeFraction, vhPx) {
                             renderTextOverlayBitmap(ov, vhPx.toInt())
                         }
                         if (textBmp != null) {
