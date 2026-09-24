@@ -1188,6 +1188,10 @@
     <string name="video_anim_out">Out</string>
     <string name="video_anim_duration">Speed</string>
     <string name="video_anim_reverse">Reverse</string>
+    <string name="video_leave_title">Leave without saving?</string>
+    <string name="video_leave_msg">Your edits are not exported yet. Leaving now discards them.</string>
+    <string name="video_leave_confirm">Leave</string>
+    <string name="video_stay">Keep editing</string>
     <string name="video_delete_music_q">Delete this music track?</string>
     <string name="video_delete_clip_q">Delete this clip?</string>
     <string name="video_pick_music">Pick music</string>

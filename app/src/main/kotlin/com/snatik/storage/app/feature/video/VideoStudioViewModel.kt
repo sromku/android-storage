@@ -512,7 +512,11 @@ class VideoStudioViewModel(application: Application, private val path: String) :
             try { r.setDataSource(getApplication(), uri); r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L }
             finally { r.release() }
         }.getOrDefault(0L)
-        val track = AudioTrack(id = nextAudioId++, uri = uri, name = name, startMs = _state.value.positionMs, durationMs = durationMs, clipStartMs = 0, clipEndMs = durationMs)
+        // Music can't be longer than the video: start at the playhead and cap the take to the room left.
+        val start = _state.value.positionMs.coerceIn(0, _state.value.totalMs)
+        val room = (_state.value.totalMs - start).coerceAtLeast(0)
+        val clipEnd = if (room > 0) minOf(durationMs, room) else durationMs
+        val track = AudioTrack(id = nextAudioId++, uri = uri, name = name, startMs = start, durationMs = durationMs, clipStartMs = 0, clipEndMs = clipEnd)
         _state.value = _state.value.copy(audioTracks = _state.value.audioTracks + track, selectedAudioId = track.id)
         audioPlayers[track.id] = ExoPlayer.Builder(getApplication()).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
@@ -539,7 +543,10 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     }
 
     fun setAudioStart(id: Long, startMs: Long) {
-        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.map { if (it.id == id) it.copy(startMs = startMs.coerceIn(0, _state.value.totalMs)) else it })
+        val total = _state.value.totalMs
+        _state.value = _state.value.copy(audioTracks = _state.value.audioTracks.map { t ->
+            if (t.id != id) t else t.copy(startMs = startMs.coerceIn(0, (total - t.playMs).coerceAtLeast(0)))
+        })
         syncAudio()
     }
 
@@ -566,7 +573,10 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     fun trimAudioEnd(id: Long, deltaMs: Long) {
         _state.value = _state.value.copy(
             audioTracks = _state.value.audioTracks.map { t ->
-                if (t.id != id) t else t.copy(clipEndMs = (t.outMs + deltaMs).coerceIn(t.clipStartMs + 100, t.durationMs))
+                if (t.id != id) t else {
+                    val maxEnd = minOf(t.durationMs, t.clipStartMs + (_state.value.totalMs - t.startMs).coerceAtLeast(0))
+                    t.copy(clipEndMs = (t.outMs + deltaMs).coerceIn(t.clipStartMs + 100, maxEnd))
+                }
             },
         )
         syncAudio()

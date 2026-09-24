@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -124,13 +125,19 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
     // Which kind of file the in-app explorer is picking (null = closed).
     var filePicker by remember { mutableStateOf<FilePickKind?>(null) }
     var confirmDelete by remember { mutableStateOf(false) } // gate deletes behind a confirm sheet
+    var confirmLeave by remember { mutableStateOf(false) } // confirm before dropping unsaved edits
+    // Something worth losing: any overlay, any music, more than one clip, or a trimmed/sped clip.
+    val hasEdits = state.overlays.isNotEmpty() || state.audioTracks.isNotEmpty() || state.clips.size > 1 ||
+        state.clips.any { it.speed != 1f || it.startMs != it.origStartMs || it.endMs != it.origEndMs }
+    val requestBack: () -> Unit = { if (hasEdits && !state.exporting) confirmLeave = true else onBack() }
+    BackHandler(enabled = hasEdits && !state.exporting) { confirmLeave = true }
 
     Scaffold(
         containerColor = Color.Black,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.video_studio_title), color = Color.White) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = requestBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up), tint = Color.White) } },
                 actions = {
                     IconButton(onClick = { showAddSheet = true }) {
                         Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = stringResource(R.string.video_add), tint = Color.White)
@@ -219,6 +226,25 @@ fun VideoStudioScreen(path: String, onBack: () -> Unit, viewModel: VideoStudioVi
                 title = stringResource(if (isAudio) R.string.video_delete_music_q else R.string.video_delete_clip_q),
                 onDismiss = { confirmDelete = false },
                 onConfirm = { confirmDelete = false; viewModel.deleteSelected() },
+            )
+        }
+
+        if (confirmLeave) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmLeave = false },
+                containerColor = Color(0xFF1B1B1B),
+                title = { Text(stringResource(R.string.video_leave_title), color = Color.White) },
+                text = { Text(stringResource(R.string.video_leave_msg), color = Color.White.copy(alpha = 0.8f)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { confirmLeave = false; onBack() }) {
+                        Text(stringResource(R.string.video_leave_confirm), color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { confirmLeave = false }) {
+                        Text(stringResource(R.string.video_stay), color = StudioAccent)
+                    }
+                },
             )
         }
 
