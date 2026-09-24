@@ -1,6 +1,7 @@
 package com.snatik.storage.app.ui.components
 
 import android.content.ContentUris
+import android.media.MediaPlayer
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
@@ -25,15 +26,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +78,24 @@ fun MediaPickerSheet(
     val items by produceState(initialValue = emptyList<PickableMedia>(), kind) {
         value = withContext(Dispatchers.IO) { queryMedia(context, kind) }
     }
+    // A single shared player to hear a song before picking it; stops when another plays or on close.
+    var previewUri by remember { mutableStateOf<Uri?>(null) }
+    val preview = remember { MediaPlayer() }
+    DisposableEffect(Unit) { onDispose { runCatching { preview.release() } } }
+    val togglePreview: (PickableMedia) -> Unit = { m ->
+        if (previewUri == m.uri) {
+            runCatching { preview.reset() }; previewUri = null
+        } else {
+            runCatching {
+                preview.reset()
+                preview.setOnCompletionListener { previewUri = null }
+                preview.setDataSource(context, m.uri)
+                preview.setOnPreparedListener { it.start() }
+                preview.prepareAsync()
+                previewUri = m.uri
+            }.onFailure { previewUri = null }
+        }
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 12.dp),
@@ -91,7 +117,14 @@ fun MediaPickerSheet(
                     items(items, key = { it.uri.toString() }) { m -> VideoCell(m) { onPick(m.uri) } }
                 }
                 else -> LazyColumn(Modifier.heightIn(max = 460.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                    items(items, key = { it.uri.toString() }) { m -> AudioRow(m) { onPick(m.uri) } }
+                    items(items, key = { it.uri.toString() }) { m ->
+                        AudioRow(
+                            media = m,
+                            playing = previewUri == m.uri,
+                            onPlayToggle = { togglePreview(m) },
+                            onSelect = { runCatching { preview.reset() }; previewUri = null; onPick(m.uri) },
+                        )
+                    }
                 }
             }
         }
@@ -114,14 +147,26 @@ private fun VideoCell(media: PickableMedia, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AudioRow(media: PickableMedia, onClick: () -> Unit) {
+private fun AudioRow(media: PickableMedia, playing: Boolean, onPlayToggle: () -> Unit, onSelect: () -> Unit) {
     androidx.compose.foundation.layout.Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onSelect).padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Text(media.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        // Preview play/stop, separate from picking so you can hear a song before choosing it.
+        IconButton(onClick = onPlayToggle) {
+            Icon(
+                if (playing) Icons.Default.Stop else Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Text(
+            media.name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
         if (media.durationMs > 0) Text(fmtDuration(media.durationMs), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
