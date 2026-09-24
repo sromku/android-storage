@@ -455,6 +455,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     fun setOverlayAnimOut(id: Long, anim: TextAnim) = mutateOverlay(id) { it.copy(animOut = anim) }
     fun setOverlayAnimInMs(id: Long, ms: Long) = mutateOverlay(id) { it.copy(animInMs = ms.coerceIn(100, 3000)) }
     fun setOverlayAnimOutMs(id: Long, ms: Long) = mutateOverlay(id) { it.copy(animOutMs = ms.coerceIn(100, 3000)) }
+    fun setOverlayAnimOutReverse(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(animOutReverse = on) }
 
     /** Set the selected overlay's visible window to start / end at the current playhead. */
     fun setOverlayStartHere(id: Long) = mutateOverlay(id) { it.copy(startMs = _state.value.positionMs.coerceAtMost(it.endMs - 100)) }

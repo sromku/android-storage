@@ -662,7 +662,10 @@ private fun OverlayLayer(
         val left = (bw - vwPx) / 2f; val top = (bh - vhPx) / 2f
         state.overlays.forEach { ov ->
             val selected = ov.id == state.selectedOverlayId
-            if (!ov.activeAt(state.positionMs) && !selected) return@forEach
+            // Respect the overlay's time window; keep a selected overlay visible only while paused, so
+            // you can still position one whose window doesn't cover the current playhead.
+            val show = ov.activeAt(state.positionMs) || (selected && !state.playing)
+            if (!show) return@forEach
             // Animate the overlay (fade/slide/pop/spin) based on the playhead within its window.
             val resolvedEnd = if (ov.endMs >= state.totalMs) state.totalMs else ov.endMs
             val anim = overlayAnim(ov, state.positionMs, resolvedEnd)
@@ -804,7 +807,7 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
             }
             // Entrance / exit animations, each with a duration.
             AnimRow(stringResource(R.string.video_anim_in), sel.animIn, sel.animInMs, { viewModel.setOverlayAnimIn(sel.id, it) }, { viewModel.setOverlayAnimInMs(sel.id, it) })
-            AnimRow(stringResource(R.string.video_anim_out), sel.animOut, sel.animOutMs, { viewModel.setOverlayAnimOut(sel.id, it) }, { viewModel.setOverlayAnimOutMs(sel.id, it) })
+            AnimRow(stringResource(R.string.video_anim_out), sel.animOut, sel.animOutMs, { viewModel.setOverlayAnimOut(sel.id, it) }, { viewModel.setOverlayAnimOutMs(sel.id, it) }, reverse = sel.animOutReverse, onReverse = { viewModel.setOverlayAnimOutReverse(sel.id, it) })
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayStartHere(sel.id) }) { Text(stringResource(R.string.video_start_here)) }
                 androidx.compose.material3.TextButton(onClick = { viewModel.setOverlayEndHere(sel.id) }) { Text(stringResource(R.string.video_end_here)) }
@@ -840,7 +843,15 @@ private fun composeFontFamily(family: String): FontFamily = when (family) {
 
 /** An animation preset picker (In or Out) with a duration slider shown once a preset is chosen. */
 @Composable
-private fun AnimRow(label: String, selected: TextAnim, durationMs: Long, onPick: (TextAnim) -> Unit, onDuration: (Long) -> Unit) {
+private fun AnimRow(
+    label: String,
+    selected: TextAnim,
+    durationMs: Long,
+    onPick: (TextAnim) -> Unit,
+    onDuration: (Long) -> Unit,
+    reverse: Boolean? = null,
+    onReverse: (Boolean) -> Unit = {},
+) {
     Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp))
@@ -848,13 +859,17 @@ private fun AnimRow(label: String, selected: TextAnim, durationMs: Long, onPick:
         }
         if (selected != TextAnim.NONE) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.video_anim_duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(64.dp))
+                Text(stringResource(R.string.video_anim_duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(48.dp))
                 androidx.compose.material3.Slider(
                     value = durationMs / 1000f, onValueChange = { onDuration((it * 1000).toLong()) },
                     valueRange = 0.1f..3f, colors = studioSliderColors(),
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                 )
-                Text("%.1fs".format(durationMs / 1000f), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
+                Text("%.1fs".format(durationMs / 1000f), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
+                if (reverse != null) {
+                    Spacer(Modifier.width(6.dp))
+                    StudioToggle(stringResource(R.string.video_anim_reverse), reverse) { onReverse(!reverse) }
+                }
             }
         }
     }

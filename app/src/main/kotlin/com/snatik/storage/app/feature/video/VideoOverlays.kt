@@ -30,13 +30,18 @@ private val ANIM_IDENTITY = AnimTransform(1f, 1f, 0f, 0f, 0f)
 
 private fun easeOut(t: Float): Float { val c = t.coerceIn(0f, 1f); return 1f - (1f - c) * (1f - c) }
 
-private fun transformFor(anim: TextAnim, progress: Float, isOut: Boolean): AnimTransform {
+private fun transformFor(anim: TextAnim, progress: Float, isOut: Boolean, reverse: Boolean): AnimTransform {
     if (anim == TextAnim.NONE) return ANIM_IDENTITY
     val p = easeOut(progress) // p: 0 = hidden/entering, 1 = fully shown
-    val hx = when (anim) { TextAnim.SLIDE_LEFT -> if (isOut) -0.6f else 0.6f; TextAnim.SLIDE_RIGHT -> if (isOut) 0.6f else -0.6f; else -> 0f }
-    val hy = when (anim) { TextAnim.SLIDE_UP -> if (isOut) -0.45f else 0.45f; TextAnim.SLIDE_DOWN -> if (isOut) 0.45f else -0.45f; else -> 0f }
+    // Entry offset (the side the text enters from). For an out with reverse, exit back toward that
+    // same side (a mirror of the entrance); otherwise the out continues past to the opposite side.
+    val flip = isOut && !reverse
+    val sx = when (anim) { TextAnim.SLIDE_LEFT -> 0.6f; TextAnim.SLIDE_RIGHT -> -0.6f; else -> 0f }
+    val sy = when (anim) { TextAnim.SLIDE_UP -> 0.45f; TextAnim.SLIDE_DOWN -> -0.45f; else -> 0f }
+    val hx = if (flip) -sx else sx
+    val hy = if (flip) -sy else sy
     val scale = when (anim) { TextAnim.POP -> 0.2f + 0.8f * p; TextAnim.SPIN -> 0.5f + 0.5f * p; else -> 1f }
-    val rot = when (anim) { TextAnim.SPIN -> (1f - p) * (if (isOut) 120f else -120f); else -> 0f }
+    val rot = when (anim) { TextAnim.SPIN -> (1f - p) * (if (flip) 120f else -120f); else -> 0f }
     return AnimTransform(p, scale, (1f - p) * hx, (1f - p) * hy, rot)
 }
 
@@ -47,8 +52,8 @@ fun overlayAnim(overlay: VideoOverlay, globalMs: Long, end: Long): AnimTransform
     val inMs = overlay.animInMs.coerceAtLeast(1)
     val outMs = overlay.animOutMs.coerceAtLeast(1)
     return when {
-        overlay.animIn != TextAnim.NONE && globalMs < start + inMs -> transformFor(overlay.animIn, (globalMs - start).toFloat() / inMs, false)
-        overlay.animOut != TextAnim.NONE && globalMs >= end - outMs -> transformFor(overlay.animOut, (end - globalMs).toFloat() / outMs, true)
+        overlay.animIn != TextAnim.NONE && globalMs < start + inMs -> transformFor(overlay.animIn, (globalMs - start).toFloat() / inMs, isOut = false, reverse = false)
+        overlay.animOut != TextAnim.NONE && globalMs >= end - outMs -> transformFor(overlay.animOut, (end - globalMs).toFloat() / outMs, isOut = true, reverse = overlay.animOutReverse)
         else -> ANIM_IDENTITY
     }
 }
@@ -92,6 +97,7 @@ data class VideoOverlay(
     val animOut: TextAnim = TextAnim.NONE,
     val animInMs: Long = 400,
     val animOutMs: Long = 400,
+    val animOutReverse: Boolean = true, // out exits back the way it came (mirror of the entrance)
     val startMs: Long = 0,
     val endMs: Long = Long.MAX_VALUE,
 ) {
