@@ -1188,6 +1188,7 @@
     <string name="video_anim_out">Out</string>
     <string name="video_anim_duration">Speed</string>
     <string name="video_anim_reverse">Reverse</string>
+    <string name="video_opacity">Opacity</string>
     <string name="video_delete_music_q">Delete this music track?</string>
     <string name="video_delete_clip_q">Delete this clip?</string>
     <string name="video_pick_music">Pick music</string>

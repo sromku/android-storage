@@ -677,7 +677,7 @@ private fun OverlayLayer(
                     .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
                     .onGloballyPositioned { sz = it.size }
                     .graphicsLayer(
-                        alpha = if (selected) anim.alpha.coerceAtLeast(0.25f) else anim.alpha,
+                        alpha = if (selected) (anim.alpha * ov.alpha).coerceAtLeast(0.25f) else anim.alpha * ov.alpha,
                         scaleX = anim.scale, scaleY = anim.scale,
                         rotationZ = ov.rotationDegrees + anim.rotation,
                     )
@@ -783,6 +783,18 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                 SwatchRow(stringResource(R.string.video_text_color), swatches, sel.color) { viewModel.setOverlayColor(sel.id, it) }
                 if (sel.outline) SwatchRow(stringResource(R.string.video_border_color), swatches, sel.outlineColor) { viewModel.setOverlayOutlineColor(sel.id, it) }
                 if (sel.background) SwatchRow(stringResource(R.string.video_fill_color), swatches, sel.bgColor) { viewModel.setOverlayBgColor(sel.id, it) }
+                // Opacity: a tiny inline control right below the colours.
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.video_opacity), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(52.dp))
+                    androidx.compose.material3.Slider(
+                        value = sel.alpha,
+                        onValueChange = { viewModel.setOverlayAlpha(sel.id, it) },
+                        valueRange = 0f..1f,
+                        colors = studioSliderColors(),
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    )
+                    Text("${(sel.alpha * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
+                }
             }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.video_size), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(64.dp))

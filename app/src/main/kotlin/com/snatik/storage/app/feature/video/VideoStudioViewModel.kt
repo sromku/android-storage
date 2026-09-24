@@ -451,6 +451,7 @@ class VideoStudioViewModel(application: Application, private val path: String) :
     fun setOverlayOutlineColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(outline = true, outlineColor = color) }
     fun setOverlayBgColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(background = true, bgColor = color) }
     fun setOverlayRotation(id: Long, degrees: Float) = mutateOverlay(id) { it.copy(rotationDegrees = degrees) }
+    fun setOverlayAlpha(id: Long, alpha: Float) = mutateOverlay(id) { it.copy(alpha = alpha.coerceIn(0f, 1f)) }
     fun setOverlayAnimIn(id: Long, anim: TextAnim) = mutateOverlay(id) { it.copy(animIn = anim) }
     fun setOverlayAnimOut(id: Long, anim: TextAnim) = mutateOverlay(id) { it.copy(animOut = anim) }
     fun setOverlayAnimInMs(id: Long, ms: Long) = mutateOverlay(id) { it.copy(animInMs = ms.coerceIn(100, 3000)) }
