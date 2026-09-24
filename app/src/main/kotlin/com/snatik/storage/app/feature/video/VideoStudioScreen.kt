@@ -662,10 +662,9 @@ private fun OverlayLayer(
         val left = (bw - vwPx) / 2f; val top = (bh - vhPx) / 2f
         state.overlays.forEach { ov ->
             val selected = ov.id == state.selectedOverlayId
-            // Respect the overlay's time window; keep a selected overlay visible only while paused, so
-            // you can still position one whose window doesn't cover the current playhead.
-            val show = ov.activeAt(state.positionMs) || (selected && !state.playing)
-            if (!show) return@forEach
+            // Respect the overlay's time window: hide it whenever the playhead is outside its
+            // start..end segment, even when it is selected (edit the window from the bar below).
+            if (!ov.activeAt(state.positionMs)) return@forEach
             // Animate the overlay (fade/slide/pop/spin) based on the playhead within its window.
             val resolvedEnd = if (ov.endMs >= state.totalMs) state.totalMs else ov.endMs
             val anim = overlayAnim(ov, state.positionMs, resolvedEnd)
@@ -677,7 +676,7 @@ private fun OverlayLayer(
                     .offset { androidx.compose.ui.unit.IntOffset((cx - sz.width / 2f).toInt(), (cy - sz.height / 2f).toInt()) }
                     .onGloballyPositioned { sz = it.size }
                     .graphicsLayer(
-                        alpha = if (selected) (anim.alpha * ov.alpha).coerceAtLeast(0.25f) else anim.alpha * ov.alpha,
+                        alpha = if (selected) anim.alpha.coerceAtLeast(0.25f) else anim.alpha,
                         scaleX = anim.scale, scaleY = anim.scale,
                         rotationZ = ov.rotationDegrees + anim.rotation,
                     )
@@ -780,21 +779,9 @@ private fun OverlayBar(state: VideoStudioState, viewModel: VideoStudioViewModel)
                     StudioToggle(stringResource(R.string.video_outline), sel.outline) { viewModel.setOverlayOutline(sel.id, !sel.outline) }
                     StudioToggle(stringResource(R.string.video_tag), sel.background) { viewModel.toggleOverlayBackground(sel.id) }
                 }
-                SwatchRow(stringResource(R.string.video_text_color), swatches, sel.color) { viewModel.setOverlayColor(sel.id, it) }
-                if (sel.outline) SwatchRow(stringResource(R.string.video_border_color), swatches, sel.outlineColor) { viewModel.setOverlayOutlineColor(sel.id, it) }
-                if (sel.background) SwatchRow(stringResource(R.string.video_fill_color), swatches, sel.bgColor) { viewModel.setOverlayBgColor(sel.id, it) }
-                // Opacity: a tiny inline control right below the colours.
-                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.video_opacity), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(52.dp))
-                    androidx.compose.material3.Slider(
-                        value = sel.alpha,
-                        onValueChange = { viewModel.setOverlayAlpha(sel.id, it) },
-                        valueRange = 0f..1f,
-                        colors = studioSliderColors(),
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                    )
-                    Text("${(sel.alpha * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
-                }
+                SwatchRow(stringResource(R.string.video_text_color), swatches, sel.color, { viewModel.setOverlayColor(sel.id, it) }, (((sel.color ushr 24) and 0xFF) / 255f)) { viewModel.setOverlayColorAlpha(sel.id, it) }
+                if (sel.outline) SwatchRow(stringResource(R.string.video_border_color), swatches, sel.outlineColor, { viewModel.setOverlayOutlineColor(sel.id, it) }, (((sel.outlineColor ushr 24) and 0xFF) / 255f)) { viewModel.setOverlayOutlineAlpha(sel.id, it) }
+                if (sel.background) SwatchRow(stringResource(R.string.video_fill_color), swatches, sel.bgColor, { viewModel.setOverlayBgColor(sel.id, it) }, (((sel.bgColor ushr 24) and 0xFF) / 255f)) { viewModel.setOverlayBgAlpha(sel.id, it) }
             }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.video_size), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(64.dp))
@@ -897,15 +884,30 @@ private fun studioSliderColors() = androidx.compose.material3.SliderDefaults.col
 
 /** A labelled row of color swatches (text fill, border, or tag fill). */
 @Composable
-private fun SwatchRow(label: String, swatches: List<Long>, selected: Int, onPick: (Int) -> Unit) {
-    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(52.dp))
-        swatches.forEach { c ->
-            Box(
-                Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
-                    .border(if (selected == c.toInt()) 3.dp else 1.dp, if (selected == c.toInt()) StudioAccent else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
-                    .clickable { onPick(c.toInt()) },
+private fun SwatchRow(label: String, swatches: List<Long>, selected: Int, onPick: (Int) -> Unit, alpha: Float, onAlpha: (Float) -> Unit) {
+    // Compare on RGB only, since the swatches are opaque but the stored colour carries its own opacity.
+    val selRgb = selected and 0x00FFFFFF
+    Column(Modifier.padding(top = 6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(52.dp))
+            swatches.forEach { c ->
+                val on = (c.toInt() and 0x00FFFFFF) == selRgb
+                Box(
+                    Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(Color(c))
+                        .border(if (on) 3.dp else 1.dp, if (on) StudioAccent else Color.White.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .clickable { onPick(c.toInt()) },
+                )
+            }
+        }
+        // Tiny opacity control for this colour, right under its swatches.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(52.dp))
+            androidx.compose.material3.Slider(
+                value = alpha, onValueChange = onAlpha, valueRange = 0f..1f,
+                colors = studioSliderColors(),
+                modifier = Modifier.weight(1f).padding(horizontal = 8.dp).height(24.dp),
             )
+            Text("${(alpha * 100).toInt()}%", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
         }
     }
 }

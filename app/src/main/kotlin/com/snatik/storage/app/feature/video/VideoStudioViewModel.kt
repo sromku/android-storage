@@ -441,17 +441,23 @@ class VideoStudioViewModel(application: Application, private val path: String) :
         mutateOverlay(id) { it.copy(xNorm = xNorm.coerceIn(0f, 1f), yNorm = yNorm.coerceIn(0f, 1f)) }
 
     fun setOverlayText(id: Long, text: String) = mutateOverlay(id) { it.copy(text = text) }
-    fun setOverlayColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(color = color) }
+    fun setOverlayColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(color = keepAlpha(it.color, color)) }
     fun setOverlaySize(id: Long, sizeFraction: Float) = mutateOverlay(id) { it.copy(sizeFraction = sizeFraction) }
     fun toggleOverlayBackground(id: Long) = mutateOverlay(id) { it.copy(background = !it.background) }
     fun setOverlayFont(id: Long, font: String) = mutateOverlay(id) { it.copy(font = font) }
     fun setOverlayBold(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(bold = on) }
     fun setOverlayItalic(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(italic = on) }
     fun setOverlayOutline(id: Long, on: Boolean) = mutateOverlay(id) { it.copy(outline = on) }
-    fun setOverlayOutlineColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(outline = true, outlineColor = color) }
-    fun setOverlayBgColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(background = true, bgColor = color) }
+    fun setOverlayOutlineColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(outline = true, outlineColor = keepAlpha(it.outlineColor, color)) }
+    fun setOverlayBgColor(id: Long, color: Int) = mutateOverlay(id) { it.copy(background = true, bgColor = keepAlpha(it.bgColor, color)) }
     fun setOverlayRotation(id: Long, degrees: Float) = mutateOverlay(id) { it.copy(rotationDegrees = degrees) }
-    fun setOverlayAlpha(id: Long, alpha: Float) = mutateOverlay(id) { it.copy(alpha = alpha.coerceIn(0f, 1f)) }
+    // Per-colour opacity: the alpha lives in each colour's own alpha byte, so the WYSIWYG bitmap
+    // renderer (preview and export) already honours it. keepAlpha swaps hue but keeps opacity.
+    fun setOverlayColorAlpha(id: Long, a: Float) = mutateOverlay(id) { it.copy(color = withAlpha(it.color, a)) }
+    fun setOverlayOutlineAlpha(id: Long, a: Float) = mutateOverlay(id) { it.copy(outlineColor = withAlpha(it.outlineColor, a)) }
+    fun setOverlayBgAlpha(id: Long, a: Float) = mutateOverlay(id) { it.copy(bgColor = withAlpha(it.bgColor, a)) }
+    private fun withAlpha(color: Int, a: Float): Int = (color and 0x00FFFFFF) or (((a.coerceIn(0f, 1f) * 255f).toInt() and 0xFF) shl 24)
+    private fun keepAlpha(old: Int, newRgb: Int): Int = (old and 0xFF000000.toInt()) or (newRgb and 0x00FFFFFF)
     fun setOverlayAnimIn(id: Long, anim: TextAnim) = mutateOverlay(id) { it.copy(animIn = anim) }
     fun setOverlayAnimOut(id: Long, anim: TextAnim) = mutateOverlay(id) { it.copy(animOut = anim) }
     fun setOverlayAnimInMs(id: Long, ms: Long) = mutateOverlay(id) { it.copy(animInMs = ms.coerceIn(100, 3000)) }

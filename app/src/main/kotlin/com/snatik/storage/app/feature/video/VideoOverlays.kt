@@ -93,7 +93,6 @@ data class VideoOverlay(
     val outline: Boolean = false,
     val outlineColor: Int = Color.BLACK,
     val rotationDegrees: Float = 0f,
-    val alpha: Float = 1f,            // overall text opacity (0..1)
     val animIn: TextAnim = TextAnim.NONE,
     val animOut: TextAnim = TextAnim.NONE,
     val animInMs: Long = 400,
@@ -160,7 +159,7 @@ private fun settingsFor(overlay: VideoOverlay, t: AnimTransform): OverlaySetting
         .setBackgroundFrameAnchor(ndcX, ndcY)
         .setOverlayFrameAnchor(0f, 0f)
         .setScale(t.scale, t.scale)
-        .setAlphaScale((t.alpha * overlay.alpha).coerceIn(0f, 1f))
+        .setAlphaScale(t.alpha.coerceIn(0f, 1f))
         .setRotationDegrees(overlay.rotationDegrees + t.rotation) // matches the preview's clockwise rotation
         .build()
 }
